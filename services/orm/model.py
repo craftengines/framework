@@ -27,6 +27,14 @@ class Model:
     primary_key: str = "id"
     key_type: str = "int"  # "int" (auto-increment) or "uuid" (client generated)
 
+    #: Fill a `uuid` column on create when the table has one. This is on by
+    #: default: the integer `id` stays the key for joins, and the UUID is the
+    #: identifier you expose publicly, so URLs never leak row counts or invite
+    #: enumeration. Tables without the column are unaffected — nothing is
+    #: inserted that the schema does not declare.
+    uses_uuid: bool = True
+    uuid_column: str = "uuid"
+
     def __init__(self, attributes: Optional[Dict[str, Any]] = None):
         self._attributes: Dict[str, Any] = attributes or {}
         #: Eager-loaded relations, keyed by relation method name.
@@ -78,6 +86,57 @@ class Model:
     def query(cls) -> QueryBuilder:
         return QueryBuilder(model_class=cls)
 
+    # -- UUID identity ---------------------------------------------------------
+
+    @staticmethod
+    def new_uuid() -> str:
+        import uuid
+
+        return str(uuid.uuid4())
+
+    @classmethod
+    def has_uuid_column(cls) -> bool:
+        """Whether the table declares the public UUID column.
+
+        The answer is cached on the DatabaseManager, not here: a schema belongs
+        to a connection, so swapping connections — a replica, a tenant schema, a
+        test database — has to invalidate it. Caching per model class meant a
+        swap left the wrong answer behind.
+        """
+        try:
+            from services.container.application import Container
+
+            db = Container.getInstance().make("db")
+            return db.table_has_column(cls.get_table_name(), cls.uuid_column)
+        except Exception:
+            return False
+
+    @classmethod
+    def find_by_uuid(cls, value: str) -> Optional['Model']:
+        return cls.query().where(cls.uuid_column, value).first()
+
+    @classmethod
+    def find_by_uuid_or_fail(cls, value: str) -> 'Model':
+        from services.orm.exceptions import ModelNotFoundError
+
+        found = cls.find_by_uuid(value)
+        if found is None:
+            raise ModelNotFoundError(f"No {cls.__name__} with uuid [{value}].")
+        return found
+
+    def route_key(self) -> Any:
+        """The identifier to put in a URL — the UUID when there is one."""
+        if self.uses_uuid and self._attributes.get(self.uuid_column):
+            return self._attributes[self.uuid_column]
+        return self._attributes.get(self.primary_key)
+
+    @classmethod
+    def find_by_route_key(cls, value: Any) -> Optional['Model']:
+        """Resolve whatever `route_key()` produced, UUID or primary key."""
+        if cls.uses_uuid and cls.has_uuid_column() and not str(value).isdigit():
+            return cls.find_by_uuid(str(value))
+        return cls.find(value)
+
     @classmethod
     def create(cls, attributes: Dict[str, Any]) -> 'Model':
         now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
@@ -92,10 +151,17 @@ class Model:
         db = Container.getInstance().make("db")
 
         # Tables with a non auto-incrementing primary key need a client-side id.
-        if "id" not in clean_attrs and cls.key_type == "uuid":
-            import uuid
+        if cls.primary_key not in clean_attrs and cls.key_type == "uuid":
+            clean_attrs[cls.primary_key] = cls.new_uuid()
 
-            clean_attrs["id"] = str(uuid.uuid4())
+        # Fill the public UUID when the table declares one.
+        if (
+            cls.uses_uuid
+            and cls.uuid_column not in clean_attrs
+            and cls.has_uuid_column()
+        ):
+            clean_attrs[cls.uuid_column] = cls.new_uuid()
+            inst._attributes[cls.uuid_column] = clean_attrs[cls.uuid_column]
 
         new_id = db.insert_get_id(cls.get_table_name(), clean_attrs, cls.primary_key)
         if new_id is not None:

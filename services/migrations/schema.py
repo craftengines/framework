@@ -198,6 +198,24 @@ class Blueprint:
     def uuid(self, name: str = "uuid", **modifiers: Any) -> Column:
         return self._add(Column(name, "uuid"), **modifiers)
 
+    def uuid_key(self, name: str = "uuid") -> Column:
+        """A unique, indexed UUID alongside the numeric primary key.
+
+        The integer `id` stays the key for joins and foreign keys — narrow and
+        fast — while the UUID is what you expose in URLs and APIs. Sequential
+        ids in a public URL leak how many records exist and invite enumeration.
+
+        Models fill this in automatically; see `Model.uses_uuid`.
+        """
+        return self._add(Column(name, "uuid").unique())
+
+    def uuid_primary(self, name: str = "id") -> Column:
+        """Use a UUID as the primary key itself, with no integer id.
+
+        Set `key_type = "uuid"` on the model so it generates the value.
+        """
+        return self._add(Column(name, "uuid").primary())
+
     def binary(self, name: str, **modifiers: Any) -> Column:
         return self._add(Column(name, "binary"), **modifiers)
 

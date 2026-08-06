@@ -132,6 +132,56 @@ This routes heavy data-reading traffic to read-only replicas without requiring m
 
 ---
 
+## UUID identity
+
+Every model carries two identifiers by default: the integer `id` — narrow,
+sequential, fast to join and to use as a foreign key — and a `uuid`, which is
+what you expose publicly. A sequential id in a URL tells anyone how many records
+you have and invites walking the table by incrementing a number.
+
+Declare the column and the framework fills it in:
+
+```python
+Schema.create_table("products", lambda t: (
+    t.id(),          # primary key
+    t.uuid_key(),    # public identifier, unique
+    t.string("name"),
+    t.timestamps(),
+))
+```
+
+```python
+product = Product.create({"name": "Desk"})
+product.get_attribute("id")     # 1
+product.get_attribute("uuid")   # '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
+
+Product.find_by_uuid(value)
+Product.find_by_uuid_or_fail(value)
+```
+
+Use it in routes without leaking the key:
+
+```python
+def show(self, request, id):
+    product = Product.find_by_route_key(id)   # resolves a UUID or an id
+```
+
+`route_key()` returns the UUID when the model has one, so URL generation picks
+it up automatically.
+
+A table with no `uuid` column is untouched — nothing is inserted that the schema
+does not declare. Opt a model out with `uses_uuid = False`, or rename the column
+with `uuid_column`.
+
+For a UUID as the primary key itself, with no integer at all:
+
+```python
+Schema.create_table("events", lambda t: (t.uuid_primary(), t.timestamps()))
+
+class Event(Model):
+    key_type = "uuid"
+```
+
 ## Multi-Tenant Database Schema Isolation
 
 For multi-tenant SaaS environments, Codepyquent supports physical database schema-based isolation out-of-the-box in PostgreSQL.

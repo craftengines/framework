@@ -37,6 +37,8 @@ class DatabaseManager:
         self._explicit_config = config
         self._tenant_schema: Optional[str] = None
         self._booted = False
+        #: table -> set of columns, invalidated whenever the connection changes.
+        self._column_cache: Dict[str, set] = {}
 
     # -- configuration ---------------------------------------------------------
 
@@ -65,6 +67,7 @@ class DatabaseManager:
 
     def boot(self, name: Optional[str] = None) -> "DatabaseManager":
         """(Re)build the read/write connections from the current config."""
+        self.forget_schema_cache()
         conn_config = dict(self._resolve_config(name))
 
         write_config = dict(conn_config)
@@ -168,10 +171,14 @@ class DatabaseManager:
         result = self.statement(
             f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholders})", params
         )
+
+        # An explicitly supplied key wins. SQLite hands out a rowid even for a
+        # table whose primary key is a UUID, so trusting lastrowid first
+        # replaced the caller's UUID with an integer.
+        if values.get(key) is not None:
+            return values[key]
         if result.lastrowid:
             return result.lastrowid
-        if key in values:
-            return values[key]
         return None
 
     def table(self, table_name: str) -> Any:
@@ -181,6 +188,30 @@ class DatabaseManager:
 
     def table_exists(self, table: str) -> bool:
         return self.write_connection.table_exists(table)
+
+    def table_has_column(self, table: str, column: str) -> bool:
+        """Whether a table declares a column, cached per connection.
+
+        The cache belongs here rather than on the model: a schema describes the
+        connection, so swapping connections — a replica, a tenant schema, a test
+        database — must invalidate it.
+        """
+        cache = self._column_cache.get(table)
+        if cache is None:
+            try:
+                from services.migrations.schema import SchemaBuilder
+
+                cache = set(SchemaBuilder(self).column_listing(table))
+            except Exception:
+                cache = set()
+            self._column_cache[table] = cache
+        return column in cache
+
+    def forget_schema_cache(self, table: Optional[str] = None) -> None:
+        if table is None:
+            self._column_cache.clear()
+        else:
+            self._column_cache.pop(table, None)
 
     # -- transactions ----------------------------------------------------------
 
@@ -209,6 +240,8 @@ class DatabaseManager:
     def set_tenant_schema(self, schema_name: Optional[str] = None) -> None:
         """Point the connection at a tenant schema (PostgreSQL `search_path`)."""
         self._tenant_schema = schema_name
+        # Each tenant schema has its own tables, so the column cache is stale.
+        self.forget_schema_cache()
         if self.driver != "postgresql":
             return
         self.write_connection.use_schema(schema_name)
@@ -254,6 +287,7 @@ class DatabaseManager:
         self._write = db_mgr.write_connection
         self._read = db_mgr._read
         self._booted = True
+        self.forget_schema_cache()
 
     def _clear_resolved(self) -> None:
         self._connections.clear()
