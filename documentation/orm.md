@@ -137,9 +137,8 @@ This routes heavy data-reading traffic to read-only replicas without requiring m
 For multi-tenant SaaS environments, Codepyquent supports physical database schema-based isolation out-of-the-box in PostgreSQL.
 
 ### Architecture
-1. **Dynamic search_path Switch**: Every time a database connection is checked out of the SQLAlchemy pool, the framework automatically intercepts the connection and runs `SET search_path TO "{tenant_schema}", public;`.
-2. **On-the-Fly Schema Creation**: When a tenant is resolved, the framework checks if their schema exists. If it does not, it creates the schema and runs all framework migrations inside it automatically.
-3. **User Replication**: To ensure that foreign key constraints on transactional tables (like `posts` referencing `users`) work correctly, the framework replicates the tenant's global user details into the isolated schema's `users` table upon creation.
+1. **Dynamic search_path Switch**: `DB.set_tenant_schema(name)` runs `SET search_path TO "{tenant_schema}", public;` on the connection. Codepy talks to the driver directly (psycopg2), not through a SQLAlchemy pool.
+2. **On-the-Fly Schema Creation**: `DB.ensure_tenant_schema(name)` checks whether the schema exists; if not, it creates it and runs all migrations inside it. On drivers without schema support (SQLite) it is a no-op, so tenant-aware middleware still runs in development and tests.
 
 ### How it works
 The dynamic schema isolation is automatically handled by the `TenantMiddleware`. You can also switch schemas manually from code:

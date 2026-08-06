@@ -56,7 +56,7 @@ project/
    ```
 4. Run migrations and seed the database inside the container:
    ```bash
-   docker exec -it codepy-framework-test python craft.py migrate-fresh
-   docker exec -it codepy-framework-test python craft.py db:seed
+   docker exec -it framework python craft.py migrate fresh
+   docker exec -it framework python craft.py db seed
    ```
 5. Access your application locally at `http://localhost:8300`.

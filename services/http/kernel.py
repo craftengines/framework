@@ -90,7 +90,13 @@ class Kernel:
             for m in r.methods:
                 routes.append(StarletteRoute(r.uri, endpoint=endpoint, methods=[m]))
 
-        return Starlette(debug=True, routes=routes)
+        # Never hardcode debug — it leaks stack traces to clients in production.
+        try:
+            debug = bool(self.app.make("config").get("app.APP_DEBUG", False))
+        except Exception:
+            debug = False
+
+        return Starlette(debug=debug, routes=routes)
 
     def get_starlette_app(self) -> DynamicStarletteApp:
         return DynamicStarletteApp(self)

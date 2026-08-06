@@ -16,7 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 COPY README.md .
 COPY services/ ./services/
-RUN pip install --no-cache-dir .
+# `[dev]` brings pytest and httpx — this is the development image, and the
+# suite is meant to be runnable inside it. Dockerfile.prod installs runtime
+# dependencies only.
+RUN pip install --no-cache-dir ".[dev]"
 
 # Copy codebase
 COPY . .

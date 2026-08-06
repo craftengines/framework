@@ -2,9 +2,10 @@
 
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (equivalente ao `laravel/laravel`), não uma aplicação de negócio.
-> Estado da suíte: **265/265 passando** em SQLite (`:memory:`), em PostgreSQL real e
-> no Python 3.11 do container. Cada arquivo de teste também passa isolado — nenhum
-> depende da ordem de execução.
+>
+> Estado: **410/410 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
+> App real validado em `http://localhost:8300`.
 
 ## Como rodar
 
@@ -18,12 +19,12 @@ $env:CODEPY_TEST_DB="pgsql"; $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
 $env:DB_DATABASE="codepy_validation"; $env:DB_USERNAME="codepy"; $env:DB_PASSWORD="secretpassword"
 python -m pytest -q
 
-# CLI
-python craft.py migrate | migrate:status | migrate:rollback | db seed | route list | make model X -m
-
 # Docker (app em http://localhost:8300)
 docker compose up -d --build
 docker exec framework python -m pytest -q   # valida no Python 3.11, o mínimo suportado
+
+# CLI
+python craft.py migrate | migrate:status | migrate:rollback | db seed | route list | make model X -m
 ```
 
 ---
@@ -31,6 +32,7 @@ docker exec framework python -m pytest -q   # valida no Python 3.11, o mínimo s
 ## ✅ Concluído
 
 ### Bloqueadores corrigidos
+
 - **Pacote não importava.** O core estava em `framework/` mas os 83 imports internos
   diziam `services.*`. Diretório renomeado de volta para `services/`.
 - **`import codepy` resolvia para um pacote CUDA de terceiros** do site-packages.
@@ -40,6 +42,7 @@ docker exec framework python -m pytest -q   # valida no Python 3.11, o mínimo s
   interpolação `${VAR}`, chamado em `Application.register_config()`.
 
 ### Subsistemas que eram arquivos vazios (0 linhas)
+
 | Arquivo | Entregue |
 |---|---|
 | `services/orm/connection.py` (novo) | Drivers SQLite/PostgreSQL/MySQL, tradução `?`/`:nome` → `%s`, `Row` com acesso por atributo/chave/índice, transações, `search_path` |
@@ -48,114 +51,130 @@ docker exec framework python -m pytest -q   # valida no Python 3.11, o mínimo s
 | `services/cli/app.py` + `generators.py` | `craft`: `migrate:*`, `db seed/show/tables/ping/wipe`, 12 geradores `make:*`, `route list`, `queue work`, `serve`, `tinker`, `key:generate` |
 | `services/cache/manager.py` | Stores array/file/redis com TTL, `remember`, `increment`, degradação para array se o Redis cair |
 | `services/auth/password.py` | `Hash` com bcrypt (passlib) e fallback PBKDF2-SHA256 |
-| `services/auth/manager.py` | `attempt/validate/once/login/login_using_id/logout`, comparação de tempo constante para usuário inexistente |
-| `services/orm/relationships.py` | `HasOne/HasMany/BelongsTo/BelongsToMany` com `attach/detach/sync`, proxy para o QueryBuilder, **eager loading** (`with_()`) |
-| `services/orm/soft_deletes.py` | `delete/restore/force_delete/trashed`, escopos `with_trashed/only_trashed` |
+| `services/auth/manager.py` | `attempt/validate/once/login/logout`, sessão persistente, comparação de tempo constante |
+| `services/orm/relationships.py` | `HasOne/HasMany/BelongsTo/BelongsToMany`, `attach/detach/sync`, **eager loading** |
+| `services/orm/soft_deletes.py` | `delete/restore/force_delete/trashed`, `with_trashed/only_trashed` |
+| `services/http/session.py` (novo) | Sessão com drivers cookie e file, assinatura HMAC, flash data, token CSRF |
 | `services/seeding/`, `services/factories/` | `Seeder.call()`, `Factory.state/make/create` |
-| `services/exceptions/handler.py` | `ExceptionHandler` real (JSON/HTML, trace só com `app.debug`) |
+| `services/exceptions/handler.py` | `ExceptionHandler` real (JSON/HTML, trace só com debug, 5xx vs 4xx) |
+
+### Camada HTTP construída
+
+- **Sessão** (`StartSession`) — drivers cookie e file, ambos assinados com `APP_KEY`.
+  Cookie adulterado ou assinado com outra chave é rejeitado.
+- **CSRF** (`VerifyCsrfToken`) — POST/PUT/PATCH/DELETE via `_token` ou header
+  `X-CSRF-TOKEN`, rotas `api/*` isentas, falha devolve 419.
+- **Autenticação** (`Authenticate`) — reidrata o usuário da sessão a cada request.
+  O login rotaciona o id da sessão (fecha session fixation).
+- **Guard de API** (`AuthenticateApiToken`) — `Authorization: Bearer`.
+- **Request** — corpo parseado antes do pipeline, então controllers síncronos leem
+  `input()`, `only()`, `boolean()`, `file()`, `session()`, `user()`, `bearer_token()`.
+  O monkeypatch em `StarletteRequest` foi removido.
+- **Validator** — de 3 regras para ~30: presença, tipos, formatos, tamanho,
+  conjuntos e banco (`unique`, `exists`).
 
 ### Bugs reais corrigidos
+
 - `Model.create` usava `SELECT last_insert_rowid()` — quebra em Postgres. Agora
-  `insert_get_id()` com `RETURNING id` no Postgres.
+  `insert_get_id()` com `RETURNING id`.
 - `Model.permissions()`: JOIN em `pr.role_id` em vez de `pr.permission_id`. Passava
   por acaso porque os ids eram 1.
-- `QueueManager` era **falso**: montava um payload com as chaves `"TestJob"` e `"999"`
-  hardcoded para o teste passar. Reescrito com serialização JSON real, retry/backoff
-  e `available_at`.
-- Migration `framework_dynamic_tables`: `role_user` usava `uuid` para `user_id`
-  (users.id é auto-increment) e `permission_role` era dropada no `down()` mas nunca
-  criada no `up()`.
-- Migration `jobs`: `available_at`/`created_at` como INTEGER recebendo string ISO.
+- `QueueManager` era **falso**: payload com as chaves `"TestJob"` e `"999"` hardcoded
+  para o teste passar. Reescrito com serialização JSON real, retry/backoff.
+- `Captcha.validate` tinha `and code != "WRONG"` hardcoded, mesmo padrão. Agora usa
+  `secrets.compare_digest` e limpa o código sempre (single-use).
+- `FormRequest.validated()` **não validava nada** — devolvia o corpo cru, ignorando
+  `rules()` e `authorize()`. Toda regra declarada era silenciosamente ignorada.
 - `GateManager.allows()` retornava `True` para qualquer ability desconhecida —
   **falha aberta**. Agora nega por padrão e resolve policies.
-- `Container.__init__` fazia `Container._instance = self` incondicionalmente:
-  construir uma segunda `Application` (teste, worker, escopo de tenant) sequestrava
-  o singleton do processo inteiro e repontava os 16 `Container.getInstance()` do
-  framework. Agora construir não reivindica; `Application` só assume se ninguém
-  assumiu (`bind_as_global` força ou proíbe), e `Container.scoped_instance()` troca
-  temporariamente com restauração garantida.
+- **Middleware por rota era decorativo**: `.middleware("auth")` era ignorado pelo
+  kernel. Agora resolve por alias, e um alias desconhecido levanta erro no boot.
+- **Middleware era instanciado a cada request** — o store de sessão e sua chave de
+  assinatura eram recriados toda vez, então nenhum cookie sobrevivia.
+- `FacadeMeta.__getattr__` fabricava qualquer atributo, inclusive dunders. A coleta
+  do pytest sondava `__wrapped__`/`__test__`, o que resolvia o container antes do
+  boot e fazia um `Container` vazio reivindicar o global.
+- `Container.__init__` reivindicava o singleton global incondicionalmente: uma
+  segunda `Application` sequestrava o processo inteiro.
+- `Starlette(debug=True)` fixo no kernel — vazaria stack traces em produção.
+- 4xx eram logados com traceback completo, enterrando as falhas reais.
+- `services/security/captcha.py` usava `Any` sem importar: passava no Python 3.14
+  (anotações lazy, PEP 649) e quebrava no 3.11, o mínimo declarado.
+- Migration `framework_dynamic_tables`: `role_user` usava `uuid` para `user_id` e
+  `permission_role` era dropada no `down()` mas nunca criada no `up()`.
+- Migration `jobs`: `available_at`/`created_at` como INTEGER recebendo string ISO.
 - Senha era gravada em texto puro pelo seeder. `User.create` agora hasheia.
-- `datetime.utcnow()` deprecado no Python 3.12+.
-- `services/security/captcha.py` usava `Any` sem importar. Passava no Python 3.14
-  (anotações lazy, PEP 649) e quebrava no 3.11 — que é o mínimo do `pyproject` e a
-  versão do container. O `validate()` também tinha `and code != "WRONG"` hardcoded
-  para o teste passar; agora usa `secrets.compare_digest` e limpa o código sempre
-  (single-use, senão dá para brutar contra um mesmo desafio).
-- `FacadeMeta.__getattr__` fabricava **qualquer** atributo, inclusive dunders. A
-  coleta do pytest (e `inspect`/`copy`/`pickle`) sonda nomes como `__wrapped__` e
-  `__test__` em objetos de módulo; isso resolvia o container antes do boot, e o
-  `getInstance()` criava um `Container` vazio que reivindicava o global — daí as
-  bindings da aplicação real nunca apareciam. Agora nomes com `_` levantam
-  `AttributeError`, e um container de fallback é sempre deslocado pela `Application`.
-  Sintoma: arquivos de teste que importavam uma facade no topo sem importar
-  `bootstrap.app` só passavam se outro arquivo tivesse booted o app antes.
-- Docker: o container montava `D:\data\www\codepy` — o nome da pasta **antes** de
-  virar "codepy framework". `/app` subia vazio e o app ficava em loop de restart.
-- `Dockerfile` tinha `COPY src/ ./src/` (pasta inexistente, build falhava) e um CMD
-  com comandos que não existem na CLI (`key-generate`, `migrate-fresh`, `db:seed`).
+- Docker: o container montava `D:\data\www\codepy`, o nome da pasta antes de virar
+  "codepy framework". `/app` subia vazio e o app ficava em loop de restart.
+- `Dockerfile` tinha `COPY src/` (pasta inexistente) e um CMD com comandos que não
+  existem na CLI (`key-generate`, `migrate-fresh`, `db:seed`).
 
 ### Limpeza
+
 - Removido o domínio SoftPax (funerária/cemitério): 16 migrations, 18 models,
-  26 controllers, 3 pastas de views. Backup em
-  `%TEMP%/claude/.../scratchpad/backup-pre-cleanup.zip`.
-- `craft.py` da raiz apontava para `src.routes.web`, módulo inexistente.
-- `pyproject.toml`: entrypoint `codepy.cli.app:cli` → `craft = services.cli.app:main`.
-- Containers renomeados: `framework` (app) e `framework-db`; prod virou
-  `framework-prod-app` / `framework-prod-db`. Projeto Compose fixado em
-  `name: framework` (o diretório tem espaço no nome). O banco de dev ganhou volume
-  nomeado — antes ficava na camada do container e sumia a cada recriação.
+  26 controllers, 3 pastas de views.
+- Removidos arquivos mortos: `app/main.py` (FastAPI paralelo), `home_controller.py`,
+  `BaseModel.py` (models SQLAlchemy do SoftPax), `coreengine/`, e 4 arquivos vazios
+  sem nenhuma referência.
+- Removida a landing page `codepy-showcase` (vite) da raiz do esqueleto.
+- Dependências enxugadas: saíram `sqlalchemy`, `alembic`, `pydantic`,
+  `pydantic-settings` e `click` — nenhuma era usada, e o `alembic` competia
+  conceitualmente com o migrator próprio. `pytest`/`httpx` viraram extra `[dev]`.
+- `bcrypt` fixado em `<4.1`: acima disso o passlib quebra (`__about__` removido).
+- Containers renomeados: `framework` e `framework-db`; prod virou
+  `framework-prod-app`/`framework-prod-db`. Projeto Compose fixado em
+  `name: framework` (o diretório tem espaço no nome).
+- Banco de dev ganhou volume nomeado — antes ficava na camada do container.
+- **`git init` feito**: o repositório agora é versionado.
 
-### Testes criados (250 novos)
-`test_schema_grammar.py`, `test_connection.py`, `test_migrator.py`,
-`test_query_builder.py`, `test_auth.py`, `test_cache.py`,
-`test_cli_generators.py`, `test_orm_model.py`, `test_container.py`,
-`test_eager_loading.py`, `test_facades.py`.
-`conftest.py` roda as migrations reais e aceita `CODEPY_TEST_DB=pgsql`.
+### Testes (410, de 15 no início)
 
-`test_eager_loading.py` **conta as queries emitidas** em vez de só conferir
-resultados — asserção sobre resultado passaria igual com lazy loading, que é
-exatamente o bug que se quer impedir.
+`test_schema_grammar`, `test_connection`, `test_migrator`, `test_query_builder`,
+`test_auth`, `test_cache`, `test_cli_generators`, `test_orm_model`,
+`test_container`, `test_eager_loading`, `test_facades`, `test_session`,
+`test_http_middleware`, `test_validation`, `test_form_request`,
+`test_exception_handler`.
+
+Dois pontos de método que valem manter:
+
+- `test_eager_loading` **conta as queries emitidas**. Asserção só sobre resultado
+  passaria igual com lazy loading, que é exatamente o bug a impedir.
+- `conftest.py` constrói o schema com o **migrator real**, então as migrations são
+  exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
 
 ---
 
 ## 🔜 Próximas fatias
 
 ### 1. Eager loading aninhado e sob demanda
-`with_()` cobre um nível. Faltam `with_("posts.comments")` (aninhado) e
-`Collection.load("posts")` (carregar depois da query). Também não há
-`with_count()`.
 
-### 2. Sessão, CSRF e guard de API
-- `AuthManager` guarda o usuário em memória de instância — não sobrevive entre
-  requests. Falta backend de sessão.
-- Não há middleware CSRF (o `FrameworkSeeder` anuncia "validações CSRF" que não existem).
-- Guard `api` está configurado em `config/auth.py` mas não implementado.
-- `TenantMiddleware` chama `Auth.user()`, que sempre retorna `None` sem sessão.
+`with_()` cobre um nível. Faltam `with_("posts.comments")` (aninhado),
+`Collection.load("posts")` (carregar depois da query) e `with_count()`.
 
-### 3. Camada HTTP
-- `services/http/kernel.py` e `router.py` não têm testes.
-- `Validator` cobre só `required/string/integer` — faltam `email`, `min`, `max`,
-  `confirmed`, `unique`, `exists`.
+### 2. Remember-me e reset de senha
+
+`attempt()` não tem `remember` (removido em vez de fingir que funcionava) e não há
+fluxo de recuperação de senha nem verificação de e-mail.
+
+### 3. Camada HTTP restante
+
+- `services/http/router.py` e `kernel.py` ainda sem testes diretos (são exercitados
+  indiretamente por `test_http_middleware` e `test_framework`).
 - `Resource`/`Controller` são casca fina; sem testes.
+- Sem rate limiting.
 
-### 4. Arquivos ainda vazios
-`services/coreengine/engine.py`, `services/orm/collection.py` (duplica
-`services/support/collection.py` — decidir qual fica), `services/resources/base.py`,
-`services/exceptions/base.py`, `services/support/helpers.py`,
-`services/view/__init__.py`, `app/Models/__init__.py`.
+### 4. Filas
 
-### 5. Higiene de repositório
-- **Não é um repositório git.** `git init` — hoje qualquer erro é irreversível.
-  E `.github/workflows/deploy.yml` já roda a suíte em Python 3.11 (a versão certa):
-  o bug do `captcha.py` teria sido pego na hora. O CI nunca rodou porque não há repo.
-- `index.html` (33 KB) e `package.json` na raiz parecem sobra de landing page.
-- `scratch/` e `.pytest_cache/` versionados.
-- `.agents/.agents/` e `.ai/.agents/` são aninhamentos duplicados.
-- passlib + bcrypt 4.x é incompatível neste ambiente (`module 'bcrypt' has no
-  attribute '__about__'`); o framework detecta e cai no PBKDF2. Fixar `bcrypt<4.1`
-  ou migrar para `argon2-cffi` resolve de vez.
+Driver `database` e `sync` existem; falta Redis, `failed_jobs` persistida e worker
+com múltiplos processos.
+
+### 5. Decisão pendente: FastAPI
+
+O framework é construído **diretamente sobre Starlette** — `fastapi` está nas
+dependências e no nome do projeto, mas não é importado em lugar nenhum. Manter por
+identidade ou remover por honestidade é uma decisão sua.
 
 ### 6. Documentação
-`README.md` e `CODEPY_DESIGN.md` (74 KB) descrevem o estado anterior: citam
-`services/orm` com SQLAlchemy pooling (não é o caso — é DB-API direto) e o layout
-antigo. Atualizar depois que a API estabilizar.
+
+`CODEPY_DESIGN.md` (74 KB) ainda descreve o desenho antigo. O `README.md` e
+`documentation/*.md` foram atualizados.

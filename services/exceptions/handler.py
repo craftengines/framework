@@ -35,6 +35,16 @@ class ExceptionHandler:
     def __init__(self, app: Any = None):
         self.app = app
 
+    def should_report(self, exception: BaseException) -> bool:
+        """Only server faults are worth a stack trace.
+
+        A 404, a failed CSRF check or a validation error is the client getting
+        it wrong — logging a full traceback for each one buries the real faults.
+        """
+        if isinstance(exception, self.dont_report):
+            return False
+        return self.status_for(exception) >= 500
+
     # -- configuration ---------------------------------------------------------
 
     def _debug(self) -> bool:
@@ -56,11 +66,19 @@ class ExceptionHandler:
     # -- handling --------------------------------------------------------------
 
     def report(self, exception: BaseException) -> None:
-        if isinstance(exception, self.dont_report):
-            return
         logger = self._logger()
-        if logger is not None:
+        if logger is None:
+            return
+
+        if self.should_report(exception):
             logger.error("%s: %s", type(exception).__name__, exception, exc_info=exception)
+        else:
+            logger.info(
+                "%s (%s): %s",
+                type(exception).__name__,
+                self.status_for(exception),
+                exception,
+            )
 
     def status_for(self, exception: BaseException) -> int:
         return int(getattr(exception, "status_code", 500))

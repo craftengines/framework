@@ -49,7 +49,7 @@ Manage database schemas using the `craft.py` CLI:
 python craft.py migrate
 
 # Drop all tables and rerun all migrations from scratch
-python craft.py migrate-fresh
+python craft.py migrate fresh
 ```
 
 ---
@@ -80,7 +80,7 @@ class DatabaseSeeder(Seeder):
 
 Execute seeders by running:
 ```bash
-python craft.py db:seed
+python craft.py db seed
 ```
 
 ---
