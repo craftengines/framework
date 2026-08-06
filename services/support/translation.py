@@ -1,0 +1,105 @@
+"""Translation helper for Codepy Framework.
+
+Locales follow BCP 47: a lowercase language subtag, optionally followed by an
+uppercase region subtag — `en`, `pt`, `pt-BR`, `es`.
+
+Lookups walk a fallback chain, so a regional locale inherits from its base
+language and finally from the configured fallback:
+
+    pt-BR  ->  pt  ->  en
+
+Without that chain, asking for `pt-BR` when only `pt` is translated returned the
+raw key.
+"""
+
+from __future__ import annotations
+
+from typing import Any, List, Optional
+
+
+def normalize_locale(locale: Optional[str]) -> Optional[str]:
+    """Canonicalise a BCP 47 tag: `PT-br` -> `pt-BR`, `EN` -> `en`."""
+    if not locale:
+        return None
+    parts = str(locale).replace("_", "-").split("-")
+    language = parts[0].lower()
+    if len(parts) == 1:
+        return language
+    region = parts[1].upper()
+    return f"{language}-{region}"
+
+
+def locale_chain(locale: Optional[str], fallback: Optional[str] = None) -> List[str]:
+    """Locales to try, most specific first.
+
+    `pt-BR` yields ["pt-BR", "pt", "en"] — the region, then the base language,
+    then the application fallback.
+    """
+    chain: List[str] = []
+
+    for candidate in (normalize_locale(locale), normalize_locale(fallback)):
+        if not candidate:
+            continue
+        if candidate not in chain:
+            chain.append(candidate)
+        if "-" in candidate:
+            base = candidate.split("-")[0]
+            if base not in chain:
+                chain.append(base)
+
+    return chain
+
+
+def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> str:
+    """Translate `key`, falling back through the locale chain.
+
+    Returns the key itself when nothing matches — a missing translation shows up
+    as the key rather than an empty string or a crash.
+    """
+    from services.container.application import Container
+
+    text: Optional[str] = None
+
+    try:
+        app = Container.getInstance()
+        config = app.make("config")
+        active = locale or config.get("app.APP_LOCALE") or config.get("app.locale") or "en"
+        fallback = config.get("app.APP_FALLBACK_LOCALE") or config.get("app.fallback_locale") or "en"
+
+        for candidate in locale_chain(active, fallback):
+            # 1. Config-defined translations, e.g. config/lang.py
+            value = config.get(f"lang.{candidate}.{key}")
+            if value:
+                text = str(value)
+                break
+
+            # 2. The translations table
+            try:
+                row = app.make("db").statement(
+                    "SELECT value FROM translations WHERE key = ? AND locale = ?",
+                    [key, candidate],
+                    read=True,
+                ).fetchone()
+            except Exception:
+                row = None  # no database yet — config-only translation still works
+
+            if row is not None and row["value"]:
+                text = str(row["value"])
+                break
+    except Exception:
+        text = None
+
+    result = text if text is not None else key
+
+    # `{name}` placeholders keep the catalog free of string concatenation.
+    for name, value in replacements.items():
+        result = result.replace("{" + name + "}", str(value))
+
+    return result
+
+
+#: Laravel-style alias used throughout views and controllers.
+__ = translate
+
+
+__all__ = ["translate", "__", "locale_chain", "normalize_locale"]

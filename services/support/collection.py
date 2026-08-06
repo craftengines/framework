@@ -56,25 +56,6 @@ class Collection:
         return iter(self._items)
 
 
-def __(key: str, locale: Optional[str] = None) -> str:
-    """Translation helper function with DB fallback."""
-    from services.container.application import Container
-    try:
-        app = Container.getInstance()
-        config = app.make("config")
-        lang = locale or config.get("app.locale", "en")
-
-        # 1. Check Config
-        val = config.get(f"lang.{lang}.{key}")
-        if val:
-            return str(val)
-
-        # 2. Check DB translations table if present
-        db = app.make("db")
-        res = db.statement("SELECT value FROM translations WHERE key = ? AND locale = ?", [key, lang], read=True)
-        row = res.fetchone()
-        if row:
-            return str(row[0])
-    except Exception:
-        pass
-    return key
+# The translation helper lives in `services.support.translation`; re-exported
+# here so `from codepy.support.collection import __` keeps working.
+from services.support.translation import __, translate  # noqa: E402,F401

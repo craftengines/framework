@@ -1,6 +1,7 @@
 """Support package exports."""
 
-from services.support.collection import Collection, __
+from services.support.collection import Collection
+from services.support.translation import __, translate, locale_chain, normalize_locale
 from services.http.response import Response, JsonResponse, redirect
 
 

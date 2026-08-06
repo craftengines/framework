@@ -159,16 +159,22 @@ def test_queue_json_serialization():
 def test_ai_native_subsystems():
     from codepy.support import __
     from codepy.facades import Config, DB, Route
-    
+
     # Drop existing tables to avoid test contamination from global seeders
     DB.statement("DROP TABLE IF EXISTS translations")
     DB.statement("DROP TABLE IF EXISTS modules")
 
     # 1. Test Bilingual dynamic DB and config translations
     assert __("greeting") == "greeting"
-    
+
+    # Config is shared for the whole session, so anything set here has to be
+    # cleared again — leaving `lang.pt.greeting` behind made every later test
+    # that reads a pt translation see this value instead of the real one.
     Config.set("lang.pt.greeting", "Ola")
-    assert __("greeting", "pt") == "Ola"
+    try:
+        assert __("greeting", "pt") == "Ola"
+    finally:
+        Config.set("lang.pt.greeting", None)
 
     # Create dummy translations table
     DB.statement("CREATE TABLE translations (key text, locale text, value text)")
