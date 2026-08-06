@@ -79,6 +79,32 @@ needs the keys where it genuinely differs from its base language.
 Add entries to `database/seeders/TranslationSeeder.py`. The richer,
 semantically-keyed catalog lives in `resources/lang/catalog.json`.
 
+## Building a release
+
+```bash
+python -m pip install build twine
+python -m build              # writes dist/*.whl and dist/*.tar.gz
+python -m twine check dist/*
+```
+
+Building requires **setuptools 77+** — the project uses PEP 639 metadata
+(`license` as an SPDX string plus `license-files`), which older versions reject.
+
+Verify the artifact by installing it somewhere the source tree is not
+importable, or you end up testing `services/` on disk rather than the wheel:
+
+```bash
+unset PYTHONPATH            # a venv does not override it
+python -m venv /tmp/clean
+cd /tmp
+/tmp/clean/bin/pip install /path/to/dist/codepy-0.1.0-py3-none-any.whl
+/tmp/clean/bin/python -c 'import services; print(services.__file__)'
+/tmp/clean/bin/craft --help
+```
+
+`services.__file__` must point inside `site-packages`. If it points at your
+checkout, the test proved nothing.
+
 ## Reporting a bug
 
 Open an issue with:

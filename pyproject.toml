@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=68.0"]
+# 77+ is required for PEP 639 metadata (`license` as an SPDX string plus
+# `license-files`). Older setuptools rejects it.
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
