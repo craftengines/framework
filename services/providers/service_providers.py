@@ -42,7 +42,7 @@ class AuthServiceProvider(ServiceProvider):
 class EventServiceProvider(ServiceProvider):
     def register(self):
         from services.events.dispatcher import EventDispatcher
-        self.app.singleton("events", lambda c: EventDispatcher())
+        self.app.instance("events", EventDispatcher(self.app))
 
 
 class QueueServiceProvider(ServiceProvider):

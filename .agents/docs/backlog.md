@@ -3,7 +3,7 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (equivalente ao `laravel/laravel`), não uma aplicação de negócio.
 >
-> Estado: **439/439 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> Estado: **488/488 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
 > App real validado em `http://localhost:8300`, incluindo o fluxo de login com
 > CSRF e captcha.
@@ -96,6 +96,17 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
   criptografia **pós-quântica** e que "não podem ser lidos". Os dois falsos: a
   assinatura é HMAC-SHA256, e no driver de cookie o payload é JSON legível pelo
   cliente (assinado, não criptografado). Corrigido com aviso explícito.
+- **`Resource` vazava o modelo inteiro.** A classe base lia
+  `self.resource.to_dict()`, então uma subclasse que definisse `to_dict()` — que é
+  exatamente o que `craft make:resource` gerava — era ignorada e o modelo saía
+  completo, incluindo campos que o dev escolheu não expor. É o oposto da função de
+  um API Resource. O gerador também foi corrigido para emitir `to_array()`.
+- `EventDispatcher.listen(Evento, UmListener)` levantava `'type' object is not
+  iterable` — exigia lista. E listeners registrados numa classe base **não ouviam
+  suas subclasses**, então um listener genérico nunca disparava para os eventos
+  concretos que de fato são despachados.
+- `ModuleManager.enable()/disable()` retornavam `True` incondicionalmente: um erro
+  de digitação no slug parecia sucesso.
 - `GateManager.allows()` retornava `True` para qualquer ability desconhecida —
   **falha aberta**. Agora nega por padrão e resolve policies.
 - **Middleware por rota era decorativo**: `.middleware("auth")` era ignorado pelo
@@ -146,12 +157,24 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
 `test_http_middleware`, `test_validation`, `test_form_request`,
 `test_exception_handler`.
 
-Dois pontos de método que valem manter:
+Três pontos de método que valem manter:
 
 - `test_eager_loading` **conta as queries emitidas**. Asserção só sobre resultado
   passaria igual com lazy loading, que é exatamente o bug a impedir.
 - `conftest.py` constrói o schema com o **migrator real**, então as migrations são
   exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
+- `test_subsystems_persistence` **lê as tabelas de volta**. Settings e Modules caem
+  para memória quando a query falha, então o teste antigo passava inteiramente pelo
+  caminho em memória e a persistência nunca era exercitada.
+
+### O padrão que rendeu a maioria dos bugs
+
+Cinco bugs desta sessão vieram do mesmo lugar: **código que degrada em silêncio
+para algo plausível**. A fila com payload hardcoded, o captcha com `!= "WRONG"`, o
+`FormRequest` que devolvia o corpo cru, o Forge com `<div>Rendered view: x</div>`,
+o `Resource` que caía para o modelo inteiro. Todos tinham teste verde. O sinal a
+desconfiar não é o teste vermelho — é o `except Exception: pass` e o fallback que
+devolve algo com cara de certo.
 
 ---
 

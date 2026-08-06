@@ -50,22 +50,31 @@ class ModuleManager:
         mod = self._registered_modules.get(slug)
         return mod["enabled"] if mod else False
 
-    def enable(self, slug: str) -> bool:
-        """Enable a module."""
+    def _set_enabled(self, slug: str, enabled: bool) -> bool:
+        """Flip a module's state. Returns whether the module was found."""
+        affected = 0
         try:
-            DB.statement("UPDATE modules SET enabled = true WHERE slug = :slug", {"slug": slug})
+            result = DB.statement(
+                "UPDATE modules SET enabled = :enabled WHERE slug = :slug",
+                {"enabled": enabled, "slug": slug},
+            )
+            affected = getattr(result, "rowcount", 0) or 0
         except Exception:
-            pass
-        if slug in self._registered_modules:
-            self._registered_modules[slug]["enabled"] = True
-        return True
+            affected = 0
+
+        in_memory = slug in self._registered_modules
+        if in_memory:
+            self._registered_modules[slug]["enabled"] = enabled
+
+        # Report what actually happened. Returning True unconditionally — as
+        # this used to — made "enable a module that does not exist" look like a
+        # success.
+        return affected > 0 or in_memory
+
+    def enable(self, slug: str) -> bool:
+        """Enable a module. Returns False when there is no such module."""
+        return self._set_enabled(slug, True)
 
     def disable(self, slug: str) -> bool:
-        """Disable a module."""
-        try:
-            DB.statement("UPDATE modules SET enabled = false WHERE slug = :slug", {"slug": slug})
-        except Exception:
-            pass
-        if slug in self._registered_modules:
-            self._registered_modules[slug]["enabled"] = False
-        return True
+        """Disable a module. Returns False when there is no such module."""
+        return self._set_enabled(slug, False)

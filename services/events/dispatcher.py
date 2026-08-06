@@ -1,24 +1,120 @@
-"""Event Dispatcher implementation for Codepy Framework."""
+"""Event dispatcher for Codepy Framework."""
 
-from typing import Any, Dict, List
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Union
+
+Listener = Union[type, Callable[[Any], Any]]
 
 
 class EventDispatcher:
-    def __init__(self):
-        self._listeners: Dict[Any, List[Any]] = {}
+    """Registers listeners and dispatches events to them."""
 
-    def listen(self, event_cls: Any, listeners: List[Any]):
-        if event_cls not in self._listeners:
-            self._listeners[event_cls] = []
-        self._listeners[event_cls].extend(listeners)
+    def __init__(self, app: Any = None):
+        self.app = app
+        self._listeners: Dict[Any, List[Listener]] = {}
+        self._wildcard: List[Listener] = []
 
-    def dispatch(self, event: Any):
-        event_cls = event.__class__
-        listeners = self._listeners.get(event_cls, [])
-        for listener in listeners:
-            if isinstance(listener, type):
-                inst = listener()
-                if hasattr(inst, "handle"):
-                    inst.handle(event)
-            elif callable(listener):
-                listener(event)
+    # -- registration ----------------------------------------------------------
+
+    def listen(self, event: Any, listeners: Union[Listener, List[Listener]]) -> None:
+        """Register one listener, or several.
+
+        Both forms work — requiring a list meant the obvious
+        `Event.listen(PostPublished, NotifySubscribers)` raised
+        "'type' object is not iterable".
+        """
+        if not isinstance(listeners, (list, tuple)):
+            listeners = [listeners]
+
+        if event == "*":
+            self._wildcard.extend(listeners)
+            return
+
+        self._listeners.setdefault(event, []).extend(listeners)
+
+    def subscribe(self, subscriber: Any) -> None:
+        """Let a class register its own listeners via `subscribe(dispatcher)`."""
+        instance = subscriber() if isinstance(subscriber, type) else subscriber
+        instance.subscribe(self)
+
+    def forget(self, event: Any) -> None:
+        self._listeners.pop(event, None)
+
+    def flush(self) -> None:
+        self._listeners.clear()
+        self._wildcard.clear()
+
+    def has_listeners(self, event: Any) -> bool:
+        event_class = event if isinstance(event, type) else type(event)
+        return bool(self._wildcard) or any(
+            self._matches(registered, event_class) for registered in self._listeners
+        )
+
+    # -- dispatching -----------------------------------------------------------
+
+    @staticmethod
+    def _matches(registered: Any, event_class: type) -> bool:
+        """A listener on a base class should also hear its subclasses."""
+        if isinstance(registered, type):
+            return issubclass(event_class, registered)
+        return registered == event_class
+
+    def listeners_for(self, event: Any) -> List[Listener]:
+        event_class = event if isinstance(event, type) else type(event)
+        found: List[Listener] = []
+        for registered, listeners in self._listeners.items():
+            if self._matches(registered, event_class):
+                found.extend(listeners)
+        found.extend(self._wildcard)
+        return found
+
+    def _resolve(self, listener: Listener) -> Any:
+        """Build a listener class, using the container so it can be autowired."""
+        if not isinstance(listener, type):
+            return listener
+        if self.app is not None:
+            try:
+                return self.app.make(listener)
+            except Exception:
+                pass
+        return listener()
+
+    def dispatch(self, event: Any, halt: bool = False) -> List[Any]:
+        """Send an event to its listeners and return what they returned.
+
+        With `halt=True`, the first non-None response stops the chain — useful
+        for "does anything veto this?" checks.
+        """
+        responses: List[Any] = []
+
+        for listener in self.listeners_for(event):
+            instance = self._resolve(listener)
+
+            # A listener object exposes `handle`; a plain function is called
+            # directly. `handle` wins so a callable class still works.
+            if hasattr(instance, "handle"):
+                handler = instance.handle
+            elif callable(instance):
+                handler = instance
+            else:
+                continue
+
+            response = handler(event)
+            if halt and response is not None:
+                return [response]
+            responses.append(response)
+
+        return responses
+
+    # Laravel-style alias.
+    def fire(self, event: Any) -> List[Any]:
+        return self.dispatch(event)
+
+    def until(self, event: Any) -> Any:
+        """Dispatch until a listener returns something."""
+        responses = self.dispatch(event, halt=True)
+        return responses[0] if responses else None
+
+
+__all__ = ["EventDispatcher"]

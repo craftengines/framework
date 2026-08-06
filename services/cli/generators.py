@@ -117,11 +117,11 @@ class {name}(FormRequest):
 def resource_stub(name: str) -> str:
     return f'''"""{name} API resource."""
 
-from codepy.resources.resource import Resource
+from codepy.resources import Resource
 
 
 class {name}(Resource):
-    def to_dict(self) -> dict:
+    def to_array(self, request=None) -> dict:
         return {{
             "id": self.resource.get_attribute("id"),
         }}
