@@ -3,7 +3,7 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (equivalente ao `laravel/laravel`), não uma aplicação de negócio.
 >
-> Estado: **488/488 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> Estado: **503/503 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
 > App real validado em `http://localhost:8300`, incluindo o fluxo de login com
 > CSRF e captcha.
@@ -107,6 +107,9 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
   concretos que de fato são despachados.
 - `ModuleManager.enable()/disable()` retornavam `True` incondicionalmente: um erro
   de digitação no slug parecia sucesso.
+- `PluginManager.trigger_hook()` engolia exceção de plugin sem registrar nada — um
+  plugin que quebrava a cada chamada era invisível. A falha continua isolada (um
+  plugin ruim não derruba o request), mas agora é logada.
 - `GateManager.allows()` retornava `True` para qualquer ability desconhecida —
   **falha aberta**. Agora nega por padrão e resolve policies.
 - **Middleware por rota era decorativo**: `.middleware("auth")` era ignorado pelo
@@ -169,12 +172,17 @@ Três pontos de método que valem manter:
 
 ### O padrão que rendeu a maioria dos bugs
 
-Cinco bugs desta sessão vieram do mesmo lugar: **código que degrada em silêncio
+Seis bugs desta sessão vieram do mesmo lugar: **código que degrada em silêncio
 para algo plausível**. A fila com payload hardcoded, o captcha com `!= "WRONG"`, o
 `FormRequest` que devolvia o corpo cru, o Forge com `<div>Rendered view: x</div>`,
-o `Resource` que caía para o modelo inteiro. Todos tinham teste verde. O sinal a
-desconfiar não é o teste vermelho — é o `except Exception: pass` e o fallback que
-devolve algo com cara de certo.
+o `Resource` que caía para o modelo inteiro, o `ModuleManager` que sempre retornava
+`True`. Todos tinham teste verde. O sinal a desconfiar não é o teste vermelho — é o
+`except Exception: pass` e o fallback que devolve algo com cara de certo.
+
+Varredura feita: os 23 `except: pass` restantes em `services/` e `app/` foram
+revisados um a um. Os que sobraram são legítimos — fallback de dependência
+opcional (redis, bcrypt), cleanup best-effort ao fechar conexão, e degradação
+deliberada quando não há banco. Nenhum esconde erro do usuário.
 
 ---
 

@@ -50,14 +50,36 @@ class PluginManager:
             self._hooks[event_name] = []
         self._hooks[event_name].append(callback)
 
+    def remove_hook(self, event_name: str, callback: Callable = None) -> None:
+        """Remove one hook callback, or every callback for the event."""
+        if callback is None:
+            self._hooks.pop(event_name, None)
+        elif event_name in self._hooks:
+            self._hooks[event_name] = [
+                hook for hook in self._hooks[event_name] if hook is not callback
+            ]
+
+    def has_hook(self, event_name: str) -> bool:
+        return bool(self._hooks.get(event_name))
+
     def trigger_hook(self, event_name: str, *args, **kwargs) -> List[Any]:
-        """Trigger all callback listeners registered for a hook."""
-        results = []
-        if event_name in self._hooks:
-            for callback in self._hooks[event_name]:
-                try:
-                    res = callback(*args, **kwargs)
-                    results.append(res)
-                except Exception:
-                    pass
+        """Trigger every callback registered for a hook.
+
+        One misbehaving plugin must not take down the request, so failures are
+        isolated — but they are logged, not swallowed. A plugin that throws on
+        every call used to be completely invisible.
+        """
+        results: List[Any] = []
+        for callback in self._hooks.get(event_name, []):
+            try:
+                results.append(callback(*args, **kwargs))
+            except Exception:
+                import logging
+
+                logging.getLogger("codepy").warning(
+                    "Plugin hook '%s' raised in %s",
+                    event_name,
+                    getattr(callback, "__qualname__", repr(callback)),
+                    exc_info=True,
+                )
         return results
