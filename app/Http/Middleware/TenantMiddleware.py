@@ -8,6 +8,9 @@ References:
   - Documentation: [documentation/orm.md](file:///d:/data/www/codepy/documentation/orm.md)
   - Skill: `codepy-development` ([SKILL.md](file:///d:/data/www/codepy/.agents/skills/codepy-development/SKILL.md))
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import re
 from codepy.http.middleware import Middleware

@@ -1,4 +1,7 @@
 """Support package exports."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from services.support.collection import Collection
 from services.support.translation import __, translate, locale_chain, normalize_locale

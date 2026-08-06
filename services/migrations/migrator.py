@@ -4,6 +4,9 @@ Discovers migration files in `database/migrations`, tracks applied migrations in
 a `migrations` table with batch numbers, and supports run / rollback / reset /
 refresh / fresh / status — mirroring Laravel's migrator semantics.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

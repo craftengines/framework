@@ -306,8 +306,19 @@ são exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
 
 ---
 
-## Estado e próximos passos
+## Documentação
+
+A documentação completa está em [`documentation/`](documentation/README.md):
+instalação, configuração, container, rotas, controllers, views, validação,
+migrations, ORM, segurança, sessões, cache, filas, resources, i18n, testes,
+deploy e a referência do `craft`.
 
 - [`CHANGELOG.md`](CHANGELOG.md) — o que mudou, em formato Keep a Changelog.
-- [`.agents/docs/backlog.md`](.agents/docs/backlog.md) — as próximas fatias e as
-  decisões ainda em aberto.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — como contribuir.
+- [`SECURITY.md`](SECURITY.md) — política de segurança e checklist de produção.
+- [`.agents/docs/backlog.md`](.agents/docs/backlog.md) — próximas fatias e
+  decisões em aberto.
+
+## Licença
+
+[MIT](LICENSE) — © 2026 Antonio Santos &lt;snarthost@gmail.com&gt;

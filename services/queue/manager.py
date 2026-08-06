@@ -3,6 +3,9 @@
 Jobs are serialised to JSON (never pickle) so a worker in another process can
 rebuild them. Supported drivers: `sync` (run inline) and `database`.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

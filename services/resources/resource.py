@@ -8,6 +8,9 @@ honoured::
         def to_array(self, request=None):
             return {"id": self.resource.get_attribute("id")}
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

@@ -3,6 +3,9 @@
 Each relation wraps a QueryBuilder, so the whole builder API (where, order_by,
 paginate, aggregates) is available on a relationship before it is resolved.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

@@ -1,4 +1,7 @@
 """Auth controller — login, register, logout under Auth directory."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from codepy.http.controller import Controller
 from codepy.http.response import redirect

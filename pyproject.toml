@@ -5,9 +5,28 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codepy"
 version = "0.1.0"
-description = "Codepy — A Python FastAPI framework inspired by Laravel"
+description = "A Python web framework with Laravel's conventions, built on Starlette"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Antonio Santos", email = "snarthost@gmail.com" }]
+maintainers = [{ name = "Antonio Santos", email = "snarthost@gmail.com" }]
+keywords = ["framework", "web", "mvc", "orm", "laravel", "starlette", "asgi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastapi>=0.104.0",
     "starlette>=0.27.0",
@@ -31,6 +50,12 @@ dev = [
 ]
 mysql = ["pymysql>=1.1"]
 redis = ["redis>=5.0"]
+
+[project.urls]
+Documentation = "https://github.com/snarthost/codepy/tree/main/documentation"
+Source = "https://github.com/snarthost/codepy"
+Changelog = "https://github.com/snarthost/codepy/blob/main/CHANGELOG.md"
+Issues = "https://github.com/snarthost/codepy/issues"
 
 [project.scripts]
 craft = "services.cli.app:main"

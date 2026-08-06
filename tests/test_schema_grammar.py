@@ -1,4 +1,7 @@
 """Schema grammar: the same Blueprint must compile correctly per dialect."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 

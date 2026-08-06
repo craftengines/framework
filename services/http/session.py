@@ -10,6 +10,9 @@ Two drivers ship by default:
 Both sign the cookie with the application key, so a tampered cookie is rejected
 rather than trusted.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

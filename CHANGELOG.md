@@ -170,6 +170,20 @@ em SQLite, PostgreSQL real e Python 3.11.
   O `changelog.md` que vivia no aninhamento foi perdido nessa limpeza; este
   arquivo recomeça a partir do histórico do Git.
 
+**Projeto open source**
+
+- Licença **MIT** (`LICENSE`), © 2026 Antonio Santos.
+- Metadados de autoria, classificadores e URLs no `pyproject.toml`;
+  `__author__`, `__email__`, `__license__` e `__copyright__` no pacote.
+- Cabeçalho de licença em 134 arquivos-fonte.
+- `CONTRIBUTING.md` e `SECURITY.md`, com checklist de produção e as lacunas
+  conhecidas declaradas em vez de escondidas.
+- Documentação completa em `documentation/`: 17 guias com índice, cobrindo
+  instalação, configuração, container, rotas, controllers, views, validação,
+  migrations, ORM, segurança, sessões, cache, filas, resources, i18n, testes,
+  deploy e a referência do `craft`. As 130 APIs citadas foram verificadas
+  contra o código.
+
 ### Notas de compatibilidade
 
 - **Python 3.11+**. A suíte roda no 3.14 local e no 3.11 do container.

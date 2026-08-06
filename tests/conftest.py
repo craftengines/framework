@@ -12,6 +12,9 @@ To validate the PostgreSQL dialect, point the suite at a real server::
     $env:DB_USERNAME = "codepy"; $env:DB_PASSWORD = "secretpassword"
     python -m pytest
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import os
 import sys

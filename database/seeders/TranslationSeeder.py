@@ -4,6 +4,9 @@ Locales follow BCP 47. `pt` is European Portuguese and `pt-BR` is Brazilian —
 they are genuinely different copy, not a relabel. Lookups fall back
 `pt-BR -> pt -> en`, so a locale only needs the keys where it differs.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from codepy.facades import DB
 from codepy.seeding import Seeder

@@ -1,4 +1,7 @@
 """Session, CSRF and authentication across real HTTP requests."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 from starlette.testclient import TestClient

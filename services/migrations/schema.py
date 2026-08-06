@@ -3,6 +3,9 @@
 Provides a Laravel-style fluent `Blueprint` that compiles to dialect-specific
 DDL for SQLite, PostgreSQL and MySQL.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

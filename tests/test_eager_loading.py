@@ -3,6 +3,9 @@
 These tests count the SQL actually issued. Asserting on results alone would pass
 just as happily with lazy loading, which is the bug being prevented.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 

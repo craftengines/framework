@@ -4,6 +4,9 @@ Provides a driver-agnostic connection wrapper over sqlite3, psycopg2 (PostgreSQL
 and PyMySQL/mysqlclient (MySQL), normalising placeholders and row access so the
 rest of the framework can speak a single dialect-neutral SQL flavour.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

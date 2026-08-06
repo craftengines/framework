@@ -1,4 +1,7 @@
 """API routes — JSON API endpoints."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from codepy.facades import Route
 from app.Http.Controllers.Blog.PostController import PostController

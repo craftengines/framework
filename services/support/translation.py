@@ -11,6 +11,9 @@ language and finally from the configured fallback:
 Without that chain, asking for `pt-BR` when only `pt` is translated returned the
 raw key.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

@@ -4,6 +4,9 @@ Both managers fall back to in-memory state when a query fails, so the existing
 subsystem test passed entirely on the memory path — the persistence it claims to
 provide was never exercised. These tests read the tables back directly.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 

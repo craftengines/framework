@@ -3,6 +3,9 @@
 Jinja2 with Blade-style directives. Templates are preprocessed before Jinja
 compiles them, so `@csrf`, `@auth` and friends work in `.blade.py` files.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

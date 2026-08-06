@@ -3,6 +3,9 @@
 Uses bcrypt via passlib when available and falls back to PBKDF2-HMAC-SHA256
 from the standard library, so a fresh install never silently stores plaintext.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

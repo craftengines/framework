@@ -4,6 +4,9 @@ Wraps Starlette's request with Laravel-style input access. The body is parsed
 once, up front, by `prepare()` — controllers and middleware are synchronous, so
 they cannot await `request.form()` themselves.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

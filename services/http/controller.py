@@ -1,4 +1,7 @@
 """Base Controller class for Codepy Framework."""
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from typing import Any, Dict, Optional
 from services.http.response import JsonResponse, Response, redirect

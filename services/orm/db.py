@@ -3,6 +3,9 @@
 Config-driven, multi-driver (SQLite / PostgreSQL / MySQL) connection manager with
 read-write splitting, transactions and PostgreSQL schema-based multi-tenancy.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

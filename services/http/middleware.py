@@ -4,6 +4,9 @@ Middleware is synchronous: `handle(request, next_callable)` returns a response.
 The kernel composes the stack in registration order, so `StartSession` must come
 first — `VerifyCsrfToken` and `Authenticate` both read from the session.
 """
+# Codepy Framework
+# Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
+# Licensed under the MIT License. See LICENSE in the project root.
 
 from __future__ import annotations
 

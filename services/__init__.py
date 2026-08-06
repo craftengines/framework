@@ -1,10 +1,13 @@
-"""Codepy Framework Core Services Package.
+"""Codepy Framework — a Python web framework with Laravel's conventions.
 
 The framework lives in `services/` but is imported publicly as `codepy.*`.
 A meta path finder maps `codepy.<anything>` onto `services.<anything>` on
 demand, so new subpackages are exposed automatically with no alias list to
 keep in sync — and the unrelated third-party `codepy` package on PyPI can
 never shadow the framework.
+
+:copyright: (c) 2026 Antonio Santos.
+:license: MIT, see LICENSE for details.
 """
 
 from __future__ import annotations
@@ -18,6 +21,10 @@ from types import ModuleType
 from typing import Optional, Sequence
 
 __version__ = "0.1.0"
+__author__ = "Antonio Santos"
+__email__ = "snarthost@gmail.com"
+__license__ = "MIT"
+__copyright__ = "Copyright (c) 2026 Antonio Santos"
 
 _ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT_DIR not in sys.path:
