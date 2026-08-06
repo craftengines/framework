@@ -148,6 +148,36 @@ def route_url(name: str, **params) -> str:
         return "/"
 
 
+def asset(path: str, version: Any = None) -> str:
+    """URL for a file under `public/`, with a cache-busting query string.
+
+        {{ asset('assets/css/codepy-theme.css') }}
+        -> /assets/css/codepy-theme.css?ver=0.1.0
+
+    The version defaults to the application version, so a release invalidates
+    every cached asset at once. In debug the file's modification time is used
+    instead, so an edit shows up on the next reload without a version bump.
+    """
+    path = "/" + str(path).lstrip("/")
+
+    if version is None:
+        if config_value("app.APP_DEBUG"):
+            import os
+
+            from services.container.application import Container
+
+            try:
+                base = getattr(Container.getInstance(), "base_path", os.getcwd())
+                stamp = os.path.getmtime(os.path.join(base, "public", path.lstrip("/")))
+                version = int(stamp)
+            except (OSError, Exception):
+                version = None
+        if version is None:
+            version = config_value("app.APP_VERSION", "0")
+
+    return f"{path}?ver={version}"
+
+
 def config_value(key: str, default: Any = None) -> Any:
     from services.container.application import Container
 
@@ -207,6 +237,7 @@ class Forge:
                 "auth": auth_user,
                 "can": can,
                 "route": route_url,
+                "asset": asset,
                 "config": config_value,
                 "locale": active_locale,
                 "session": session_value,

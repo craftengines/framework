@@ -1,42 +1,21 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50 text-slate-900">
+<html lang="{{ locale() }}" class="h-full bg-slate-50 text-slate-900">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield("title", "Codepy Framework")</title>
-    <!-- Google Fonts: Plus Jakarta Sans + JetBrains Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Custom Landing Page Styles -->
-    <link rel="stylesheet" href="/css/app.css">
-    <!-- Tailwind CSS Play CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                    },
-                    colors: {
-                        primary: {
-                            50: '#fff7ed',
-                            100: '#ffedd5',
-                            500: '#f97316',
-                            600: '#ea580c',
-                            700: '#c2410c',
-                        },
-                        dark: {
-                            800: '#1e293b',
-                            900: '#0f172a',
-                            950: '#020617',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+
+    {#
+        Self-hosted assets. Nothing is fetched from a CDN, so the application
+        renders identically offline and no third party sees your visitors.
+        `asset()` appends ?ver= from the app version — bump the version and
+        every cached file is invalidated at once.
+    #}
+    <link rel="stylesheet" href="{{ asset('assets/css/codepy-theme.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/codepy-utilities.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/codepy-responsive.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/codepy-animate.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/codepy-components.css') }}">
 </head>
 <body class="min-h-full font-sans antialiased bg-slate-50/50 flex flex-col">
     {% if not show_sidebar %}
@@ -196,6 +175,6 @@
             <p>Codepy Framework {{ config('app.version') }} ({{ config('app.release') }}) &copy; 2026. All rights reserved.</p>
         </footer>
     </div>
-    <script src="/js/app.js" defer></script>
+    <script src="{{ asset('assets/js/codepy.js') }}" defer></script>
 </body>
 </html>
