@@ -96,6 +96,97 @@ class StartSession(Middleware):
         return starlette_response
 
 
+class SetLocale(Middleware):
+    """Resolve the active locale for the request.
+
+    Order of precedence: an explicit `?lang=` query parameter, then whatever the
+    visitor chose earlier (held in the session), then `Accept-Language`, then the
+    configured default. The chosen tag is normalised to BCP 47 and persisted, so
+    a language switch survives the next navigation.
+    """
+
+    QUERY_KEY = "lang"
+    SESSION_KEY = "locale"
+
+    def __init__(self, app: Any = None, supported: Optional[List[str]] = None):
+        self.app = app
+        self._supported = supported
+        self._default: Optional[str] = None
+
+    def supported(self) -> List[str]:
+        if self._supported is not None:
+            return self._supported
+        try:
+            configured = _container(self.app).make("config").get("app.APP_LOCALES")
+        except Exception:
+            configured = None
+        return list(configured or ["en", "pt", "pt-BR", "es"])
+
+    def _from_header(self, request: Any) -> Optional[str]:
+        from services.support.translation import normalize_locale
+
+        header = request.headers.get("accept-language", "")
+        supported = {normalize_locale(s) for s in self.supported()}
+
+        for chunk in header.split(","):
+            tag = normalize_locale(chunk.split(";")[0].strip())
+            if not tag:
+                continue
+            if tag in supported:
+                return tag
+            # `pt-PT` with only `pt` supported should still resolve to `pt`.
+            base = tag.split("-")[0]
+            if base in supported:
+                return base
+        return None
+
+    def default(self) -> str:
+        """The configured locale, captured before anything overwrites it."""
+        if getattr(self, "_default", None) is None:
+            try:
+                config = _container(self.app).make("config")
+                self._default = str(
+                    config.get("app.APP_LOCALE") or config.get("app.app_locale") or "en"
+                )
+            except Exception:
+                self._default = "en"
+        return self._default
+
+    def resolve(self, request: Any, session: Any = None) -> str:
+        """Pick the locale for this request, most specific source first."""
+        from services.support.translation import normalize_locale
+
+        supported = {normalize_locale(s) for s in self.supported()}
+
+        requested = normalize_locale(request.query_params.get(self.QUERY_KEY))
+        if requested in supported:
+            if session is not None:
+                session.put(self.SESSION_KEY, requested)
+            return requested
+
+        stored = normalize_locale(session.get(self.SESSION_KEY)) if session else None
+        if stored in supported:
+            return stored
+
+        # Always land on a concrete value. Leaving it unset made the locale
+        # sticky across visitors, because the previous request's choice was
+        # still in place.
+        return self._from_header(request) or self.default()
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        from services.support.translation import current_locale
+
+        session = request.session() if getattr(request, "has_session", lambda: False)() else None
+        locale = self.resolve(request, session)
+
+        request.state.locale = locale
+        token = current_locale.set(locale)
+        try:
+            return next_callable(request)
+        finally:
+            current_locale.reset(token)
+
+
 class VerifyCsrfToken(Middleware):
     """Reject state-changing requests that carry no valid CSRF token."""
 
@@ -237,6 +328,7 @@ class AuthenticateApiToken(Middleware):
 __all__ = [
     "Middleware",
     "StartSession",
+    "SetLocale",
     "VerifyCsrfToken",
     "Authenticate",
     "RequireAuth",

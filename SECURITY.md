@@ -10,9 +10,8 @@ Codepy is at `0.x`. Only the latest release receives security fixes.
 
 ## Reporting a vulnerability
 
-Please do **not** open a public issue.
-
-Email **snarthost@gmail.com** with:
+The project is developed locally and is not published. Email
+**snarthost@gmail.com** with:
 
 - a description of the issue and its impact
 - steps to reproduce, or a proof of concept

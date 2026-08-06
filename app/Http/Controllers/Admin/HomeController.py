@@ -9,7 +9,13 @@ from codepy.http.response import Response, redirect
 
 class HomeController(Controller):
     def index(self, request):
-        return Response("<h1>Recent Posts</h1><p>Welcome to Codepy Application</p>")
+        # Fetch recent posts for the landing page community section
+        try:
+            from app.Models.Post import Post
+            posts = Post.query().order_by("created_at", "desc").limit(6).get()
+        except Exception:
+            posts = []
+        return self.view("home", {"posts": posts, "show_sidebar": False})
 
     def admin(self, request):
         from codepy.facades import Auth
@@ -17,3 +23,4 @@ class HomeController(Controller):
         if not user:
             return redirect(url="/login", status=302)
         return Response("<h1>Admin Dashboard</h1>")
+

@@ -17,7 +17,18 @@ raw key.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any, List, Optional
+
+#: Locale for the request being handled, published by the SetLocale middleware.
+#: It lives here rather than in the config repository because that repository is
+#: a process-wide singleton: writing the locale there leaked one visitor's
+#: language to the next request, and two concurrent requests would race.
+current_locale: ContextVar[Optional[str]] = ContextVar("current_locale", default=None)
+
+
+def get_current_locale() -> Optional[str]:
+    return current_locale.get()
 
 
 def normalize_locale(locale: Optional[str]) -> Optional[str]:
@@ -66,7 +77,13 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
     try:
         app = Container.getInstance()
         config = app.make("config")
-        active = locale or config.get("app.APP_LOCALE") or config.get("app.locale") or "en"
+        active = (
+            locale
+            or current_locale.get()
+            or config.get("app.APP_LOCALE")
+            or config.get("app.locale")
+            or "en"
+        )
         fallback = config.get("app.APP_FALLBACK_LOCALE") or config.get("app.fallback_locale") or "en"
 
         for candidate in locale_chain(active, fallback):
@@ -105,4 +122,11 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
 __ = translate
 
 
-__all__ = ["translate", "__", "locale_chain", "normalize_locale"]
+__all__ = [
+    "translate",
+    "__",
+    "locale_chain",
+    "normalize_locale",
+    "current_locale",
+    "get_current_locale",
+]

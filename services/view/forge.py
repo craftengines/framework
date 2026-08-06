@@ -46,6 +46,7 @@ DIRECTIVES = [
     (r"@foreach\s*\((.+?)\s+as\s+(.+?)\)", r"{% for \2 in \1 %}"),
     (r"@endforeach\b", "{% endfor %}"),
     (r"@endsection\b", "{% endblock %}"),
+    (r"@yield\(\s*['\"]([\w.-]+)['\"]\s*,\s*(.+?)\s*\)", r"{% block \1 %}\2{% endblock %}"),
     (r"@yield\(\s*['\"]([\w.-]+)['\"]\s*\)", r"{% block \1 %}{% endblock %}"),
 ]
 
@@ -156,6 +157,23 @@ def config_value(key: str, default: Any = None) -> Any:
         return default
 
 
+def active_locale() -> str:
+    """The locale in effect for this request.
+
+    Templates used to read `config('app.locale')`, but the config repository
+    registers the key as `APP_LOCALE` / `app_locale` — there is no `locale`, so
+    that lookup always returned None and no language ever showed as active.
+    """
+    from services.support.translation import get_current_locale
+
+    return str(
+        get_current_locale()
+        or config_value("app.APP_LOCALE")
+        or config_value("app.app_locale")
+        or "en"
+    )
+
+
 def session_value(key: str, default: Any = None) -> Any:
     from services.http.session import get_current_session
 
@@ -190,6 +208,7 @@ class Forge:
                 "can": can,
                 "route": route_url,
                 "config": config_value,
+                "locale": active_locale,
                 "session": session_value,
                 "old": old_input,
             }

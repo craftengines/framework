@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield("title", "Codepy Framework")</title>
-    <!-- Google Fonts: Plus Jakarta Sans -->
+    <!-- Google Fonts: Plus Jakarta Sans + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Landing Page Styles -->
+    <link rel="stylesheet" href="/css/app.css">
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -55,15 +57,15 @@
             <div class="flex items-center space-x-6 text-sm font-semibold">
                 <!-- Locale Switcher -->
                 <div class="flex items-center space-x-2 text-[10px] font-mono border-r border-slate-200 pr-4 mr-2">
-                    <a href="?lang=en" class="{% if config('app.locale') == 'en' %}text-orange-600 font-bold{% else %}text-slate-400 hover:text-slate-600{% endif %}">EN</a>
-                    <span class="text-slate-300">|</span>
-                    <a href="?lang=pt" class="{% if config('app.locale') == 'pt' %}text-orange-600 font-bold{% else %}text-slate-400 hover:text-slate-600{% endif %}">PT</a>
-                    <span class="text-slate-300">|</span>
-                    <a href="?lang=es" class="{% if config('app.locale') == 'es' %}text-orange-600 font-bold{% else %}text-slate-400 hover:text-slate-600{% endif %}">ES</a>
+                    {% for tag, label in [('en', 'EN'), ('pt', 'PT'), ('pt-BR', 'PT-BR'), ('es', 'ES')] %}
+                        {% if not loop.first %}<span class="text-slate-300">|</span>{% endif %}
+                        <a href="?lang={{ tag }}"
+                           hreflang="{{ tag }}"
+                           class="{% if locale() == tag %}text-orange-600 font-bold{% else %}text-slate-400 hover:text-slate-600{% endif %}">{{ label }}</a>
+                    {% endfor %}
                 </div>
 
                 <a href="/posts" class="hover:text-orange-600 transition duration-150">{{ __('discuss') }}</a>
-                <a href="https://github.com" target="_blank" class="hover:text-orange-600 transition duration-150">{{ __('contribute') }}</a>
                 <a href="/docs" class="hover:text-orange-600 transition duration-150">{{ __('learn') }}</a>
                 
                 @auth
@@ -194,5 +196,6 @@
             <p>Codepy Framework {{ config('app.version') }} ({{ config('app.release') }}) &copy; 2026. All rights reserved.</p>
         </footer>
     </div>
+    <script src="/js/app.js" defer></script>
 </body>
 </html>

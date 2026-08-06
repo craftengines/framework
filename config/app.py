@@ -14,7 +14,11 @@ APP_KEY = env("APP_KEY", "")
 APP_LOCALE = env("APP_LOCALE", "en")
 APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
 APP_TIMEZONE = env("APP_TIMEZONE", "UTC")
-APP_VERSION = env("APP_VERSION", "v3.11")
-APP_RELEASE = env("APP_RELEASE", "r00002")
+# The framework's own version, from the package — it used to be hardcoded to
+# "v3.11", which is the minimum Python version, not a release of Codepy.
+from services import __version__ as APP_VERSION  # noqa: E402
+
+#: Locales offered by the language switcher, most specific first.
+APP_LOCALES = ["en", "pt", "pt-BR", "es"]
+
 version = APP_VERSION
-release = APP_RELEASE

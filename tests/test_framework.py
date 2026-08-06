@@ -104,7 +104,13 @@ def test_http_api_routes():
     # Test Home View
     response = client.get("/home")
     assert response.status_code == 200
-    assert "Recent Posts" in response.text
+    # Assert on structure, not on copy. The landing page is translatable, so its
+    # visible text depends on the active locale and on seeded translations —
+    # while the section itself is what proves the view rendered. A broken
+    # template now raises rather than returning a 200 placeholder, so the status
+    # check above already covers the failure this string used to catch.
+    assert 'id="community"' in response.text
+    assert "<footer" in response.text
 
     # Test Login view
     response = client.get("/login")

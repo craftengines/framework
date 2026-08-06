@@ -1,140 +1,302 @@
 @extends("layouts.app")
 
-@section("title", "Codepy — " ~ __('small_framework_title'))
+@section("title", "Codepy — The Python Framework with Laravel Elegance")
 
 @section("content")
-    <!-- CodeIgniter-style Hero Section -->
-    <div class="py-12 md:py-20 text-center max-w-4xl mx-auto space-y-6">
-        <!-- Title -->
-        <h1 class="text-6xl md:text-7xl font-light text-orange-600 tracking-tight font-sans">
-            Codepy <sup class="text-2xl md:text-3xl font-light text-orange-600">{{ config('app.version') }}</sup>
-        </h1>
-
-        <!-- Subtitle -->
-        <p class="text-2xl md:text-3xl text-slate-700 font-light tracking-wide">
-            {{ __('small_framework_title') }}
-        </p>
-
-        <!-- Paragraph Description -->
-        <p class="text-sm md:text-base text-slate-500 max-w-3xl mx-auto leading-relaxed">
-            {{ __('framework_description') }}
-        </p>
-
-        <!-- Learn More Button -->
-        <div class="pt-4">
-            <a href="/docs" class="bg-orange-600 hover:bg-orange-700 text-white font-medium px-8 py-3 rounded-lg text-sm transition shadow-sm inline-block">
-                {{ __('learn_more') }}
-            </a>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-glow"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                <span>Open Source · MIT License</span>
+            </div>
+            <h1 class="hero-title">
+                Codepy <sup class="hero-version">{{ config('app.version') }}</sup>
+            </h1>
+            <p class="hero-subtitle">
+                The Python Framework with Laravel Elegance
+            </p>
+            <p class="hero-description">
+                Build powerful web applications in Python using the conventions you love from Laravel.
+                Codepyquent ORM, Forge templates, migrations, auth — everything, Pythonic.
+            </p>
+            <div class="hero-actions">
+                <a href="/docs/installation" class="btn-primary" id="hero-learn-more">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                    Read the Docs
+                </a>
+                <a href="#quickstart" class="btn-secondary" id="hero-quickstart">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    {{ __('learn_more') }}
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-value">530</span>
+                    <span class="stat-label">Tests Passing</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">3</span>
+                    <span class="stat-label">DB Drivers</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">MIT</span>
+                    <span class="stat-label">License</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">Py 3.11+</span>
+                    <span class="stat-label">Runtime</span>
+                </div>
+            </div>
         </div>
 
-        <!-- Git Badges style -->
-        <div class="flex items-center justify-center space-x-6 pt-4 text-xs text-slate-600">
-            <a href="https://github.com" target="_blank" class="flex items-center space-x-1.5 hover:text-orange-600 transition">
-                <svg class="w-4 h-4 text-slate-900" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"></path></svg>
-                <span class="font-semibold">Star</span>
-                <span class="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold">5,955</span>
-            </a>
-            <a href="https://github.com" target="_blank" class="flex items-center space-x-1.5 hover:text-orange-600 transition">
-                <svg class="w-3.5 h-3.5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path></svg>
-                <span class="font-semibold">Fork</span>
-                <span class="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold">1,995</span>
-            </a>
-        </div>
-    </div>
-
-    <!-- Why Codepy section -->
-    <div class="py-12 border-t border-slate-100 max-w-5xl mx-auto">
-        <h2 class="text-3xl font-normal text-orange-600 text-center mb-16 font-sans">
-            {{ __('why_codepy') }}
-        </h2>
-
-        <!-- Feature Grid (2 columns, 2 rows) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-            <!-- Feature 1 -->
-            <div class="flex items-start space-x-4">
-                <div class="w-10 h-10 flex-shrink-0 text-orange-600 border border-orange-200 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499c-.107-.183-.3-.299-.512-.299s-.405.116-.512.299L4.99 12.302c-.104.178-.108.397-.01.579.098.182.288.297.494.297h4.086v5.822c0 .408.33.738.738.738h1.404a.738.738 0 00.738-.738V13.48h4.086c.206 0 .396-.115.494-.297.098-.182.094-.401-.01-.579l-5.467-8.804z"></path></svg>
+        <!-- Animated Code Preview -->
+        <div class="hero-code-card">
+            <div class="code-card-header">
+                <div class="code-dots">
+                    <span class="dot dot-red"></span>
+                    <span class="dot dot-yellow"></span>
+                    <span class="dot dot-green"></span>
                 </div>
-                <div class="space-y-1">
-                    <h3 class="text-base font-bold text-slate-800">{{ __('small_footprint_title') }}</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">
-                        {{ __('small_footprint_desc') }}
-                    </p>
-                </div>
+                <span class="code-filename">app/Http/Controllers/PostController.py</span>
             </div>
+            <pre class="code-block"><code><span class="code-keyword">from</span> <span class="code-module">codepy.facades</span> <span class="code-keyword">import</span> Route, Auth
+<span class="code-keyword">from</span> <span class="code-module">codepy.orm.model</span> <span class="code-keyword">import</span> Model
 
-            <!-- Feature 2 -->
-            <div class="flex items-start space-x-4">
-                <div class="w-10 h-10 flex-shrink-0 text-orange-600 border border-orange-200 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"></path></svg>
-                </div>
-                <div class="space-y-1">
-                    <h3 class="text-base font-bold text-slate-800">{{ __('exceptional_perf_title') }}</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">
-                        {{ __('exceptional_perf_desc') }}
-                    </p>
-                </div>
-            </div>
+<span class="code-keyword">class</span> <span class="code-class">Post</span>(Model):
+    __table__ = <span class="code-string">"posts"</span>
+    fillable = [<span class="code-string">"title"</span>, <span class="code-string">"body"</span>]
 
-            <!-- Feature 3 -->
-            <div class="flex items-start space-x-4">
-                <div class="w-10 h-10 flex-shrink-0 text-orange-600 border border-orange-200 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L6 12zm0 0h7.5"></path></svg>
-                </div>
-                <div class="space-y-1">
-                    <h3 class="text-base font-bold text-slate-800">{{ __('simple_solutions_title') }}</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">
-                        {{ __('simple_solutions_desc') }}
-                    </p>
-                </div>
-            </div>
+    <span class="code-keyword">def</span> <span class="code-func">author</span>(self):
+        <span class="code-keyword">return</span> self.belongs_to(User)
 
-            <!-- Feature 4 -->
-            <div class="flex items-start space-x-4">
-                <div class="w-10 h-10 flex-shrink-0 text-orange-600 border border-orange-200 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.249-8.25-3.286z"></path></svg>
-                </div>
-                <div class="space-y-1">
-                    <h3 class="text-base font-bold text-slate-800">{{ __('strong_security_title') }}</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">
-                        {{ __('strong_security_desc') }}
-                    </p>
-                </div>
-            </div>
+<span class="code-comment"># Routes — clean, expressive, familiar</span>
+Route.resource(<span class="code-string">"posts"</span>, PostController)
+Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span class="code-string">"index"</span>])
+    .middleware(<span class="code-string">"auth"</span>)</code></pre>
         </div>
     </div>
 
-    <!-- Recent Posts Section (Forum / Discussions) -->
-    <div class="py-12 border-t border-slate-100 max-w-5xl mx-auto">
-        <div class="flex items-center justify-between mb-8">
-            <h3 class="text-xl font-bold text-slate-800 font-sans">{{ __('recent_posts') }}</h3>
-            <a href="/posts" class="text-sm font-semibold text-orange-600 hover:text-orange-700">{{ __('discuss') }} &rarr;</a>
-        </div>
-
-        @if(posts is defined and posts is not none and posts|length > 0)
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                @foreach(posts as post)
-                    <div class="bg-white p-6 rounded-xl border border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-orange-200 transition">
-                        <span class="text-[10px] text-orange-600 font-bold uppercase tracking-wider block mb-1">Forum Topic</span>
-                        <h4 class="text-base font-bold text-slate-800 hover:text-orange-600 transition mb-2">
-                            <a href="{{ route('posts.show', post=post.get_attribute('id')) }}">
-                                {{ post.get_attribute('title') }}
-                            </a>
-                        </h4>
-                        <p class="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-4">
-                            {{ post.get_attribute('body') }}
-                        </p>
-                        <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                            <span>Author: System Manager</span>
-                            <span>{{ post.get_attribute('created_at') }}</span>
+    <!-- Quick Start Section -->
+    <section class="section-quickstart" id="quickstart">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag">Get Started</span>
+                <h2 class="section-title">Up and Running in Seconds</h2>
+                <p class="section-description">
+                    From zero to a running application with migrations and seed data — just four commands.
+                </p>
+            </div>
+            <div class="quickstart-grid">
+                <div class="quickstart-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Install & Configure</h3>
+                        <div class="step-code">
+                            <code>cp .env.example .env</code>
+                            <code>python craft.py key:generate</code>
                         </div>
                     </div>
-                @endforeach
+                </div>
+                <div class="quickstart-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Migrate & Seed</h3>
+                        <div class="step-code">
+                            <code>python craft.py migrate --seed</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="quickstart-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Serve</h3>
+                        <div class="step-code">
+                            <code>python craft.py serve</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="quickstart-step">
+                    <div class="step-number">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </div>
+                    <div class="step-content">
+                        <h3>Or Use Docker</h3>
+                        <div class="step-code">
+                            <code>docker compose up -d --build</code>
+                        </div>
+                        <p class="step-note">App available at <strong>localhost:8300</strong></p>
+                    </div>
+                </div>
             </div>
-        @else
-            <div class="text-center py-8 border border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
-                No active forum discussions posted.
+        </div>
+    </section>
+
+    <!-- Why Codepy Feature Grid -->
+    <section class="section-features" id="features">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag">Why Codepy?</span>
+                <h2 class="section-title">Everything You Need, Nothing You Don't</h2>
+                <p class="section-description">
+                    A full-featured framework that respects your time. Laravel conventions adapted for Python developers who demand clarity and power.
+                </p>
             </div>
-        @endif
-    </div>
+            <div class="features-grid">
+                <!-- Feature 1 -->
+                <div class="feature-card" id="feature-orm">
+                    <div class="feature-icon feature-icon-orange">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    </div>
+                    <h3>Codepyquent ORM</h3>
+                    <p>Active Record with eager loading, relationships, soft deletes, and a fluent query builder. Think Eloquent, in Python.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="feature-card" id="feature-perf">
+                    <div class="feature-icon feature-icon-blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    </div>
+                    <h3>Exceptional Performance</h3>
+                    <p>Built on Starlette's ASGI engine. Async-ready from the ground up, with sub-millisecond middleware overhead.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="feature-card" id="feature-migrations">
+                    <div class="feature-icon feature-icon-green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    </div>
+                    <h3>Schema & Migrations</h3>
+                    <p>Fluent DDL builder with batches, rollback, and pretend mode. SQLite, PostgreSQL, and MySQL — same SQL everywhere.</p>
+                </div>
+                <!-- Feature 4 -->
+                <div class="feature-card" id="feature-auth">
+                    <div class="feature-icon feature-icon-purple">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <h3>Authentication & Authorization</h3>
+                    <p>Bcrypt passwords, session guards, CSRF protection, Gates & Policies. Deny-by-default, timing-safe comparisons.</p>
+                </div>
+                <!-- Feature 5 -->
+                <div class="feature-card" id="feature-views">
+                    <div class="feature-icon feature-icon-pink">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <h3>Forge Template Engine</h3>
+                    <p>Jinja2 powered with Blade-style directives for conditionals, loops, extends, sections, CSRF, auth guards — all familiar syntax.</p>
+                </div>
+                <!-- Feature 6 -->
+                <div class="feature-card" id="feature-cli">
+                    <div class="feature-icon feature-icon-amber">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    </div>
+                    <h3>Craft CLI</h3>
+                    <p>12 generators, migrate, seed, tinker, serve, queue work — the artisan experience for Python. craft.py does it all.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Laravel ↔ Codepy Equivalence Section -->
+    <section class="section-equivalence" id="equivalence">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag">Laravel Developers</span>
+                <h2 class="section-title">You Already Know This</h2>
+                <p class="section-description">
+                    Every concept maps directly. If you've built with Laravel, you'll feel at home from the first line.
+                </p>
+            </div>
+            <div class="equivalence-table-wrapper">
+                <table class="equivalence-table" id="equivalence-table">
+                    <thead>
+                        <tr>
+                            <th>Laravel (PHP)</th>
+                            <th></th>
+                            <th>Codepy (Python)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>artisan</code></td><td class="arrow-cell">→</td><td><code>craft.py</code></td></tr>
+                        <tr><td><code>Eloquent</code></td><td class="arrow-cell">→</td><td><code>Codepyquent</code></td></tr>
+                        <tr><td><code>Blade</code></td><td class="arrow-cell">→</td><td><code>Forge</code> (Jinja2 + Blade)</td></tr>
+                        <tr><td><code>Illuminate\Container</code></td><td class="arrow-cell">→</td><td><code>services/container</code></td></tr>
+                        <tr><td><code>Facades</code></td><td class="arrow-cell">→</td><td><code>codepy.facades</code></td></tr>
+                        <tr><td><code>FormRequest</code></td><td class="arrow-cell">→</td><td><code>codepy.validation.FormRequest</code></td></tr>
+                        <tr><td><code>Gate / Policies</code></td><td class="arrow-cell">→</td><td><code>codepy.auth</code></td></tr>
+                        <tr><td><code>Migrations / Schema</code></td><td class="arrow-cell">→</td><td><code>codepy.migrations</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Cards Section (CodeIgniter-style action cards) -->
+    <section class="section-cards" id="resources">
+        <div class="section-container">
+            <div class="cards-grid">
+                <a href="/docs/installation" class="action-card" id="card-download">
+                    <div class="card-icon-wrapper card-icon-orange">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <h3>Download & Install</h3>
+                    <p>Get the latest release and start building immediately.</p>
+                </a>
+                <a href="/docs" class="action-card" id="card-docs">
+                    <div class="card-icon-wrapper card-icon-blue">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                    </div>
+                    <h3>Clear Documentation</h3>
+                    <p>Comprehensive guides covering every feature of the framework.</p>
+                </a>
+                <a href="/posts" class="action-card" id="card-community">
+                    <div class="card-icon-wrapper card-icon-green">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+                    <h3>Get Support & Discuss</h3>
+                    <p>Join the community forum and share your experience.</p>
+                </a>
+                <a href="/docs/testing" class="action-card" id="card-contribute">
+                    <div class="card-icon-wrapper card-icon-purple">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </div>
+                    <h3>Tested on Every Target</h3>
+                    <p>530 tests across SQLite, PostgreSQL and the minimum Python version.</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Community / Recent Discussions -->
+    <section class="section-community" id="community">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag">Community</span>
+                <h2 class="section-title">{{ __('recent_posts') }}</h2>
+            </div>
+            @if(posts is defined and posts is not none and posts|length > 0)
+                <div class="discussions-grid">
+                    @foreach(posts as post)
+                        {# The route is /posts/{id}, so the parameter must be `id` —
+                           passing `post` left the placeholder unsubstituted. #}
+                        <a href="{{ route('posts.show', id=post.get_attribute('id')) }}" class="discussion-item">
+                            <div class="discussion-meta">
+                                <span class="discussion-tag">Forum</span>
+                                <span class="discussion-date">{{ (post.get_attribute('created_at') or '')|string|truncate(10, true, '') }}</span>
+                            </div>
+                            <h4 class="discussion-title">{{ post.get_attribute('title') }}</h4>
+                            <p class="discussion-excerpt">{{ post.get_attribute('body') }}</p>
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                <div class="discussions-empty">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <p>No active discussions yet. <a href="/posts/create">Start one →</a></p>
+                </div>
+            @endif
+        </div>
+    </section>
 @endsection

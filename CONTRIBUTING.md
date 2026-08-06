@@ -107,21 +107,22 @@ checkout, the test proved nothing.
 
 ## Reporting a bug
 
-Open an issue with:
+This project is developed locally and is not published. Report problems to
+**snarthost@gmail.com** with:
 
 - what you expected and what happened instead
 - the database driver and Python version
 - the smallest snippet that reproduces it
 
-For security issues, do **not** open a public issue — see [SECURITY.md](SECURITY.md).
+For security issues, see [SECURITY.md](SECURITY.md).
 
-## Pull requests
+## Landing a change
 
-1. Branch from `main`.
+1. Branch from `master`.
 2. Make the change, with tests.
 3. Run the suite on all three targets.
 4. Update `CHANGELOG.md` under "Não lançado".
-5. Open the PR describing what changed and why.
+5. Merge, with a commit message describing what changed and why.
 
 ## Licence
 

@@ -79,14 +79,15 @@ from codepy.http.kernel import Kernel
 from app.Http.Middleware.DatabaseLoggingMiddleware import DatabaseLoggingMiddleware
 from app.Http.Middleware.TenantMiddleware import TenantMiddleware
 
-from codepy.http.middleware import Authenticate, StartSession, VerifyCsrfToken
+from codepy.http.middleware import Authenticate, SetLocale, StartSession, VerifyCsrfToken
 
 kernel = Kernel(app)
 
-# Order matters: the session must exist before CSRF verification and before the
-# authenticated user can be resolved from it.
+# Order matters: the session must exist before the locale can be remembered in
+# it, before CSRF verification, and before the user is resolved from it.
 kernel.with_middleware(
     StartSession,
+    SetLocale,
     VerifyCsrfToken,
     Authenticate,
     DatabaseLoggingMiddleware,

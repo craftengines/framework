@@ -4,11 +4,13 @@
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import inspect
+import os
 from typing import Any, List, Optional
 from starlette.applications import Starlette
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse, HTMLResponse, JSONResponse, RedirectResponse
-from starlette.routing import Route as StarletteRoute
+from starlette.routing import Route as StarletteRoute, Mount
+from starlette.staticfiles import StaticFiles
 
 
 class DynamicStarletteApp:
@@ -92,6 +94,13 @@ class Kernel:
             endpoint = self._create_endpoint(r.action, r._module, r.middleware_list)
             for m in r.methods:
                 routes.append(StarletteRoute(r.uri, endpoint=endpoint, methods=[m]))
+
+        # Serve static files (CSS, JS, images) from the public/ directory.
+        public_dir = os.path.join(self.app.base_path, "public")
+        if os.path.isdir(public_dir):
+            routes.append(
+                Mount("/", app=StaticFiles(directory=public_dir), name="static")
+            )
 
         # Never hardcode debug — it leaks stack traces to clients in production.
         try:
