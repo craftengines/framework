@@ -61,11 +61,20 @@ class StartSession(Middleware):
             return default
 
     def handle(self, request: Any, next_callable: Callable) -> Any:
+        from services.http.session import current_session
+
         store = self.store()
         cookie_name = self._config("session.cookie", self.COOKIE_NAME)
 
-        request.state.session = store.load(request.cookies.get(cookie_name))
-        response = next_callable(request)
+        session = store.load(request.cookies.get(cookie_name))
+        request.state.session = session
+        # Publish it so view helpers (`@csrf`) can reach it without the request.
+        token = current_session.set(session)
+
+        try:
+            response = next_callable(request)
+        finally:
+            current_session.reset(token)
 
         value = store.save(request.state.session)
         starlette_response = _as_starlette(response)

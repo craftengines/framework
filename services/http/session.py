@@ -20,7 +20,17 @@ import json
 import os
 import secrets
 import time
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
+
+#: The session for the request being handled, set by the StartSession
+#: middleware. Lets view helpers such as `csrf_field()` reach it without every
+#: caller threading the request through.
+current_session: ContextVar[Optional["Session"]] = ContextVar("current_session", default=None)
+
+
+def get_current_session() -> Optional["Session"]:
+    return current_session.get()
 
 #: Keys used internally to carry flash data across exactly one request.
 _FLASH_NEW = "__flash_new"
@@ -341,4 +351,6 @@ __all__ = [
     "make_store",
     "sign",
     "verify",
+    "current_session",
+    "get_current_session",
 ]

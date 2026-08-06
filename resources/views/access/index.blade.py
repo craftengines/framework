@@ -10,6 +10,7 @@
     </div>
 
     <form method="POST" action="/access/save" class="space-y-4">
+        @csrf
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
             <table class="w-full text-left text-sm text-slate-600">
                 <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase font-semibold text-slate-500">

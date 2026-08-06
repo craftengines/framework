@@ -103,25 +103,61 @@ if not Gate.check("update", user, post):
 
 ---
 
-## Post-Quantum Cryptography (PQC) Signatures
+## Sessions and CSRF
 
-To guard sessions against post-quantum decrypt-and-harvest attacks, Codepy supports Post-Quantum Cryptography session cookie signatures via a hybrid Winternitz signature scheme.
+Sessions are signed with **HMAC-SHA256** using `APP_KEY`. A cookie that was
+tampered with, or signed with a different key, is rejected rather than trusted.
 
-The framework automatically hashes and signs cookie payloads utilizing `pqc` facades when session serialization occurs, ensuring cookies cannot be read or manipulated under standard or post-quantum compute environments.
+> **Signed is not encrypted.** With `SESSION_DRIVER=cookie` the payload is
+> base64-encoded JSON in the cookie — the client cannot *change* it, but can
+> *read* it. Do not put secrets in the session under that driver. Use
+> `SESSION_DRIVER=file`, which keeps the payload on the server and puts only a
+> signed id in the cookie.
+
+CSRF is verified on POST/PUT/PATCH/DELETE, via the `_token` field or the
+`X-CSRF-TOKEN` header. Routes matching `api/*` are exempt. A mismatch returns
+**419**.
+
+```html
+<form method="POST" action="/posts">
+    @csrf
+    <input name="title">
+</form>
+```
+
+## Post-Quantum Cryptography (PQC)
+
+Codepy ships a hybrid Winternitz (WOTS) signature utility for signing tokens
+where post-quantum resistance matters:
+
+```python
+from codepy.facades import PQC
+
+token = PQC.sign_token(payload, secret_key, seed)
+PQC.verify_token(token, secret_key, public_key)
+```
+
+It is a standalone utility — **session cookies use HMAC-SHA256, not WOTS**. Wire
+PQC in explicitly where you need it.
 
 ---
 
 ## Captcha Integration
 
-Inject security challenge-response captures using the Captcha plugin:
+A short alphanumeric challenge held in the session. Both calls take the request —
+the code lives in the session, not in a token you pass around.
 
 ```python
 from codepy.facades import Captcha
 
-# Generate a captcha validation image/token layout
-captcha_data = Captcha.generate()
+# In the GET handler: generate and render the challenge
+code = Captcha.generate(request)
+html = Captcha.get_obfuscated_html(code)
 
-# Validate the user's captcha text input
-if not Captcha.validate(user_input_text, original_token):
+# In the POST handler: validate what the user typed
+if not Captcha.validate(request, request.input("captcha")):
     return response("Invalid Captcha Challenge", status=400)
 ```
+
+The stored code is cleared on every validation attempt, whether or not it
+succeeded — a captcha is single-use, otherwise one challenge can be brute-forced.

@@ -8,15 +8,16 @@ class Controller:
     """Base Controller providing helper methods for views, responses, and authorization."""
 
     def view(self, template_name: str, data: Optional[Dict[str, Any]] = None) -> Response:
+        """Render a template.
+
+        Errors propagate to the exception handler. Swallowing them here — as
+        this used to — turned a broken template into a page that looked fine,
+        which is far harder to debug than a 500.
+        """
         from services.container.application import Container
-        app = Container.getInstance()
-        try:
-            forge = app.make("view")
-            html = forge.render(template_name, data or {})
-            return Response(html)
-        except Exception:
-            # Fallback inline view render if view engine is not yet booted
-            return Response(f"View [{template_name}] rendered")
+
+        forge = Container.getInstance().make("view")
+        return Response(forge.render(template_name, data or {}))
 
     def json(self, data: Any, status: int = 200) -> JsonResponse:
         return JsonResponse(data, status=status)
