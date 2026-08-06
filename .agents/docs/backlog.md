@@ -3,9 +3,10 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (equivalente ao `laravel/laravel`), não uma aplicação de negócio.
 >
-> Estado: **410/410 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> Estado: **439/439 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
-> App real validado em `http://localhost:8300`.
+> App real validado em `http://localhost:8300`, incluindo o fluxo de login com
+> CSRF e captcha.
 
 ## Como rodar
 
@@ -85,6 +86,16 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
   `secrets.compare_digest` e limpa o código sempre (single-use).
 - `FormRequest.validated()` **não validava nada** — devolvia o corpo cru, ignorando
   `rules()` e `authorize()`. Toda regra declarada era silenciosamente ignorada.
+- **O motor de views nunca renderizou um layout.** O Forge não tinha nenhuma
+  diretiva Blade (apesar da docstring e da documentação prometerem `@csrf`/`@auth`)
+  e engolia toda exceção devolvendo `<div>Rendered view: x</div>`. Como
+  `@extends("layouts.app")` entregava a notação de ponto crua ao Jinja, as 12 views
+  que estendem um layout falhavam em silêncio, com HTTP 200. O `Controller.view()`
+  tinha o mesmo fallback, mascarando o erro por baixo.
+- `documentation/security.md` afirmava que os cookies de sessão eram assinados com
+  criptografia **pós-quântica** e que "não podem ser lidos". Os dois falsos: a
+  assinatura é HMAC-SHA256, e no driver de cookie o payload é JSON legível pelo
+  cliente (assinado, não criptografado). Corrigido com aviso explícito.
 - `GateManager.allows()` retornava `True` para qualquer ability desconhecida —
   **falha aberta**. Agora nega por padrão e resolve policies.
 - **Middleware por rota era decorativo**: `.middleware("auth")` era ignorado pelo
@@ -159,9 +170,17 @@ fluxo de recuperação de senha nem verificação de e-mail.
 ### 3. Camada HTTP restante
 
 - `services/http/router.py` e `kernel.py` ainda sem testes diretos (são exercitados
-  indiretamente por `test_http_middleware` e `test_framework`).
-- `Resource`/`Controller` são casca fina; sem testes.
+  indiretamente por `test_http_middleware`, `test_view` e `test_framework`).
+- `Resource` é casca fina; sem testes.
 - Sem rate limiting.
+- Sem `_old_input`: o helper `old()` da view existe, mas nada popula a sessão com
+  os dados do formulário após uma validação falhar.
+
+### 3b. Criptografia de sessão
+
+O driver `cookie` assina mas **não criptografa** — o payload é legível pelo
+cliente. O Laravel criptografa. Hoje a orientação é usar `SESSION_DRIVER=file`
+para dados sensíveis; adicionar cifra ao driver de cookie fecharia a lacuna.
 
 ### 4. Filas
 
