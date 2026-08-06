@@ -1,0 +1,15 @@
+"""Authenticate middleware — redirects unauthenticated users."""
+
+from codepy.http.middleware import Middleware
+from codepy.facades import Auth
+from codepy.http.response import redirect
+
+
+class Authenticate(Middleware):
+    def handle(self, request, next):
+        if not Auth.check():
+            if request.expects_json():
+                from codepy.http.response import JsonResponse
+                return JsonResponse({"message": "Unauthenticated."}, status=401)
+            return redirect(route="login")
+        return next(request)

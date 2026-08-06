@@ -1,0 +1,37 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Storage — the directories are tracked, their contents are not
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/app/*
+!storage/**/.gitkeep
+*.sqlite
+*.sqlite3
+
+# Scratch space
+scratch/
+*.log
+
+# Agent harness state
+.claude/
+
+# Node
+node_modules/

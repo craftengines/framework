@@ -1,0 +1,541 @@
+import pytest
+from starlette.testclient import TestClient
+from bootstrap.app import app, asgi_app
+from codepy.facades import Route, DB, Config, Queue
+from app.Models.User import User
+from app.Models.Post import Post
+from codepy.queue import Job
+
+# Global variable to test job execution
+JOB_EXECUTED_VAL = None
+
+class TestJob(Job):
+    def __init__(self, val=None):
+        self.val = val
+
+    def handle(self):
+        global JOB_EXECUTED_VAL
+        JOB_EXECUTED_VAL = self.val
+
+def test_container_singleton():
+    app.singleton("test.service", lambda c: object())
+    inst1 = app.make("test.service")
+    inst2 = app.make("test.service")
+    assert inst1 is inst2
+
+def test_config_repository():
+    config = app.make("config")
+    assert config.get("app.name", "Codepy") == "Codepy"
+
+def test_validation():
+    from codepy.validation.validator import Validator
+    
+    rules = {
+        "name": ["required", "string"],
+        "age": ["required", "integer"]
+    }
+    
+    # Valid data
+    data1 = {"name": "Alice", "age": 30}
+    validator1 = Validator(data1, rules)
+    assert validator1.passes() is True
+    
+    # Invalid data
+    data2 = {"name": "Bob", "age": "not-an-integer"}
+    validator2 = Validator(data2, rules)
+    assert validator2.passes() is False
+    assert "age" in validator2.errors
+
+def test_activerecord_and_relations():
+    # Clean up previous records if any (sqlite in-memory or storage)
+    DB.statement("DELETE FROM posts")
+    DB.statement("DELETE FROM users")
+
+    # 1. Create a user
+    user = User.create({
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "password": "secret_password",
+        "is_admin": False
+    })
+    assert user.get_attribute("id") is not None
+    assert user.get_attribute("name") == "Jane Doe"
+
+    # 2. Create posts for user
+    post1 = Post.create({
+        "title": "First Title",
+        "body": "This is the post body content",
+        "user_id": user.get_attribute("id"),
+        "published": True
+    })
+    post2 = Post.create({
+        "title": "Second Title",
+        "body": "Short text",
+        "user_id": user.get_attribute("id"),
+        "published": False
+    })
+
+    # 3. Test HasMany Relationship
+    user_posts = user.posts().get()
+    assert len(user_posts) == 2
+    assert any(p.get_attribute("title") == "First Title" for p in user_posts)
+
+    # 4. Test BelongsTo Relationship
+    author = post1.user().first()
+    assert author is not None
+    assert author.get_attribute("email") == "jane@example.com"
+
+    # 5. Test ORM Scopes
+    published_posts = Post.query().scope("published").get()
+    assert len(published_posts) == 1
+    assert published_posts[0].get_attribute("title") == "First Title"
+
+def test_http_api_routes():
+    client = TestClient(asgi_app)
+    
+    # Test Dashboard View
+    response = client.get("/")
+    assert response.status_code == 200
+
+    # Test Home View
+    response = client.get("/home")
+    assert response.status_code == 200
+    assert "Recent Posts" in response.text
+
+    # Test Login view
+    response = client.get("/login")
+    assert response.status_code == 200
+
+    # Test API JSON endpoints
+    response = client.get("/api/v1/posts", headers={"Accept": "application/json"})
+    assert response.status_code == 200
+    assert "application/json" in response.headers.get("content-type", "")
+
+def test_queue_json_serialization():
+    global JOB_EXECUTED_VAL
+    JOB_EXECUTED_VAL = None
+
+    # Clear jobs table
+    DB.statement("DELETE FROM jobs")
+
+    # Set queue driver config to database dynamically
+    config = app.make("config")
+    original_driver = config.get("queue.connections.default.driver")
+    config.set("queue.connections.default.driver", "database")
+
+    try:
+        # Push job to database queue
+        job = TestJob(999)
+        Queue.push(job)
+
+        # Check that it is inserted in the jobs database table
+        result = DB.statement("SELECT * FROM jobs")
+        rows = result.fetchall()
+        assert len(rows) == 1
+        
+        # Verify it has JSON payload (non-pickle)
+        payload = rows[0].payload
+        assert "job_class" in payload
+        assert "TestJob" in payload
+        assert "999" in payload  # checks val: 999 is stored
+
+        # Run queue worker to process the job
+        queue_mgr = app.make("queue")
+        processed = queue_mgr.work("default")
+        assert processed is True
+
+        # Verify job was executed
+        assert JOB_EXECUTED_VAL == 999
+
+        # Verify job was deleted after execution
+        result_after = DB.statement("SELECT COUNT(*) FROM jobs")
+        assert result_after.fetchone()[0] == 0
+
+    finally:
+        # Restore original driver config
+        config.set("queue.connections.default.driver", original_driver)
+
+
+def test_ai_native_subsystems():
+    from codepy.support import __
+    from codepy.facades import Config, DB, Route
+    
+    # Drop existing tables to avoid test contamination from global seeders
+    DB.statement("DROP TABLE IF EXISTS translations")
+    DB.statement("DROP TABLE IF EXISTS modules")
+
+    # 1. Test Bilingual dynamic DB and config translations
+    assert __("greeting") == "greeting"
+    
+    Config.set("lang.pt.greeting", "Ola")
+    assert __("greeting", "pt") == "Ola"
+
+    # Create dummy translations table
+    DB.statement("CREATE TABLE translations (key text, locale text, value text)")
+    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'en', 'Welcome to Codepy')")
+    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'es', 'Bienvenido a Codepy')")
+
+    assert __("welcome", "en") == "Welcome to Codepy"
+    assert __("welcome", "es") == "Bienvenido a Codepy"
+
+    # 2. Test Dynamic Start/Stop Modules Routing
+    # Register a new route dynamically under a module
+    Route.get("/test-dynamic-module", lambda: "active").module("inventory")
+
+    client = TestClient(asgi_app)
+
+    # By default, modules.inventory.enabled defaults to True (config check fallback)
+    response = client.get("/test-dynamic-module")
+    assert response.status_code == 200
+    assert response.text == "active"
+
+    # Disable module via config
+    Config.set("modules.inventory.enabled", False)
+    response = client.get("/test-dynamic-module")
+    assert response.status_code == 404
+
+    # Re-enable module via config
+    Config.set("modules.inventory.enabled", True)
+    response = client.get("/test-dynamic-module")
+    assert response.status_code == 200
+
+    # Create modules table to test DB-driven start/stop
+    DB.statement("DROP TABLE IF EXISTS modules")
+    DB.statement("CREATE TABLE modules (slug text, enabled integer)")
+    DB.statement("INSERT INTO modules (slug, enabled) VALUES ('inventory', 0)")
+
+    # Disabled in DB
+    response = client.get("/test-dynamic-module")
+    assert response.status_code == 404
+
+    # Enabled in DB
+    DB.statement("UPDATE modules SET enabled = 1 WHERE slug = 'inventory'")
+    response = client.get("/test-dynamic-module")
+    assert response.status_code == 200
+    assert response.text == "active"
+
+
+def test_rbac_relationships_and_permissions():
+    from app.Models.User import User
+    from app.Models.Role import Role
+    from app.Models.Permission import Permission
+    from codepy.facades import DB
+
+    # Clean tables
+    DB.statement("DELETE FROM permission_role")
+    DB.statement("DELETE FROM role_user")
+    DB.statement("DELETE FROM permissions")
+    DB.statement("DELETE FROM roles")
+    DB.statement("DELETE FROM users")
+
+    # Create admin user
+    user = User.create({
+        "name": "Super User",
+        "email": "superuser@example.com",
+        "password": "secret_password",
+        "is_admin": False
+    })
+
+    # Create role
+    admin_role = Role.create({
+        "name": "Administrator",
+        "slug": "admin"
+    })
+
+    # Create permission
+    manage_users = Permission.create({
+        "name": "Manage Users",
+        "slug": "manage-users"
+    })
+
+    # Associate role to user
+    DB.statement(
+        "INSERT INTO role_user (user_id, role_id) VALUES (:user, :role)",
+        {"user": user.get_attribute("id"), "role": admin_role.get_attribute("id")}
+    )
+
+    # Associate permission to role
+    DB.statement(
+        "INSERT INTO permission_role (role_id, permission_id) VALUES (:role, :perm)",
+        {"role": admin_role.get_attribute("id"), "perm": manage_users.get_attribute("id")}
+    )
+
+    # Verify relationships
+    user_roles = user.roles().get()
+    assert user_roles.count() == 1
+    assert user_roles.first().get_attribute("slug") == "admin"
+
+    role_perms = user_roles.first().permissions().get()
+    assert role_perms.count() == 1
+    assert role_perms.first().get_attribute("slug") == "manage-users"
+
+    # Verify user has permission check
+    assert user.has_permission("manage-users") is True
+    assert user.has_permission("non-existing-permission") is False
+
+
+def test_post_quantum_security():
+    from codepy.facades import PQC
+    from codepy.security.pqc import WOTS
+    import secrets
+
+    # 1. Test WOTS post-quantum signature verification
+    seed = secrets.token_bytes(32)
+    wots = WOTS(seed)
+    pub_key = wots.get_public_key()
+
+    message = b"Securing critical system transaction data"
+    signature = wots.sign(message)
+
+    # Valid signature checks out
+    assert WOTS.verify(message, signature, pub_key) is True
+
+    # Modified message fails validation
+    assert WOTS.verify(b"tampered", signature, pub_key) is False
+
+    # 2. Test Facade Hybrid classic + PQC token signatures
+    secret_key = "classical_super_secret"
+    payload = '{"user_id":123,"role":"admin"}'
+
+    # Sign a hybrid token (Classical HMAC + WOTS post-quantum hash-based)
+    token = PQC.sign_token(payload, secret_key, seed)
+
+    # Valid token passes verification
+    assert PQC.verify_token(token, secret_key, pub_key) is True
+
+    # Tampering with payload fails validation
+    parts = token.split(".")
+    tampered_token = f'{parts[0] + "extra"}.{parts[1]}.{parts[2]}'
+    assert PQC.verify_token(tampered_token, secret_key, pub_key) is False
+
+    # Tampering with classical signature fails validation
+    tampered_classic = f'{parts[0]}.wrong_signature.{parts[2]}'
+    assert PQC.verify_token(tampered_classic, secret_key, pub_key) is False
+
+    # Tampering with post-quantum signature fails validation
+    tampered_pqc = f'{parts[0]}.{parts[1]}.{"f" * len(parts[2])}'
+    assert PQC.verify_token(tampered_pqc, secret_key, pub_key) is False
+
+
+def test_captcha_security():
+    from codepy.facades import Captcha
+    from codepy.security.captcha import Captcha as CaptchaClass
+
+    # Mock Session and Request to test generation and validation isolation
+    class MockSession(dict):
+        def put(self, key, value):
+            self[key] = value
+        def forget(self, key):
+            if key in self:
+                del self[key]
+
+    class MockRequest:
+        def __init__(self):
+            self._session = MockSession()
+        def session(self):
+            return self._session
+
+    request = MockRequest()
+
+    # Generate CAPTCHA
+    code = Captcha.generate(request)
+    assert len(code) == 5
+    assert request.session().get("captcha_code") == code
+
+    # Test obfuscation HTML outputs stylized tags
+    html = CaptchaClass.get_obfuscated_html(code)
+    assert "span" in html
+    assert code[0] in html
+
+    # Valid validation resolves to true and clears key to prevent reuse
+    assert Captcha.validate(request, code) is True
+    assert request.session().get("captcha_code") is None
+
+    # Invalid input is rejected
+    code2 = Captcha.generate(request)
+    assert Captcha.validate(request, "WRONG") is False
+    assert request.session().get("captcha_code") is None  # cleared on validation attempt
+
+
+def test_admin_dashboard_access():
+    from codepy.facades import Auth
+    Auth.logout()
+    
+    client = TestClient(asgi_app)
+    response = client.get("/admin", follow_redirects=False)
+    
+    assert response.status_code == 302
+    assert "/login" in response.headers.get("location", "")
+
+
+def test_tenant_service_autowired_injection():
+    from app.Services.Tenant.TenantService import TenantService
+    
+    # Resolve service directly from the container via autowiring
+    service = app.make(TenantService)
+    
+    assert isinstance(service, TenantService)
+    assert len(service.get_active_tenants()) == 3
+    assert service.get_active_tenants()[0]["name"] == "Acme Global Corporation"
+
+
+def test_database_logging_middleware():
+    from app.Models.SystemLog import SystemLog
+    
+    # 1. Clean existing logs
+    SystemLog.query().delete()
+    
+    # 2. Make an HTTP request to populate a connection log
+    client = TestClient(asgi_app)
+    response = client.get("/")
+    assert response.status_code == 200
+    
+    # 3. Retrieve system logs and verify a connection entry exists
+    logs = SystemLog.query().get()
+    assert len(logs) >= 1
+    assert "Connection established" in logs[0].get_attribute("message")
+    assert "GET" in logs[0].get_attribute("message")
+    assert "/" in logs[0].get_attribute("message")
+
+
+def test_query_splitting_read_write_replicas():
+    import os
+    from codepy.orm.db import DatabaseManager
+    from app.Models.User import User
+
+    # 1. Setup temporary sqlite files
+    write_db = "storage/test_write.sqlite"
+    read_db = "storage/test_read.sqlite"
+
+    # Clean up any leftover files
+    for db_file in [write_db, read_db]:
+        if os.path.exists(db_file):
+            try:
+                os.remove(db_file)
+            except Exception:
+                pass
+
+    config = app.make("config")
+    
+    # Save original database connection config
+    orig_default = config.get("database.default")
+    
+    # Configure test connection
+    config.set("database.connections.test_split", {
+        "driver": "sqlite",
+        "write": {
+            "database": write_db,
+        },
+        "read": {
+            "database": read_db,
+        }
+    })
+    
+    config.set("database.default", "test_split")
+
+    # Instantiate and boot a custom DatabaseManager
+    db_mgr = DatabaseManager(app)
+    db_mgr.boot()
+
+    # Create users table in both databases
+    create_sql = """
+    CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        email TEXT,
+        password TEXT,
+        is_admin BOOLEAN,
+        created_at TEXT,
+        updated_at TEXT
+    )
+    """
+    db_mgr.statement(create_sql, read=False) # write db
+    db_mgr.statement(create_sql, read=True)  # read db
+
+    # Swap the container's "db" resolution and DB facade cache to our db_mgr
+    orig_db = app.make("db")
+    app.instance("db", db_mgr)
+    DB._swap(db_mgr)
+
+    try:
+        # Create a user via Active Record (routes to write db)
+        user = User.create({
+            "name": "Replica Test User",
+            "email": "replica@example.com",
+            "password": "secretpassword",
+            "is_admin": False
+        })
+        
+        # Verify it was written successfully
+        assert user.get_attribute("id") is not None
+        
+        # Verify read operations (via QueryBuilder or User.query().get()) route to read replica (which is empty)
+        read_users = User.query().get()
+        assert len(read_users) == 0
+        
+        # Verify read operations (via User.find(id)) route to read replica (returns None)
+        assert User.find(user.get_attribute("id")) is None
+        
+        # Insert same user record explicitly into read db to verify the model does find it if present
+        # Using raw statement with read=True to seed the read DB
+        db_mgr.statement(
+            "INSERT INTO users (id, name, email, password, is_admin) VALUES (:id, :name, :email, :password, :is_admin)",
+            {
+                "id": user.get_attribute("id"),
+                "name": "Replica Test User",
+                "email": "replica@example.com",
+                "password": "secretpassword",
+                "is_admin": False
+            },
+            read=True
+        )
+        
+        # Now querying read database should return the user
+        read_users_after = User.query().get()
+        assert len(read_users_after) == 1
+        assert read_users_after[0].get_attribute("name") == "Replica Test User"
+        
+        # Querying by find should now return the user from read db
+        found_user = User.find(user.get_attribute("id"))
+        assert found_user is not None
+        assert found_user.get_attribute("name") == "Replica Test User"
+        
+    finally:
+        # Restore app container, facade cache, and config
+        app.instance("db", orig_db)
+        DB._clear_resolved()
+        config.set("database.default", orig_default)
+        # Clean up database files
+        for db_file in [write_db, read_db]:
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                except Exception:
+                    pass
+
+
+def test_framework_subsystems_modules_plugins_settings():
+    from codepy.facades import Module, Plugin, Setting
+
+    # 1. Test ModuleManager
+    Module.register("billing", "Billing Module", "Manages payments and invoices", "2.0.0")
+    assert Module.is_enabled("billing") is True
+    Module.disable("billing")
+    assert Module.is_enabled("billing") is False
+    Module.enable("billing")
+    assert Module.is_enabled("billing") is True
+
+    # 2. Test PluginManager
+    hook_triggered = []
+    Plugin.register("stripe_gateway", {"version": "1.5"})
+    assert Plugin.is_active("stripe_gateway") is True
+    Plugin.add_hook("payment_processed", lambda amount: hook_triggered.append(amount))
+    Plugin.trigger_hook("payment_processed", 150.00)
+    assert hook_triggered == [150.00]
+
+    # 3. Test SettingManager
+    assert Setting.get("FRAMEWORK_NAME", "Codepy") == "Codepy"
+    Setting.set("site_title", "My Codepy Application")
+    assert Setting.get("site_title") == "My Codepy Application"
+
+

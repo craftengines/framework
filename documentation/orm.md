@@ -1,0 +1,158 @@
+# Codepyquent ORM (Active Record)
+
+Codepyquent is an Active Record ORM built specifically for the Python ecosystem. It provides an Eloquent-like experience by combining simple class-based model definitions with the efficiency of SQLAlchemy 2.0 Core.
+
+---
+
+## Defining Models
+
+All database models inherit from `codepy.orm.Model`. By default, the database table name is inferred as the lowercase, snake_case plural version of the model class name:
+
+```python
+from codepy.orm import Model
+
+class Post(Model):
+    # Set list of attributes allowed to be set in bulk via create() or fill()
+    fillable = ["title", "body", "user_id", "published"]
+
+    # Cast database values automatically when read or saved
+    casts = {
+        "published": "boolean",
+        "user_id": "string",
+    }
+```
+
+---
+
+## CRUD Operations
+
+### Create
+```python
+post = Post.create({
+    "title": "Clean Code in Python",
+    "body": "Keep code modular and robust.",
+    "user_id": "user-uuid",
+    "published": True
+})
+```
+
+### Read
+```python
+# Find a model by its primary key (ID)
+post = await Post.find("some-uuid")
+
+# Find a model or raise a ModelNotFoundException (resulting in a 404 response)
+post = await Post.find_or_fail("some-uuid")
+```
+
+### Update
+```python
+# Update attributes and save to the database
+post.fillable_attributes({"title": "Updated Title"})
+post.save()
+
+# Or update directly
+post.update({"title": "Updated Title"})
+```
+
+### Delete
+```python
+post.delete()
+```
+
+---
+
+## Querying & Filtering
+
+Use `Model.query()` to get a fluent, chainable `QueryBuilder` instance:
+
+```python
+# Chain where filters, sorting, and pagination
+posts = (
+    Post.query()
+    .where("published", True)
+    .where_in("user_id", ["uuid-1", "uuid-2"])
+    .order_by_desc("created_at")
+    .limit(10)
+    .get()  # returns a Collection of Post models
+)
+```
+
+Available terminal methods:
+- `.get()`: Returns a `Collection` containing all matching model instances.
+- `.first()`: Returns the first matching model instance or `None`.
+- `.count()`: Returns the integer count of matching records.
+- `.paginate(per_page=15)`: Returns a pagination object containing the current subset of results and pagination metadata.
+
+---
+
+## Relationships
+
+Relationships are defined as methods returning relationship proxies. To keep execution non-blocking, always access relationships asynchronously.
+
+### One-to-Many (`has_many` / `belongs_to`)
+
+#### User Model:
+```python
+class User(Model):
+    fillable = ["name", "email", "password"]
+
+    def posts(self):
+        return self.has_many(Post)
+```
+
+#### Post Model:
+```python
+class Post(Model):
+    fillable = ["title", "body", "user_id"]
+
+    def user(self):
+        return self.belongs_to(User)
+```
+
+#### Accessing relationships:
+```python
+user = await User.find("user-uuid")
+# Use get() on the proxy to retrieve posts
+posts = await user.posts().get()
+
+post = await Post.find("post-uuid")
+# Resolves the parent User model directly
+author = await post.user()
+```
+
+---
+
+## Read/Write Database Replicas
+
+Codepyquent has built-in query splitting support. It automatically handles replica routing dynamically:
+- **Write connection (`read=False`)**: Used for mass write executions (`insert`, `update`, `delete`), migrations, and direct database execution statements.
+- **Read connection (`read=True`)**: Used automatically by the query builder for selecting data (`SELECT` queries, `get()`, `first()`, `count()`, `paginate()`, and `Model.find()`).
+This routes heavy data-reading traffic to read-only replicas without requiring manual connection management from the application code.
+
+---
+
+## Multi-Tenant Database Schema Isolation
+
+For multi-tenant SaaS environments, Codepyquent supports physical database schema-based isolation out-of-the-box in PostgreSQL.
+
+### Architecture
+1. **Dynamic search_path Switch**: Every time a database connection is checked out of the SQLAlchemy pool, the framework automatically intercepts the connection and runs `SET search_path TO "{tenant_schema}", public;`.
+2. **On-the-Fly Schema Creation**: When a tenant is resolved, the framework checks if their schema exists. If it does not, it creates the schema and runs all framework migrations inside it automatically.
+3. **User Replication**: To ensure that foreign key constraints on transactional tables (like `posts` referencing `users`) work correctly, the framework replicates the tenant's global user details into the isolated schema's `users` table upon creation.
+
+### How it works
+The dynamic schema isolation is automatically handled by the `TenantMiddleware`. You can also switch schemas manually from code:
+
+```python
+from codepy.facades import DB
+
+# Set the active tenant schema
+DB.set_tenant_schema("tenant_cc751989_2bc1_4bcb_ae17_bc46adc5d5f7")
+
+# Ensure the schema is created and fully migrated
+DB.ensure_tenant_schema("tenant_cc751989_2bc1_4bcb_ae17_bc46adc5d5f7", tenant_user_model)
+
+# Clear/disable tenant isolation and fallback to public schema
+DB.set_tenant_schema(None)
+```

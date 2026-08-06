@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codepy"
+version = "0.1.0"
+description = "Codepy — A Python FastAPI framework inspired by Laravel"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "starlette>=0.27.0",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1",
+    "typer>=0.9",
+    # Starlette needs this to parse multipart/form-data.
+    "python-multipart>=0.0.6",
+    # passlib's bcrypt backend reads `bcrypt.__about__`, which 4.1 removed. Pin
+    # below it, or passlib raises on first use and Hash falls back to PBKDF2.
+    "passlib>=1.7",
+    "bcrypt>=4.0,<4.1",
+    "faker>=20.0",
+    "psycopg2-binary>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "httpx>=0.25",
+]
+mysql = ["pymysql>=1.1"]
+redis = ["redis>=5.0"]
+
+[project.scripts]
+craft = "services.cli.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["services*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

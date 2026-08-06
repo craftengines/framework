@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codepy — A Python FastAPI Framework Inspired by Laravel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --bg-2: #11141b;
+      --surface: #161a23;
+      --surface-2: #1d2230;
+      --border: #262b3a;
+      --text: #e6e8ee;
+      --text-dim: #9aa0b0;
+      --text-mute: #6b7185;
+      --primary: #ff6b35;
+      --primary-soft: rgba(255, 107, 53, 0.12);
+      --primary-glow: rgba(255, 107, 53, 0.35);
+      --accent: #4fd1c5;
+      --accent-soft: rgba(79, 209, 197, 0.12);
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --error: #f87171;
+      --code-bg: #0d1016;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      --maxw: 1120px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ---------- Nav ---------- */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      backdrop-filter: blur(18px);
+      background: rgba(10, 12, 16, 0.72);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    nav.scrolled { border-bottom-color: var(--border); }
+    .nav-inner {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .logo-mark {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--primary), #ff9558);
+      display: grid; place-items: center;
+      box-shadow: 0 4px 14px var(--primary-glow);
+      font-size: 1.1rem;
+    }
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      background: var(--primary);
+      color: #fff !important;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+    .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--primary-glow); }
+    @media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
+
+    /* ---------- Hero ---------- */
+    header {
+      position: relative;
+      padding: 140px 24px 80px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, var(--primary-soft), transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, var(--accent-soft), transparent 60%);
+      z-index: 0;
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+      z-index: 0;
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 100px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      margin-bottom: 24px;
+    }
+    h1 .grad {
+      background: linear-gradient(120deg, var(--primary), #ffa46b 50%, var(--accent));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-sub {
+      font-size: 1.2rem;
+      color: var(--text-dim);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      padding: 13px 28px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px var(--primary-glow); }
+    .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: var(--surface-2); transform: translateY(-2px); }
+
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      margin-top: 56px;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-num { font-size: 1.8rem; font-weight: 800; color: var(--text); }
+    .stat-label { font-size: 0.82rem; color: var(--text-mute); margin-top: 2px; }
+
+    /* ---------- Sections ---------- */
+    section { padding: 80px 24px; position: relative; }
+    .section-inner { max-width: var(--maxw); margin: 0 auto; }
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 16px;
+    }
+    .section-desc { color: var(--text-dim); font-size: 1.05rem; max-width: 640px; margin-bottom: 48px; }
+
+    /* ---------- Tech stack grid ---------- */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .stack-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .stack-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+    .stack-card .label { font-size: 0.72rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .stack-card .value { font-weight: 700; font-size: 1.05rem; }
+    .stack-card .desc { font-size: 0.85rem; color: var(--text-dim); margin-top: 4px; }
+
+    /* ---------- Code block ---------- */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .code-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .code-dots { display: flex; gap: 6px; }
+    .code-dots span { width: 11px; height: 11px; border-radius: 50%; }
+    .code-dots span:nth-child(1) { background: #ff5f57; }
+    .code-dots span:nth-child(2) { background: #febc2e; }
+    .code-dots span:nth-child(3) { background: #28c840; }
+    .code-title { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-mute); margin-left: 6px; }
+    pre {
+      padding: 22px 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.86rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: #c9d1e3;
+    }
+    pre .kw { color: #ff7b72; }
+    pre .fn { color: #d2a8ff; }
+    pre .str { color: #7ee787; }
+    pre .com { color: #6b7185; font-style: italic; }
+    pre .cls { color: #ffa657; }
+    pre .num { color: #79c0ff; }
+    pre .dec { color: #4fd1c5; }
+
+    /* ---------- Two col ---------- */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+    @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ---------- Feature cards ---------- */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 18px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+    }
+    .feature-card:hover { border-color: var(--primary); transform: translateY(-4px); background: var(--surface-2); }
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 11px;
+      display: grid; place-items: center;
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+    }
+    .fi-primary { background: var(--primary-soft); color: var(--primary); }
+    .fi-accent { background: var(--accent-soft); color: var(--accent); }
+    .fi-green { background: rgba(74,222,128,0.12); color: var(--success); }
+    .fi-yellow { background: rgba(251,191,36,0.12); color: var(--warning); }
+    .fi-red { background: rgba(248,113,113,0.12); color: var(--error); }
+    .feature-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { color: var(--text-dim); font-size: 0.92rem; line-height: 1.6; }
+    .feature-card .tag { display: inline-block; margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--text-mute); }
+
+    /* ---------- CLI table ---------- */
+    .cli-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 860px) { .cli-grid { grid-template-columns: 1fr; } }
+    .cli-group h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: var(--accent); }
+    .cli-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cli-row:last-child { border-bottom: none; }
+    .cli-cmd { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--primary); white-space: nowrap; }
+    .cli-desc { font-size: 0.84rem; color: var(--text-dim); }
+
+    /* ---------- Mapping table ---------- */
+    .map-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .map-table th, .map-table td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .map-table th { background: var(--surface); font-weight: 700; color: var(--text-dim); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .map-table td:first-child { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 0.84rem; }
+    .map-table td:nth-child(2) { font-family: 'JetBrains Mono', monospace; color: var(--primary); font-size: 0.84rem; }
+    .map-table tr:last-child td { border-bottom: none; }
+    .map-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+    /* ---------- Phases ---------- */
+    .phase-list { display: flex; flex-direction: column; gap: 16px; }
+    .phase {
+      display: flex;
+      gap: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .phase:hover { border-color: var(--accent); }
+    .phase-num {
+      flex-shrink: 0;
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), #ff9558);
+      display: grid; place-items: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: #fff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .phase-body h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+    .phase-body p { color: var(--text-dim); font-size: 0.92rem; }
+    .phase-deliverable {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--accent-soft);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      font-size: 0.86rem;
+      color: var(--text);
+    }
+    .phase-deliverable strong { color: var(--accent); }
+
+    /* ---------- Notice banner ---------- */
+    .notice {
+      max-width: var(--maxw);
+      margin: 0 auto 0;
+      padding: 0 24px;
+    }
+    .notice-box {
+      background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.03));
+      border: 1px solid rgba(251,191,36,0.25);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .notice-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .notice-text { font-size: 0.9rem; color: var(--text-dim); }
+    .notice-text strong { color: var(--warning); }
+
+    /* ---------- Footer ---------- */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    footer p { color: var(--text-mute); font-size: 0.88rem; }
+    footer .logo { justify-content: center; margin-bottom: 12px; }
+
+    /* ---------- Reveal animation ---------- */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="nav-inner">
+    <div class="logo">
+      <div class="logo-mark">🔥</div>
+      <span>Codepy</span>
+    </div>
+    <div class="nav-links">
+      <a href="#stack">Stack</a>
+      <a href="#orm">ORM</a>
+      <a href="#features">Features</a>
+      <a href="#cli">CLI</a>
+      <a href="#mapping">Laravel Map</a>
+      <a href="#phases">Roadmap</a>
+      <a href="#" class="nav-cta">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="badge"><span class="badge-dot"></span> Design Blueprint · Python 3.11+ · FastAPI</div>
+    <h1>The <span class="grad">Laravel experience</span>, powered by Python.</h1>
+    <p class="hero-sub">Codepy is a full-stack web framework that brings Laravel's expressive conventions, batteries-included tooling, and developer ergonomics to the Python ecosystem.</p>
+    <div class="hero-actions">
+      <a href="#features" class="btn btn-primary">Explore Features →</a>
+      <a href="#orm" class="btn btn-ghost">See the ORM</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">17</div><div class="stat-label">Design Sections</div></div>
+      <div class="stat"><div class="stat-num">6</div><div class="stat-label">Build Phases</div></div>
+      <div class="stat"><div class="stat-num">40+</div><div class="stat-label">CLI Commands</div></div>
+      <div class="stat"><div class="stat-num">12</div><div class="stat-label">Core Subsystems</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="notice">
+  <div class="notice-box">
+    <div class="notice-icon">⚠️</div>
+    <div class="notice-text"><strong>Design document only.</strong> Bolt runs JavaScript backends exclusively, so Codepy cannot be built or run here. This page is a visual preview of the full design blueprint, which is meant to be implemented in a Python-capable environment.</div>
+  </div>
+</div>
+
+<!-- Tech Stack -->
+<section id="stack">
+  <div class="section-inner">
+    <div class="section-label reveal">Foundation</div>
+    <h2 class="reveal">Built on a modern Python stack</h2>
+    <p class="section-desc reveal">Codepy wraps proven Python libraries in Laravel-style conventions — so you get the speed of FastAPI, the rigor of SQLAlchemy, and the joy of artisan-like tooling.</p>
+    <div class="stack-grid">
+      <div class="stack-card reveal"><div class="label">HTTP Layer</div><div class="value">FastAPI + Starlette</div><div class="desc">Async-first request handling</div></div>
+      <div class="stack-card reveal"><div class="label">ORM Engine</div><div class="value">SQLAlchemy 2.0</div><div class="desc">Declarative, async-capable</div></div>
+      <div class="stack-card reveal"><div class="label">Migrations</div><div class="value">Alembic</div><div class="desc">Wrapped in Laravel UX</div></div>
+      <div class="stack-card reveal"><div class="label">Validation</div><div class="value">Pydantic v2</div><div class="desc">FormRequest-style rules</div></div>
+      <div class="stack-card reveal"><div class="label">Templating</div><div class="value">Jinja2</div><div class="desc">Extended as "Forge"</div></div>
+      <div class="stack-card reveal"><div class="label">CLI</div><div class="value">Typer + Click</div><div class="desc">The <code>codepy</code> command</div></div>
+      <div class="stack-card reveal"><div class="label">Server</div><div class="value">uvicorn</div><div class="desc">ASGI production server</div></div>
+      <div class="stack-card reveal"><div class="label">Settings</div><div class="value">pydantic-settings</div><div class="desc">Typed env + config</div></div>
+      <div class="stack-card reveal"><div class="label">Queues</div><div class="value">Celery / ARQ / RQ</div><div class="desc">Pluggable backends</div></div>
+      <div class="stack-card reveal"><div class="label">Cache</div><div class="value">Redis / file / DB</div><div class="desc">Pluggable drivers</div></div>
+      <div class="stack-card reveal"><div class="label">Testing</div><div class="value">pytest + httpx</div><div class="desc">ASGI transport tests</div></div>
+      <div class="stack-card reveal"><div class="label">Storage</div><div class="value">Local / S3 / Supabase</div><div class="desc">Pluggable filesystem</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ORM Code -->
+<section id="orm">
+  <div class="section-inner">
+    <div class="section-label reveal">Codepyquent ORM</div>
+    <h2 class="reveal">An active-record ORM that feels like Eloquent</h2>
+    <p class="section-desc reveal">Chainable queries, relationships, eager loading, scopes, accessors, and collections — all the ergonomics you'd expect, powered by SQLAlchemy under the hood.</p>
+    <div class="two-col">
+      <div class="code-block reveal">
+        <div class="code-head"><div class="code-dots"><span></span><span></span><span></span></div><span class="code-title">app/Models/User.py</span></div>
+<pre><span class="kw">from</span> codepy.orm <span class="kw">import</span> Model
+
+<span class="kw">class</span> <span class="cls">User</span>(Model):
+    __table__ = <span class="str">"users"</span>
+
+    fillable = [<span class="str">"name"</span>, <span class="str">"email"</span>, <span class="str">"password"</span>]
+    hidden   = [<span class="str">"password"</span>, <span class="str">"remember_token"</span>]
+    casts    = {<span class="str">"email_verified_at"</span>: <span class="str">"datetime"</span>,
+                <span class="str">"is_admin"</span>: <span class="str">"boolean"</span>}
+
+    <span class="kw">def</span> <span class="fn">posts</span>(self):
+        <span class="kw">return</span> self.has_many(Post)
+
+    <span class="kw">def</span> <span class="fn">profile</span>(self):
+        <span class="kw">return</span> self.has_one(Profile)</pre>
+      </div>
+      <div class="code-block reveal">
+        <div class="code-head"><div class="code-dots"><span></span><span></span><span></span></div><span class="code-title">query_examples.py</span></div>
+<pre><span class="com"># Chainable query builder</span>
+users = User.query() \
+    .where(<span class="str">"active"</span>, <span class="num">True</span>) \
+    .where(<span class="str">"age"</span>, <span class="str">">"</span>, <span class="num">18</span>) \
+    .order_by(<span class="str">"created_at"</span>, <span class="str">"desc"</span>) \
+    .paginate(<span class="num">15</span>)
+
+<span class="com"># Single-record helpers</span>
+user = User.findOrFail(<span class="num">1</span>)
+user = User.firstOrCreate(
+    {<span class="str">"email"</span>: <span class="str">"a@b.com"</span>},
+    {<span class="str">"name"</span>: <span class="str">"Jane"</span>}
+)
+
+<span class="com"># Eager loading prevents N+1</span>
+users = User.query().with_(<span class="str">"posts"</span>).get()</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-label reveal">Batteries Included</div>
+    <h2 class="reveal">Everything you need, out of the box</h2>
+    <p class="section-desc reveal">Twelve core subsystems ship together so you can build complete applications without stitching together a dozen separate libraries.</p>
+    <div class="feature-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-primary">🔥</div>
+        <h3>Codepyquent ORM</h3>
+        <p>Active-record models with relationships, eager loading, scopes, soft deletes, casts, and chainable collections.</p>
+        <span class="tag">has_many · belongs_to · morph_many</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-accent">⚡</div>
+        <h3>Forge Templating</h3>
+        <p>Jinja2 extended with Blade-style directives: @extends, @section, @yield, @csrf, @can, @stack, and components.</p>
+        <span class="tag">@extends · @yield · @push</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-green">🛡️</div>
+        <h3>Auth & Authorization</h3>
+        <p>Session and token guards, password reset, email verification, gates, and class-based policies with @can support.</p>
+        <span class="tag">Gate · Policy · Sanctum-style</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-yellow">📨</div>
+        <h3>Mail & Notifications</h3>
+        <p>Mailable classes with queued sending, plus multi-channel notifications via mail, database, broadcast, and Slack.</p>
+        <span class="tag">Mailable · Notification · Notifiable</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-primary">📋</div>
+        <h3>FormRequest Validation</h3>
+        <p>Pydantic v2 powered rule DSL with automatic 422 JSON or redirect-back responses and authorization checks.</p>
+        <span class="tag">required · unique:table · Rule.after</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-accent">🔄</div>
+        <h3>Events & Queues</h3>
+        <p>Event dispatcher, listeners, and queued jobs with pluggable backends — Celery, ARQ, or RQ — plus failed-job retry.</p>
+        <span class="tag">ShouldQueue · queue:work · queue:retry</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-green">🗂️</div>
+        <h3>Migrations & Seeding</h3>
+        <p>Schema builder DSL with a migrations table, batch rollback, fresh resets, seeders, and Faker-powered factories.</p>
+        <span class="tag">Schema.create_table · db:seed</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-yellow">📦</div>
+        <h3>API Resources</h3>
+        <p>Transformer classes that serialize models and collections with conditional fields, pagination meta, and links.</p>
+        <span class="tag">Resource · when_loaded · collection</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-red">⚡</div>
+        <h3>Cache & Filesystem</h3>
+        <p>Redis, file, or database caching with locks and tags, plus local, S3, and Supabase storage drivers.</p>
+        <span class="tag">Cache.remember · Storage.disk</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLI -->
+<section id="cli">
+  <div class="section-inner">
+    <div class="section-label reveal">The codepy Command</div>
+    <h2 class="reveal">An artisan-equivalent CLI</h2>
+    <p class="section-desc reveal">Every command you'd expect from Laravel, rebuilt with Typer. Scaffolding, migrations, queues, cache, and maintenance — all from one tool.</p>
+    <div class="cli-grid">
+      <div class="cli-group reveal">
+        <h3>Scaffolding</h3>
+        <div class="cli-row"><span class="cli-cmd">codepy make:model User -mf</span><span class="cli-desc">Model + migration + factory</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:controller PostController --api</span><span class="cli-desc">API-only controller</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:request StorePostRequest</span><span class="cli-desc">FormRequest class</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:resource PostResource</span><span class="cli-desc">API transformer</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:middleware EnsureUserIsAdmin</span><span class="cli-desc">Middleware class</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:policy PostPolicy</span><span class="cli-desc">Authorization policy</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:event OrderShipped</span><span class="cli-desc">Event class</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:job ProcessPodcast</span><span class="cli-desc">Queued job</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy make:mail OrderShipped</span><span class="cli-desc">Mailable class</span></div>
+      </div>
+      <div class="cli-group reveal">
+        <h3>Database & App</h3>
+        <div class="cli-row"><span class="cli-cmd">codepy migrate</span><span class="cli-desc">Run pending migrations</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy migrate:fresh --seed</span><span class="cli-desc">Drop all + migrate + seed</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy migrate:rollback --step=3</span><span class="cli-desc">Rollback N migrations</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy db:seed --class=UserSeeder</span><span class="cli-desc">Run named seeder</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy serve --port 3000</span><span class="cli-desc">Dev server</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy tinker</span><span class="cli-desc">Interactive REPL</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy route:list --path=api</span><span class="cli-desc">List registered routes</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy queue:work --queue=high,default</span><span class="cli-desc">Start queue worker</span></div>
+        <div class="cli-row"><span class="cli-cmd">codepy test --coverage</span><span class="cli-desc">Run tests with coverage</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Mapping -->
+<section id="mapping">
+  <div class="section-inner">
+    <div class="section-label reveal">Laravel → Codepy</div>
+    <h2 class="reveal">A familiar mental model</h2>
+    <p class="section-desc reveal">If you know Laravel, you know Codepy. Here's how the core concepts map across.</p>
+    <table class="map-table reveal">
+      <thead><tr><th>Laravel (PHP)</th><th>Codepy (Python)</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Artisan</td><td>codepy CLI</td><td>Typer-based, same command surface</td></tr>
+        <tr><td>Eloquent</td><td>Codepyquent</td><td>Active-record on SQLAlchemy 2.0</td></tr>
+        <tr><td>Blade</td><td>Forge</td><td>Jinja2 with Blade directives</td></tr>
+        <tr><td>Migrations</td><td>Alembic-wrapped</td><td>Schema builder DSL + batch tracking</td></tr>
+        <tr><td>FormRequest</td><td>FormRequest</td><td>Pydantic v2 rule engine</td></tr>
+        <tr><td>API Resources</td><td>Resource / Collection</td><td>Transformers with pagination meta</td></tr>
+        <tr><td>Gates / Policies</td><td>Gate / Policy</td><td>Class-based, auto-resolved</td></tr>
+        <tr><td>Mailable</td><td>Mailable</td><td>SMTP / SES / Postmark / Mailgun</td></tr>
+        <tr><td>Job / Queue</td><td>Job / Queue</td><td>Celery / ARQ / RQ backends</td></tr>
+        <tr><td>Facades</td><td>DB, Auth, View, ...</td><td>Container-resolved, testable</td></tr>
+        <tr><td>Sail</td><td>codepy sail</td><td>Docker Compose dev env</td></tr>
+        <tr><td>tinker</td><td>codepy tinker</td><td>Interactive REPL with app context</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Phases -->
+<section id="phases">
+  <div class="section-inner">
+    <div class="section-label reveal">Roadmap</div>
+    <h2 class="reveal">Six phases from foundation to launch</h2>
+    <p class="section-desc reveal">A suggested build order that ships a working app at each milestone, rather than front-loading everything.</p>
+    <div class="phase-list">
+      <div class="phase reveal">
+        <div class="phase-num">1</div>
+        <div class="phase-body">
+          <h3>Foundation</h3>
+          <p>Project layout, DI container, config/env, kernel bootstrap, basic router + controllers, Jinja2 views, dev server, and scaffolding commands.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> A working app that serves pages with routes, controllers, and views.</div>
+        </div>
+      </div>
+      <div class="phase reveal">
+        <div class="phase-num">2</div>
+        <div class="phase-body">
+          <h3>Database</h3>
+          <p>SQLAlchemy integration, Codepyquent models, query builder, relationships, scopes, collections, migrations engine, seeders, and factories.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> Full ORM + migrations + seeding matching Eloquent's DX.</div>
+        </div>
+      </div>
+      <div class="phase reveal">
+        <div class="phase-num">3</div>
+        <div class="phase-body">
+          <h3>HTTP Ergonomics</h3>
+          <p>FormRequest validation, API Resources, middleware pipeline, sessions, CSRF, throttle, named routes, route model binding, and response helpers.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> Production-quality request/response cycle with security middleware.</div>
+        </div>
+      </div>
+      <div class="phase reveal">
+        <div class="phase-num">4</div>
+        <div class="phase-body">
+          <h3>Auth & Authorization</h3>
+          <p>Session and token guards, password hashing, reset flow, email verification, gates, policies, and auth scaffolding.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> Complete auth system with fine-grained authorization.</div>
+        </div>
+      </div>
+      <div class="phase reveal">
+        <div class="phase-num">5</div>
+        <div class="phase-body">
+          <h3>Extended Subsystems</h3>
+          <p>Events, listeners, queues, mail, notifications, filesystem, cache, Forge directives, localization, and task scheduling.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> Full batteries-included framework with queues, mail, and scheduling.</div>
+        </div>
+      </div>
+      <div class="phase reveal">
+        <div class="phase-num">6</div>
+        <div class="phase-body">
+          <h3>DX & Documentation</h3>
+          <p>Complete CLI, tinker REPL, route listing, debug error page, testing harness, Sail-equivalent Docker, docs site, and demo app.</p>
+          <div class="phase-deliverable"><strong>Ships:</strong> Polished, documented, testable framework ready for adoption.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="logo">
+    <div class="logo-mark">🔥</div>
+    <span>Codepy</span>
+  </div>
+  <p>A Python FastAPI framework inspired by Laravel · Design blueprint preview</p>
+</footer>
+
+<script>
+  // Nav scroll state
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // Reveal on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+</script>
+
+</body>
+</html>
