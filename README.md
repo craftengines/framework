@@ -308,5 +308,6 @@ são exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
 
 ## Estado e próximos passos
 
-O backlog vive em [`.agents/docs/backlog.md`](.agents/docs/backlog.md) — o que
-já foi entregue, os bugs corrigidos e as próximas fatias.
+- [`CHANGELOG.md`](CHANGELOG.md) — o que mudou, em formato Keep a Changelog.
+- [`.agents/docs/backlog.md`](.agents/docs/backlog.md) — as próximas fatias e as
+  decisões ainda em aberto.
