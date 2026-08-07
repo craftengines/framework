@@ -34,6 +34,20 @@ full policy (categories to use, what counts as security-relevant, how
   documented in `CONTRIBUTING.md` ("Every change gets a CHANGELOG entry") and
   in `.agents/skills/framework/craft-development/SKILL.md` §3, so both human
   contributors and AI agents working in this repo pick it up.
+- Codified: all code, orientation comments, and docstrings under `data/` are
+  100% English, no exceptions — other languages enter only through the
+  translation layer (`resources/lang/catalog.json`, `TranslationSeeder`,
+  `__()`). Documented in `.agents/skills/framework/craft-development/SKILL.md`
+  §2, with the grep check to run before finishing any change.
+
+### Removed
+
+- Four orphaned Portuguese view files from the already-supposedly-removed
+  SoftPax domain, found to still be sitting in the tree: `resources/views/
+  access/index.forge.py`, `resources/views/dashboard/index.forge.py`,
+  `resources/views/admin/translations/index.forge.py`, and `resources/views/
+  layout.py`. None were referenced by any controller, route, or test —
+  confirmed via `self.view(...)`/`extends(...)` grep before deleting.
 
 ---
 

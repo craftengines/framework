@@ -23,7 +23,9 @@ Ensure that core libraries (container, ORM, router, queues, view engine, validat
 
 ## 2. Framework Guidelines
 
-* All code must be in English.
+* **All code, orientation comments, and docstrings are 100% English — no exceptions, no partial translations left "for later."** This includes the `Category/Relations/References` headers, inline comments, commit messages, and every file under `data/` (application code, `documentation/*.md`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`). Files outside `data/` — this repo's own `.agents/` orchestration layer — are Portuguese by a separate, deliberate convention; that split does not extend to anything shipped as the framework or its docs.
+  * **Any other human language enters the application only through the translation layer** (`resources/lang/catalog.json`, `database/seeders/TranslationSeeder.py`, the `__()` helper) — never hardcoded in a view, controller, or comment. A hardcoded non-English string in `data/` is either dead code to delete or a missing i18n key to add, not something to leave as-is.
+  * Before adding a file under `data/`, and before finishing any change that touches one, check it doesn't reintroduce non-English text outside i18n: `Select-String -Pattern "[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]"` (or the Linux/macOS equivalent `grep -RP '[à-üÀ-Ü]'`) over the changed files, excluding `resources/lang/`, `TranslationSeeder.py`, and `documentation/localization.md`. A non-empty match is a defect, not a style nit — it directly degrades the next agent's ability to work in this codebase without guessing at meaning.
 * Enforce strict type hints and docstrings on every public function and class.
 * Do not import modules from the `app/` folder into the `craft/` framework package (avoid circular dependencies).
 * New files under `services/` (and edits to existing ones) carry the `Category/Relations/References` header docstring — see `services/plugins/manager.py` for the shape.
