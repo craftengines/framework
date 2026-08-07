@@ -88,6 +88,23 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
   mostrando a escada de 3 níveis, `/admin/roles` redirecionando sem login.
 - CRUD builder ainda sem reordenar linhas de campo (só adicionar/remover).
 - Sem validação client-side no formulário do CRUD builder antes do submit.
+- ✅ **Hero da landing page corrigido (2026-08-08)**: `.hero-section` era
+  `flex-direction: column` fixo — nunca formava duas colunas em nenhuma
+  largura, sempre empilhado e centralizado (era exatamente a queixa: "não
+  forma largura da tela"). Agora grid real: 1 coluna até 1024px, 2 colunas
+  (texto + preview de código) a partir daí. Validado com navegador headless
+  de verdade (não só pytest) em 1440px e 390px.
+  - **Achado no processo**: a correção anterior de "unificar tokens CSS"
+    (sessão passada) tinha editado `public/css/app.css` — arquivo que
+    **nunca foi carregado por nenhuma view**. A página real usa
+    `assets/css/craft-components.css`, cópia quase idêntica mas separada.
+    Arquivo morto removido; a correção do hero foi no arquivo certo.
+    Lição: mudança de CSS/UI não é validada por `pytest` (nenhum teste
+    renderiza página) — precisa de checagem visual real.
+  - 🔭 De passagem: no mobile (390px), a barra de navegação do header
+    (`layouts/app.forge.py`) não tem menu hambúrguer — os links (EN/PT/
+    PT-BR/ES, Fórum, Aprender...) simplesmente quebram linha/cortam.
+    Não corrigido — fora do pedido desta sessão.
 
 ## Como rodar
 

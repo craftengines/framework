@@ -20,6 +20,26 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hero section on the landing page was never actually two columns.**
+  `.hero-section` was `flex-direction: column` unconditionally — copy and
+  the code preview always stacked, centered, at every viewport width, which
+  is what made the page feel like it never used the screen's width. Now a
+  real CSS grid: single column below 1024px (unchanged mobile behavior),
+  two columns (copy left, code preview right) at 1024px+. Verified live
+  with a headless browser at 1440px (two columns), 390px (stacked), and
+  with `prefers-color-scheme: dark` (unrelated finding, see below).
+- **The earlier "unified CSS design tokens" fix (this file, same session,
+  under "Changed") edited the wrong file.** `public/css/app.css` — which
+  that fix touched — was never linked from any view; the landing page
+  actually loads `assets/css/craft-components.css`, an near-identical but
+  separate copy. The dead file is now deleted; today's hero fix (and any
+  future landing-page CSS change) targets `craft-components.css`, the one
+  actually served. A lesson for next time: a CSS/UI fix isn't verified by
+  `pytest` passing — none of these tests render a page — it needs an actual
+  browser check, which is what caught this.
+
 ### Added
 
 - **Login page shows the 3 demo accounts, gated by `APP_DEBUG`.**
