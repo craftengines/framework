@@ -7,14 +7,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codepy"
 version = "0.1.0"
-description = "A Python web framework with Laravel's conventions, built on Starlette"
+description = "A batteries-included Python web framework built on Starlette"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Antonio Santos", email = "snarthost@gmail.com" }]
 maintainers = [{ name = "Antonio Santos", email = "snarthost@gmail.com" }]
-keywords = ["framework", "web", "mvc", "orm", "laravel", "starlette", "asgi"]
+keywords = ["framework", "web", "mvc", "orm", "starlette", "asgi", "active-record"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",

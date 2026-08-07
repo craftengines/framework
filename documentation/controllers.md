@@ -82,7 +82,7 @@ async def store(self, request: Request):
 
 ## Views & Templating (Forge Engine)
 
-The Forge templating engine compiles HTML files inside `resources/views/`. It compiles Laravel Blade-style markup syntax into pure Jinja2 templates.
+The Forge templating engine compiles HTML files inside `resources/views/`. It compiles taravel Forge markup syntax into pure Jinja2 templates.
 
 ### Render Helper
 
@@ -93,7 +93,7 @@ return view("posts.index", {"posts": posts})
 
 ### Syntax Examples
 
-#### Layout Extension (`resources/views/posts/index.blade.py`)
+#### Layout Extension (`resources/views/posts/index.forge.py`)
 ```html
 @extends("layouts.app")
 

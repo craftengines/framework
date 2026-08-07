@@ -18,13 +18,13 @@ class PostSeeder(Seeder):
 
         Post.create({
             "title": "Welcome to Codepy",
-            "body": "Codepy is a Python FastAPI framework inspired by Codepy. This is the first post!",
+            "body": "Codepy is a Python web framework built on Starlette. This is the first post!",
             "user_id": admin_id,
             "published": True,
         })
         Post.create({
             "title": "Getting Started with Codepyquent",
-            "body": "The Codepyquent ORM provides an Eloquent-like active record experience in Python.",
+            "body": "The Codepyquent ORM provides a fluent active record experience in Python.",
             "user_id": admin_id,
             "published": True,
         })

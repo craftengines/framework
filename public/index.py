@@ -1,5 +1,5 @@
 """
-Codepy - A Python Framework Mirroring Laravel Architecture.
+Codepy — a batteries-included Python web framework.
 
 @package Codepy
 @author  Codepy Team

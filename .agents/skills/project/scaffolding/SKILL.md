@@ -11,14 +11,14 @@ This skill governs local execution, testing, and container management for this r
 
 ## 1. Commands and CLI Tools
 
-Always use `artisan.py` to trigger local operations. Since command signatures are hyphenated, refer to this reference:
+Always use `craft.py` to trigger local operations. Since command signatures are hyphenated, refer to this reference:
 
 | Action | Command |
 |---|---|
-| Generate App Key | `python artisan.py key-generate` |
-| Refresh Migrations | `python artisan.py migrate-fresh` |
-| Run Test Suite | `pytest` or `python artisan.py test` |
-| Start Server | `python artisan.py serve` |
+| Generate App Key | `python craft.py key:generate` |
+| Refresh Migrations | `python craft.py migrate fresh` |
+| Run Test Suite | `pytest` or `python craft.py test` |
+| Start Server | `python craft.py serve` |
 
 ---
 

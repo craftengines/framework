@@ -1,6 +1,6 @@
 """Validator for Codepy Framework.
 
-Rules are given per field as a list or a pipe-delimited string, Laravel-style::
+Rules are given per field as a list or a pipe-delimited string::
 
     Validator(data, {
         "name":     ["required", "string", "max:255"],

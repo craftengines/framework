@@ -1,6 +1,6 @@
 # Codepy: The AI-Native Framework of the Future
 
-**Codepy** is a next-generation Python backend framework built on top of FastAPI, designed to be **AI-Native** rather than just AI-friendly. It combines the clean conventions, CLI tools, and ActiveRecord ORM of Laravel with the high performance, async speed, and type safety of Python and Pydantic.
+**Codepy** is a Python backend framework built on Starlette, designed to be **AI-Native** rather than just AI-friendly. It pairs clean conventions, a complete CLI and an Active Record ORM with the performance, async model and type safety of modern Python.
 
 Our ultimate mission is to enable developers (and AI agents) to build everything from a simple blog to a large-scale, high-availability enterprise system with zero friction.
 
@@ -45,7 +45,7 @@ All localized translations, business rules, RBAC permissions, and active configu
 * Request-scoped DI container (`contextvars`).
 * Class-level Facade caching isolation.
 * Secure JSON queue serialization (replacing pickle).
-* Blade-style Forge template engine with dot-notation and default values.
+* Forge template engine with dot-notation and default values.
 * Custom CLI tool (`craft.py`).
 
 ### Phase 2: AI-Native Capabilities (Completed)

@@ -33,4 +33,4 @@ This report captures the critical review and resolutions implemented for the Cod
 * **Resolution:**
   * Configured `_setup_env()` to populate `self._namespaces[""]`.
   * Added dot-to-slash conversion (`template.replace(".", "/")`) inside `_resolve_template()`.
-  * Expanded regex matching for `@yield` with default arguments in `BladePreprocessor.DIRECTIVES`.
+  * Expanded regex matching for `@yield` with default arguments in `DirectivePreprocessor.DIRECTIVES`.

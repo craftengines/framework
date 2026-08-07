@@ -17,7 +17,7 @@ Ensure that core libraries (container, ORM, router, queues, view engine, validat
 * **`codepy.container`**: Manages class binding and dependency resolution. Scoped services must use `contextvars` to ensure thread-safety.
 * **`codepy.orm`**: Implements Active Record query building wrapping SQLAlchemy 2.0 Core. Must support both sync (CLI) and async (HTTP) execution engines.
 * **`codepy.queue`**: Dispatches and runs queued tasks. Payloads must be strictly serialized as **JSON**; never use `pickle`.
-* **`codepy.view`**: Preprocesses Blade-style template syntax into standard Jinja2 syntax and caches compiled templates.
+* **`codepy.view`**: Preprocesses Forge directive syntax into standard Jinja2 syntax and caches compiled templates.
 
 ---
 

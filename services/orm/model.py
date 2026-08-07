@@ -60,8 +60,8 @@ class Model:
         """Name of the model method that is building a relation.
 
         For the conventional `def posts(self): return self.has_many(Post)`, this
-        returns "posts" — which is what the eager-load cache is keyed by. Laravel
-        guesses relation names the same way (via `debug_backtrace`).
+        returns "posts" — which is what the eager-load cache is keyed by. Reading
+        the caller's frame is the established way to recover that name.
         """
         import inspect
 
@@ -293,7 +293,7 @@ class Model:
     ) -> BelongsToMany:
         this = self.__class__.__name__.lower()
         other = related_class.__name__.lower()
-        # Laravel convention: singular names joined alphabetically.
+        # Convention: singular names joined alphabetically.
         pivot = pivot_table or "_".join(sorted([this, other]))
         return BelongsToMany(
             self,

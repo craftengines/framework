@@ -1,6 +1,6 @@
 """The `craft` command line interface for Codepy Framework.
 
-Mirrors Laravel's artisan: migrations, seeding, generators, routing inspection,
+Migrations, seeding, generators, routing inspection,
 queue workers and the development server.
 """
 # Codepy Framework
@@ -17,7 +17,7 @@ import typer
 
 cli = typer.Typer(
     name="craft",
-    help="Codepy Framework console — the Python answer to artisan.",
+    help="Codepy Framework console.",
     no_args_is_help=True,
     add_completion=False,
 )

@@ -1,6 +1,6 @@
 @extends("layouts.app")
 
-@section("title", "Codepy — The Python Framework with Laravel Elegance")
+@section("title", "Codepy — The Python Framework for Expressive Web Applications")
 
 @section("content")
     <!-- Hero Section -->
@@ -15,11 +15,11 @@
                 Codepy <sup class="hero-version">{{ config('app.version') }}</sup>
             </h1>
             <p class="hero-subtitle">
-                The Python Framework with Laravel Elegance
+                The Python Framework for Expressive Web Applications
             </p>
             <p class="hero-description">
-                Build powerful web applications in Python using the conventions you love from Laravel.
-                Codepyquent ORM, Forge templates, migrations, auth — everything, Pythonic.
+                Build powerful web applications in Python with conventions that stay out of your way.
+                Codepyquent ORM, Forge templates, migrations and auth — batteries included.
             </p>
             <div class="hero-actions">
                 <a href="/docs/installation" class="btn-primary" id="hero-learn-more">
@@ -143,7 +143,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                 <span class="section-tag">Why Codepy?</span>
                 <h2 class="section-title">Everything You Need, Nothing You Don't</h2>
                 <p class="section-description">
-                    A full-featured framework that respects your time. Laravel conventions adapted for Python developers who demand clarity and power.
+                    A full-featured framework that respects your time. familiar MVC conventions adapted for Python developers who demand clarity and power.
                 </p>
             </div>
             <div class="features-grid">
@@ -153,7 +153,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                     </div>
                     <h3>Codepyquent ORM</h3>
-                    <p>Active Record with eager loading, relationships, soft deletes, and a fluent query builder. Think Eloquent, in Python.</p>
+                    <p>Active Record with eager loading, relationships, soft deletes and a fluent query builder — expressive, and Pythonic.</p>
                 </div>
                 <!-- Feature 2 -->
                 <div class="feature-card" id="feature-perf">
@@ -185,7 +185,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                     </div>
                     <h3>Forge Template Engine</h3>
-                    <p>Jinja2 powered with Blade-style directives for conditionals, loops, extends, sections, CSRF, auth guards — all familiar syntax.</p>
+                    <p>Jinja2 powered with Forge directives for conditionals, loops, extends, sections, CSRF, auth guards — all familiar syntax.</p>
                 </div>
                 <!-- Feature 6 -->
                 <div class="feature-card" id="feature-cli">
@@ -193,47 +193,13 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     </div>
                     <h3>Craft CLI</h3>
-                    <p>12 generators, migrate, seed, tinker, serve, queue work — the artisan experience for Python. craft.py does it all.</p>
+                    <p>12 generators, migrate, seed, tinker, serve, queue work — a complete console for Python. craft.py does it all.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Laravel ↔ Codepy Equivalence Section -->
-    <section class="section-equivalence" id="equivalence">
-        <div class="section-container">
-            <div class="section-header">
-                <span class="section-tag">Laravel Developers</span>
-                <h2 class="section-title">You Already Know This</h2>
-                <p class="section-description">
-                    Every concept maps directly. If you've built with Laravel, you'll feel at home from the first line.
-                </p>
-            </div>
-            <div class="equivalence-table-wrapper">
-                <table class="equivalence-table" id="equivalence-table">
-                    <thead>
-                        <tr>
-                            <th>Laravel (PHP)</th>
-                            <th></th>
-                            <th>Codepy (Python)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><code>artisan</code></td><td class="arrow-cell">→</td><td><code>craft.py</code></td></tr>
-                        <tr><td><code>Eloquent</code></td><td class="arrow-cell">→</td><td><code>Codepyquent</code></td></tr>
-                        <tr><td><code>Blade</code></td><td class="arrow-cell">→</td><td><code>Forge</code> (Jinja2 + Blade)</td></tr>
-                        <tr><td><code>Illuminate\Container</code></td><td class="arrow-cell">→</td><td><code>services/container</code></td></tr>
-                        <tr><td><code>Facades</code></td><td class="arrow-cell">→</td><td><code>codepy.facades</code></td></tr>
-                        <tr><td><code>FormRequest</code></td><td class="arrow-cell">→</td><td><code>codepy.validation.FormRequest</code></td></tr>
-                        <tr><td><code>Gate / Policies</code></td><td class="arrow-cell">→</td><td><code>codepy.auth</code></td></tr>
-                        <tr><td><code>Migrations / Schema</code></td><td class="arrow-cell">→</td><td><code>codepy.migrations</code></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Cards Section (CodeIgniter-style action cards) -->
+<!-- CTA Cards Section (CodeIgniter-style action cards) -->
     <section class="section-cards" id="resources">
         <div class="section-container">
             <div class="cards-grid">

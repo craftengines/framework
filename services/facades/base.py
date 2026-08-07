@@ -29,7 +29,7 @@ class FacadeMeta(type):
 
 
 class Facade(metaclass=FacadeMeta):
-    """Base class for Laravel-style static Facades resolving from IoC Container."""
+    """Base class for expressive static Facades resolving from IoC Container."""
 
     _app: Any = None
 

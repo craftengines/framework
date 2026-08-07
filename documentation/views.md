@@ -1,7 +1,7 @@
 # Views
 
-Forge renders templates from `resources/views` using Jinja2 with Blade-style
-directives. Templates live in `.blade.py` files.
+Forge renders templates from `resources/views` using Jinja2 with Forge
+directives. Templates live in `.forge.py` files.
 
 ## Rendering
 
@@ -15,7 +15,7 @@ class PostController(Controller):
 ```
 
 View names use dot notation: `posts.index` resolves to
-`resources/views/posts/index.blade.py`.
+`resources/views/posts/index.forge.py`.
 
 > Errors propagate. A missing template raises `TemplateNotFound`, an undefined
 > variable raises `UndefinedError`, and the exception handler turns either into
@@ -25,7 +25,7 @@ View names use dot notation: `posts.index` resolves to
 ## Layouts
 
 ```html
-<!-- resources/views/layouts/app.blade.py -->
+<!-- resources/views/layouts/app.forge.py -->
 <!doctype html>
 <html>
 <head><title>@yield("title")</title></head>
@@ -36,7 +36,7 @@ View names use dot notation: `posts.index` resolves to
 ```
 
 ```html
-<!-- resources/views/posts/index.blade.py -->
+<!-- resources/views/posts/index.forge.py -->
 @extends("layouts.app")
 
 @section("title", "Posts")

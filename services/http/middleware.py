@@ -237,7 +237,7 @@ class VerifyCsrfToken(Middleware):
             from services.exceptions.handler import CodepyException
 
             error = CodepyException("CSRF token mismatch.")
-            error.status_code = 419  # Laravel's "page expired"
+            error.status_code = 419  # the framework's "page expired"
             raise error
 
         return next_callable(request)

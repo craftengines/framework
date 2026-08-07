@@ -1,24 +1,24 @@
 # Developer Experience (DX) & AI Agent Learning Curve Analysis
 
-This document compares the architecture and Developer Experience of **Codepy** with the industry's leading backend frameworks (Laravel, NestJS, FastAPI, Django) and outlines strategies to optimize the learning curve for both **human developers** and **AI agents**.
+This document records the architecture and Developer Experience goals of **Codepy**, and outlines strategies to optimize the learning curve for both **human developers** and **AI agents**.
 
 ---
 
 ## 1. Architectural & DX Comparison Matrix
 
-| Feature | Laravel (PHP) | NestJS (Node) | FastAPI (Python) | Codepy (Python) |
+| Feature | Codepy (Python) |
 |---|---|---|---|---|
-| **Structure** | Convention-based (Highly rigid) | Module-based (Decorator heavy) | No default (Freeform) | Laravel-style folders (Deterministic) |
+| **Structure** | Convention-based (Highly rigid) | Module-based (Decorator heavy) | No default (Freeform) | expressive folders (Deterministic) |
 | **Boilerplate** | Low | High (Decorators & Modules) | Low | Low (ActiveRecord, Facades) |
 | **Typing & Validation** | Dynamic (FormRequest validation) | TS Types & Class-validator | Strict Pydantic annotations | Strict Pydantic FormRequest |
-| **Scaffolding Tool** | Artisan CLI (Rich) | Nest CLI (Schematics) | None | `craft.py` CLI (Modular) |
+| **Scaffolding Tool** | The craft CLI (Rich) | Nest CLI (Schematics) | None | `craft.py` CLI (Modular) |
 | **AI Ergonomics** | Moderate (Conventions help AI) | Hard (Too many files to connect) | Hard (No standard conventions) | **Excellent** (Convention + `.ai` memory) |
 
 ---
 
 ## 2. Strengths and Weaknesses of Competitors
 
-### A. Laravel (PHP)
+### A. Reference points
 * **DX Strength:** Outstanding developer onboarding. Dynamic Facades and active record models make writing queries and handling requests extremely expressive.
 * **AI Challenge:** Loose typing in PHP historically makes it harder for IAs to infer types without reading model definitions and database schemas.
 
@@ -37,7 +37,7 @@ This document compares the architecture and Developer Experience of **Codepy** w
 **Codepy** is designed to achieve the best of both worlds:
 
 ### 1. Zero-Cognitive-Load Onboarding (For Humans)
-Since Codepy mirrors Laravel's directory structure (`app/Http/Controllers`, `app/Models`, `routes/web.py`), any developer with PHP, Symfony, or Rails experience instantly knows where everything belongs. There is no new architecture paradigm to learn.
+Since Codepy mirrors a conventional MVC directory structure (`app/Http/Controllers`, `app/Models`, `routes/web.py`), any developer with PHP, Symfony, or Rails experience instantly knows where everything belongs. There is no new architecture paradigm to learn.
 
 ### 2. High-Density Context (For AI Agents)
 By using a dedicated `.ai/` directory containing **Skills**, **Blueprints**, and **Plans**, AI agents do not need to read the entire codebase to understand conventions. 

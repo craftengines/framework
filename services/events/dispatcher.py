@@ -110,7 +110,7 @@ class EventDispatcher:
 
         return responses
 
-    # Laravel-style alias.
+    # Alias.
     def fire(self, event: Any) -> List[Any]:
         return self.dispatch(event)
 

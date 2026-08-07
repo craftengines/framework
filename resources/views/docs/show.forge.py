@@ -1,8 +1,8 @@
 {#
-  show.blade.py — Preprocessed layout for rendering Markdown documentation pages.
+  show.forge.py — Preprocessed layout for rendering Markdown documentation pages.
   Category: View (Presentation Layer).
   Relations:
-    - Preprocessed by Forge view engine, extends [layouts/app.blade.py](file:///d:/data/www/codepy/resources/views/layouts/app.blade.py).
+    - Preprocessed by Forge view engine, extends [layouts/app.forge.py](file:///d:/data/www/codepy/resources/views/layouts/app.forge.py).
     - Renders variables sent by [DocsController.py](file:///d:/data/www/codepy/app/Http/Controllers/Blog/DocsController.py).
   References:
     - Documentation: [documentation/routing.md](file:///d:/data/www/codepy/documentation/routing.md)

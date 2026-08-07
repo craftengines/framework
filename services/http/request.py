@@ -1,6 +1,6 @@
 """Request class for Codepy Framework.
 
-Wraps Starlette's request with Laravel-style input access. The body is parsed
+Wraps Starlette's request with expressive input access. The body is parsed
 once, up front, by `prepare()` — controllers and middleware are synchronous, so
 they cannot await `request.form()` themselves.
 """
@@ -64,7 +64,7 @@ class Request(StarletteRequest):
         return self.all().get(key, default)
 
     def get_input(self, key: Optional[str] = None, default: Any = None) -> Any:
-        """Laravel-style alias of :meth:`input`."""
+        """Alias of :meth:`input`."""
         return self.input(key, default)
 
     def only(self, *keys: str) -> Dict[str, Any]:

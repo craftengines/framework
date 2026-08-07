@@ -1,6 +1,6 @@
 # Codepyquent ORM (Active Record)
 
-Codepyquent is an Active Record ORM built specifically for the Python ecosystem. It provides an Eloquent-like experience by combining simple class-based model definitions with the efficiency of SQLAlchemy 2.0 Core.
+Codepyquent is an Active Record ORM built specifically for the Python ecosystem. It provides a fluent experience by combining simple class-based model definitions with the efficiency of SQLAlchemy 2.0 Core.
 
 ---
 

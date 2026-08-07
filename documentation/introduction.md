@@ -1,12 +1,12 @@
 # Introduction to Codepy
 
-Codepy is a modern, full-stack MVC backend framework that brings Laravel's expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **FastAPI** (for high-performance routing), **SQLAlchemy 2.0 Core** (for database abstraction), and **Jinja2** (preprocessed as the **Forge** engine), Codepy makes it easy to construct robust APIs and server-rendered web applications.
+Codepy is a modern, full-stack MVC backend framework that brings the framework's expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **FastAPI** (for high-performance routing), **SQLAlchemy 2.0 Core** (for database abstraction), and **Jinja2** (preprocessed as the **Forge** engine), Codepy makes it easy to construct robust APIs and server-rendered web applications.
 
 ---
 
 ## Core Philosophy
 
-1. **Convention over Configuration**: Mirroring Laravel, files go in specific directories, classes adhere to consistent name patterns, and dependencies resolve automatically.
+1. **Convention over Configuration**: files go in specific directories, classes adhere to consistent name patterns, and dependencies resolve automatically.
 2. **Developer Ergonomics**: Powerful command-line tooling, dynamic facades, and automatic dependency injection minimize boilerplate.
 3. **High Performance**: Native async/await support, fast connection pooling via pgsql (asyncpg), and lazy dependency booting.
 
@@ -31,10 +31,10 @@ project/
 ├── config/                      # Configuration Files (env merged)
 ├── database/                    # Migrations, Seeders, and Factories
 ├── resources/
-│   └── views/                   # HTML templates (Forge/Blade)
+│   └── views/                   # HTML templates (Forge)
 ├── routes/                      # Route maps (web.py, api.py, console.py)
 ├── storage/                     # File uploads, cache, logs
-└── craft.py                    # Artisan-like CLI command runner
+└── craft.py                    # CLI command runner
 ```
 
 ---

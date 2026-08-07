@@ -42,7 +42,7 @@ em SQLite, PostgreSQL real e Python 3.11.
 - Middleware por rota resolvido por alias (`auth`, `api`, `session`, `csrf`).
 - `Request` com o corpo parseado antes do pipeline: `input()`, `only()`,
   `boolean()`, `file()`, `session()`, `user()`, `bearer_token()`.
-- Motor de views Forge com diretivas Blade (`@csrf`, `@auth`, `@guest`, `@can`,
+- Motor de views Forge com diretivas proprias (`@csrf`, `@auth`, `@guest`, `@can`,
   `@if`, `@foreach`, `@extends`, `@section`, `@yield`, `@include`, `@method`) e
   helpers globais (`csrf_field`, `auth`, `config`, `route`, `session`, `__`).
 

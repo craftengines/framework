@@ -1,4 +1,4 @@
-"""Forge view engine: Blade directives, helpers and error propagation."""
+"""Forge view engine: Forge directives, helpers and error propagation."""
 # Codepy Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
@@ -11,13 +11,13 @@ from services.view.forge import Forge, compile_directives, resolve_view_path
 
 class TestViewPathResolution:
     def test_dot_notation_becomes_a_path(self):
-        assert resolve_view_path("layouts.app") == "layouts/app.blade.py"
+        assert resolve_view_path("layouts.app") == "layouts/app.forge.py"
 
     def test_nested_dots(self):
-        assert resolve_view_path("admin.users.index") == "admin/users/index.blade.py"
+        assert resolve_view_path("admin.users.index") == "admin/users/index.forge.py"
 
     def test_explicit_extensions_are_left_alone(self):
-        assert resolve_view_path("layouts/app.blade.py") == "layouts/app.blade.py"
+        assert resolve_view_path("layouts/app.forge.py") == "layouts/app.forge.py"
         assert resolve_view_path("page.html") == "page.html"
 
 
@@ -46,12 +46,12 @@ class TestDirectives:
     def test_extends_resolves_the_view_path(self):
         # The whole reason every layout-extending view used to fail.
         assert compile_directives('@extends("layouts.app")') == (
-            '{% extends "layouts/app.blade.py" %}'
+            '{% extends "layouts/app.forge.py" %}'
         )
 
     def test_include_resolves_the_view_path(self):
         assert compile_directives('@include("partials.nav")') == (
-            '{% include "partials/nav.blade.py" %}'
+            '{% include "partials/nav.forge.py" %}'
         )
 
     def test_section_opens_a_block(self):
@@ -87,18 +87,18 @@ class TestRendering:
         views = tmp_path / "resources" / "views"
         (views / "layouts").mkdir(parents=True)
 
-        (views / "layouts" / "app.blade.py").write_text(
+        (views / "layouts" / "app.forge.py").write_text(
             "<html><title>@yield('title')</title><body>@yield('body')</body></html>",
             encoding="utf-8",
         )
-        (views / "page.blade.py").write_text(
+        (views / "page.forge.py").write_text(
             '@extends("layouts.app")\n'
             '@section("title", "Hi")\n'
             '@section("body")<p>{{ name }}</p>@endsection',
             encoding="utf-8",
         )
-        (views / "broken.blade.py").write_text("{{ undefined_variable.attribute }}", encoding="utf-8")
-        (views / "form.blade.py").write_text("<form>@csrf</form>", encoding="utf-8")
+        (views / "broken.forge.py").write_text("{{ undefined_variable.attribute }}", encoding="utf-8")
+        (views / "form.forge.py").write_text("<form>@csrf</form>", encoding="utf-8")
 
         class FakeApp:
             base_path = str(tmp_path)
@@ -136,7 +136,7 @@ class TestRendering:
         import os
 
         forge.share("site_name", "Codepy")
-        with open(os.path.join(forge.views_dir, "shared.blade.py"), "w", encoding="utf-8") as handle:
+        with open(os.path.join(forge.views_dir, "shared.forge.py"), "w", encoding="utf-8") as handle:
             handle.write("{{ site_name }}")
 
         assert forge.render("shared") == "Codepy"

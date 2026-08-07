@@ -1,8 +1,7 @@
 # Codepy
 
-Um framework web Python com as convenções do **Laravel**, construído sobre
-**Starlette**. Este repositório é o **esqueleto base** para criar novas
-aplicações — o equivalente ao `laravel/laravel`.
+Um framework web Python completo, construído sobre **Starlette**. Este repositório é o **esqueleto base** para criar novas
+aplicações — o o esqueleto que se copia para iniciar uma app.
 
 O core vive em `services/` e é exposto publicamente como `codepy.*`.
 
@@ -288,21 +287,6 @@ docker exec framework python -m pytest  # Python 3.11, a versão mínima
 
 O `conftest.py` constrói o schema com o **migrator real**, então as migrations
 são exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
-
----
-
-## Equivalências com o Laravel
-
-| Laravel | Codepy |
-|---|---|
-| `artisan` | `craft.py` |
-| Eloquent | Codepyquent (`services/orm`) |
-| Blade | Forge (`services/view`) — Jinja2 com sintaxe Blade |
-| `Illuminate\Container` | `services/container` |
-| Facades | `codepy.facades` |
-| FormRequest | `codepy.validation.FormRequest` |
-| Gate / Policies | `codepy.auth` |
-| Migrations / Schema | `codepy.migrations` |
 
 ---
 

@@ -118,7 +118,7 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
     return result
 
 
-#: Laravel-style alias used throughout views and controllers.
+#: Short alias used throughout views and controllers.
 __ = translate
 
 

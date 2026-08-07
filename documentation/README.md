@@ -1,6 +1,6 @@
 # Codepy Documentation
 
-A Python web framework with Laravel's conventions, built on Starlette.
+A batteries-included Python web framework built on Starlette.
 
 ## Getting started
 
@@ -18,7 +18,7 @@ A Python web framework with Laravel's conventions, built on Starlette.
 | [Service container](container.md) | Binding, resolution, autowiring, service providers |
 | [Routing](routing.md) | Routes, groups, resources, route middleware |
 | [Controllers](controllers.md) | Controllers, requests, responses |
-| [Views](views.md) | The Forge engine, Blade directives, layouts |
+| [Views](views.md) | The Forge engine, Forge directives, layouts |
 | [Validation](validation.md) | Rules, FormRequest, error handling |
 
 ## Database
@@ -46,21 +46,6 @@ A Python web framework with Laravel's conventions, built on Starlette.
 |---|---|
 | [Testing](testing.md) | Running the suite, fixtures, testing against PostgreSQL |
 | [Deployment](deployment.md) | Production checklist, Docker, environment |
-
-## Coming from Laravel
-
-| Laravel | Codepy |
-|---|---|
-| `artisan` | `craft.py` |
-| Eloquent | Codepyquent (`codepy.orm`) |
-| Blade | Forge (`codepy.view`) |
-| `Illuminate\Container` | `codepy.container` |
-| Facades | `codepy.facades` |
-| FormRequest | `codepy.validation.FormRequest` |
-| Gate / Policies | `codepy.auth` |
-| Migrations / Schema | `codepy.migrations` |
-| `config()` / `env()` | `codepy.config` |
-| `__()` / `trans()` | `codepy.support.__` |
 
 ## Project resources
 

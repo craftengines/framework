@@ -4,7 +4,7 @@
 python craft.py <command>
 ```
 
-Laravel-style colons work, and so does the plain form: `migrate:status` and
+Colon-separated commands work, and so does the plain form: `migrate:status` and
 `migrate status` are the same command.
 
 ## Migrations

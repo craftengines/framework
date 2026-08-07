@@ -1,6 +1,6 @@
 """Schema builder for Codepy Framework migrations.
 
-Provides a Laravel-style fluent `Blueprint` that compiles to dialect-specific
+Provides a fluent `Blueprint` that compiles to dialect-specific
 DDL for SQLite, PostgreSQL and MySQL.
 """
 # Codepy Framework
@@ -440,7 +440,7 @@ class SchemaBuilder:
             self.db.statement(statement)
 
     def create(self, table: str, callback: Callable[[Blueprint], Any]) -> None:
-        """Laravel-style alias of :meth:`create_table`."""
+        """Alias of :meth:`create_table`."""
         self.create_table(table, callback)
 
     def table(self, table: str, callback: Callable[[Blueprint], Any]) -> None:

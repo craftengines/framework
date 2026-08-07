@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 
 class Collection:
-    """Laravel-style collection class for chainable data operations."""
+    """Chainable collection class."""
 
     def __init__(self, items: Optional[List[Any]] = None):
         self._items = list(items) if items is not None else []

@@ -1,7 +1,7 @@
 # Backlog — Codepy Framework (base para novas aplicações)
 
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
-> (equivalente ao `laravel/laravel`), não uma aplicação de negócio.
+> (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
 > Estado: **503/503 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
@@ -86,8 +86,7 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
   `secrets.compare_digest` e limpa o código sempre (single-use).
 - `FormRequest.validated()` **não validava nada** — devolvia o corpo cru, ignorando
   `rules()` e `authorize()`. Toda regra declarada era silenciosamente ignorada.
-- **O motor de views nunca renderizou um layout.** O Forge não tinha nenhuma
-  diretiva Blade (apesar da docstring e da documentação prometerem `@csrf`/`@auth`)
+- **O motor de views nunca renderizou um layout.** O Forge não implementava nenhuma`n  das diretivas (apesar da docstring e da documentação prometerem `@csrf`/`@auth`)
   e engolia toda exceção devolvendo `<div>Rendered view: x</div>`. Como
   `@extends("layouts.app")` entregava a notação de ponto crua ao Jinja, as 12 views
   que estendem um layout falhavam em silêncio, com HTTP 200. O `Controller.view()`
@@ -210,7 +209,7 @@ fluxo de recuperação de senha nem verificação de e-mail.
 ### 3b. Criptografia de sessão
 
 O driver `cookie` assina mas **não criptografa** — o payload é legível pelo
-cliente. O Laravel criptografa. Hoje a orientação é usar `SESSION_DRIVER=file`
+cliente. Frameworks maduros costumam criptografar. Hoje a orientação é usar `SESSION_DRIVER=file`
 para dados sensíveis; adicionar cifra ao driver de cookie fecharia a lacuna.
 
 ### 4. Filas

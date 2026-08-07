@@ -1,7 +1,7 @@
 """Cache manager for Codepy Framework.
 
 Supports `array` (in-process), `file` and `redis` stores behind a single
-Laravel-style API. TTLs are honoured by every store.
+expressive API. TTLs are honoured by every store.
 """
 # Codepy Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>

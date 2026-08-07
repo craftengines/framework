@@ -26,7 +26,7 @@ _ATOMIC_COMMANDS = {"key:generate"}
 
 
 def main() -> None:
-    # Accept Laravel-style `migrate:status` as well as `migrate status`.
+    # Accept `migrate:status` as well as `migrate status`.
     argv = []
     for arg in sys.argv[1:]:
         if ":" in arg and not arg.startswith("-") and arg not in _ATOMIC_COMMANDS:

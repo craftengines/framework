@@ -1,7 +1,7 @@
 """Forge View Engine for Codepy Framework.
 
-Jinja2 with Blade-style directives. Templates are preprocessed before Jinja
-compiles them, so `@csrf`, `@auth` and friends work in `.blade.py` files.
+Jinja2 with Forge directives. Templates are preprocessed before Jinja
+compiles them, so `@csrf`, `@auth` and friends work in `.forge.py` files.
 """
 # Codepy Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
@@ -17,18 +17,18 @@ from jinja2 import BaseLoader, Environment, FileSystemLoader, TemplateNotFound
 from markupsafe import Markup
 
 def resolve_view_path(name: str) -> str:
-    """Turn a Laravel-style view name into a template path.
+    """Turn a dotted view name into a template path.
 
-    `layouts.app` -> `layouts/app.blade.py`. Without this, `@extends` handed the
+    `layouts.app` -> `layouts/app.forge.py`. Without this, `@extends` handed the
     dotted name straight to Jinja, which looked for a file literally called
     "layouts.app" — so every view that extended a layout failed to render.
     """
-    if name.endswith((".blade.py", ".html")):
+    if name.endswith((".forge.py", ".html")):
         return name
-    return name.replace(".", "/") + ".blade.py"
+    return name.replace(".", "/") + ".forge.py"
 
 
-#: Blade directive -> Jinja equivalent. Order matters: longer directives first,
+#: Forge directive -> Jinja equivalent. Order matters: longer directives first,
 #: so `@endauth` is not partially matched by `@end`.
 DIRECTIVES = [
     (r"@csrf\b", "{{ csrf_field() }}"),
@@ -78,7 +78,7 @@ def _inline_section(match: "re.Match[str]") -> str:
 
 
 def compile_directives(source: str) -> str:
-    """Rewrite Blade directives into Jinja syntax."""
+    """Rewrite Forge directives into Jinja syntax."""
     source = _EXTENDS_RE.sub(
         lambda m: '{% extends "' + resolve_view_path(m.group(1)) + '" %}', source
     )
@@ -93,7 +93,7 @@ def compile_directives(source: str) -> str:
     return source
 
 
-class BladeLoader(BaseLoader):
+class DirectiveLoader(BaseLoader):
     """Wraps a loader, translating directives as each template is read."""
 
     def __init__(self, inner: BaseLoader):
@@ -227,7 +227,7 @@ class Forge:
 
         self.views_dir = views_dir
         self.env = Environment(
-            loader=BladeLoader(FileSystemLoader(views_dir)),
+            loader=DirectiveLoader(FileSystemLoader(views_dir)),
             autoescape=True,
         )
         self.env.globals.update(

@@ -1,4 +1,4 @@
-"""Codepy Framework — a Python web framework with Laravel's conventions.
+"""Codepy Framework — a batteries-included Python web framework.
 
 The framework lives in `services/` but is imported publicly as `codepy.*`.
 A meta path finder maps `codepy.<anything>` onto `services.<anything>` on

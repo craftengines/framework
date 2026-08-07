@@ -1,6 +1,6 @@
 # Codepy Framework — Architectural Design Blueprint
 
-> A Laravel-style backend framework built in pure Python on FastAPI, with PostgreSQL as the native database.
+> A expressive backend framework built in pure Python on FastAPI, with PostgreSQL as the native database.
 
 ---
 
@@ -18,7 +18,7 @@
 10. [Authentication & Authorization](#10-authentication--authorization)
 11. [Events, Listeners, Jobs & Queues](#11-events-listeners-jobs--queues)
 12. [Task Scheduling System](#12-task-scheduling-system)
-13. [CLI Tool Design (Artisan Equivalent)](#13-cli-tool-design-artisan-equivalent)
+13. [CLI Tool Design](#13-cli-tool-design)
 14. [Configuration System](#14-configuration-system)
 15. [Exception Handling Architecture](#15-exception-handling-architecture)
 16. [Template Engine Integration](#16-template-engine-integration)
@@ -30,13 +30,13 @@
 
 ## 1. High-Level Architecture Overview
 
-Codepy is a full-stack backend framework that wraps FastAPI's ASGI runtime with Laravel's architectural patterns. The framework is organized into layers, each with a single responsibility, communicating through a central inversion-of-control container.
+Codepy is a full-stack backend framework that wraps FastAPI's ASGI runtime with the framework's architectural patterns. The framework is organized into layers, each with a single responsibility, communicating through a central inversion-of-control container.
 
 ### Layered Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         CLI (Artisan)                                │
+│                         CLI (craft)                                  │
 │                  make:* · migrate · serve · tinker                   │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
@@ -61,7 +61,7 @@ Codepy is a full-stack backend framework that wraps FastAPI's ASGI runtime with 
 │       ▼                                                         ▼   │
 │  ┌──────────────────┐                              ┌────────────────┐│
 │  │   PostgreSQL     │                              │  Forge Engine  ││
-│  │ (via asyncpg /   │                              │ (Jinja2 + Blade││
+│  │ (via asyncpg /   │                              │ (Jinja2││
 │  │  SQLAlchemy 2.0) │                              │  directives)   ││
 │  └──────────────────┘                              └────────────────┘│
 │                                                                     │
@@ -129,19 +129,19 @@ HTTP Request
 | Decision | Choice | Rationale |
 |---|---|---|
 | ASGI framework | FastAPI / Starlette | Async-native, high performance, Pydantic integration |
-| Database | PostgreSQL (default) | Laravel-idiomatic, supports JSONB, UUID, full-text search, advisory locks |
+| Database | PostgreSQL (default) | Supports JSONB, UUID, full-text search, advisory locks |
 | DB driver | asyncpg (async) / psycopg (sync) | asyncpg for async path; psycopg3 for sync CLI/migrations |
-| ORM style | Active Record (Eloquent-like) | Familiar to Laravel developers; wraps SQLAlchemy 2.0 Core for SQL generation |
-| Template engine | Jinja2 extended as "Forge" | Mature, Python-native; extended with Blade directive preprocessor |
+| ORM style | Active Record | Familiar, terse for CRUD; wraps SQLAlchemy 2.0 Core for SQL generation |
+| Template engine | Jinja2 extended as "Forge" | Mature, Python-native; extended with Forge directive preprocessor |
 | CLI framework | Typer | Type-hint-driven, auto-generates help, Click-compatible |
-| Validation | Custom rule engine on Pydantic v2 | Laravel rule DSL syntax; Pydantic for schema enforcement |
+| Validation | Custom rule engine on Pydantic v2 | Declarative rule DSL; Pydantic for schema enforcement |
 | Config | Python files in `config/` | Type-safe, importable, env-merged at load time |
 
 ---
 
 ## 2. Folder Structure
 
-The folder structure mirrors Laravel's conventions exactly, adapted for Python packaging.
+The folder structure follows a conventional conventions exactly, adapted for Python packaging.
 
 ```
 project/
@@ -219,16 +219,16 @@ project/
 │       └── UserFactory.py
 │
 ├── resources/
-│   ├── views/                          # Forge templates (.blade.py)
+│   ├── views/                          # Forge templates (.forge.py)
 │   │   ├── layouts/
-│   │   │   └── app.blade.py
+│   │   │   └── app.forge.py
 │   │   ├── posts/
-│   │   │   ├── index.blade.py
-│   │   │   ├── show.blade.py
-│   │   │   └── create.blade.py
+│   │   │   ├── index.forge.py
+│   │   │   ├── show.forge.py
+│   │   │   └── create.forge.py
 │   │   └── auth/
-│   │       ├── login.blade.py
-│   │       └── register.blade.py
+│   │       ├── login.forge.py
+│   │       └── register.forge.py
 │   └── lang/                           # Localization files
 │       └── en/
 │           └── messages.py
@@ -259,7 +259,7 @@ project/
 │   ├── auth/                           # Guards, gates, policies
 │   ├── events/                         # Event dispatcher
 │   ├── queue/                          # Queue manager, jobs
-│   ├── view/                           # Forge templating (Blade parser)
+│   ├── view/                           # Forge templating (directive parser)
 │   ├── facades/                        # Facade base + concrete facades (FacadeMeta)
 │   ├── providers/                      # Framework service providers
 │   ├── exceptions/                     # Exception handler
@@ -280,7 +280,7 @@ project/
 │   ├── notification/                  # Notification channels
 │   └── support/                        # Helper functions
 │
-├── artisan.py                          # CLI entry point (python artisan.py)
+├── craft.py                          # CLI entry point (python craft.py)
 ├── bootstrap.py                        # Bootstrap helper
 ├── pyproject.toml                      # Package metadata + dependencies
 ├── .env                                # Environment variables
@@ -293,11 +293,11 @@ project/
 
 ### Conceptual Mapping
 
-| Laravel (PHP) | Codepy (Python) | Notes |
+| Concept | Codepy (Python) | Notes |
 |---|---|---|
 | Controller class | Controller class extending `codepy.http.Controller` | Methods receive a `Request` and return a `Response` |
-| Eloquent Model | Codepyquent Model extending `codepy.orm.Model` | Active record with metaclass for table auto-discovery |
-| Blade view | Forge template (`.blade.py`) | Jinja2 preprocessed with Blade directives |
+| Model | Codepyquent Model extending `codepy.orm.Model` | Active record with metaclass for table auto-discovery |
+| Template view | Forge template (`.forge.py`) | Jinja2 preprocessed with Forge directives |
 | Route file | `routes/web.py`, `routes/api.py` | Same file-based route registration |
 | FormRequest | FormRequest extending `codepy.validation.FormRequest` | Validates and authorizes before controller |
 | Middleware | Middleware extending `codepy.http.Middleware` | Onion-order pipeline |
@@ -337,9 +337,9 @@ Models are active-record classes. Each model:
 
 ### View Design
 
-Views are Forge templates (Jinja2 with Blade directives). The controller calls `self.view("posts.show", {"post": post})` which:
-1. Resolves the template file (`posts/show.blade.py`)
-2. Preprocesses Blade directives to Jinja2 syntax
+Views are Forge templates (Jinja2 with Forge directives). The controller calls `self.view("posts.show", {"post": post})` which:
+1. Resolves the template file (`posts/show.forge.py`)
+2. Preprocesses Forge directives to Jinja2 syntax
 3. Inlines `@extends` parent templates and `@include` partials
 4. Injects global variables (auth user, csrf token, config, session, errors)
 5. Renders to HTML and wraps in a `Response`
@@ -371,7 +371,7 @@ The container is the heart of the framework. It is an inversion-of-control conta
 
 **Auto-resolution**: For classes with no explicit binding, the container inspects `__init__` type hints and recursively resolves each parameter. This enables constructor injection without any registration.
 
-**Contextual bindings**: A class can declare that when it depends on interface X, it wants a specific implementation. This mirrors Laravel's `$this->app->when(PhotoController::class)->needs(Filesystem::class)->give(S3Filesystem::class)`.
+**Contextual bindings**: A class can declare that when it depends on interface X, it wants a specific implementation. This follows a conventional `$this->app->when(PhotoController::class)->needs(Filesystem::class)->give(S3Filesystem::class)`.
 
 ### Service Providers
 
@@ -457,7 +457,7 @@ Response ◀── MW1(after) ◀── MW2(after) ◀── MW3(after) ◀─�
 
 ### Middleware Groups
 
-Two default groups mirror Laravel:
+Two default groups ship out of the box:
 
 **`web` group**: EncryptCookies → VerifyCsrfToken → StartSession → ShareErrorsFromSession
 
@@ -565,7 +565,7 @@ In production, routes are compiled into a single dispatch table (regex → route
 
 ### Design Philosophy
 
-Codepyquent is an active-record ORM that wraps SQLAlchemy 2.0 Core for SQL generation and connection management. It provides Eloquent's developer experience — chainable query builder, relationship methods, casts, accessors/mutators, scopes — while delegating to SQLAlchemy for database abstraction.
+Codepyquent is an active-record ORM that issues SQL through the driver directly and connection management. It provides Codepyquent's developer experience — chainable query builder, relationship methods, casts, accessors/mutators, scopes — while delegating to SQLAlchemy for database abstraction.
 
 ### PostgreSQL as Native Database
 
@@ -753,7 +753,7 @@ The migrator tracks applied migrations in a `migrations` table:
 
 ### Design
 
-The validation layer mirrors Laravel's `Validator` with a rule DSL. It operates on plain dicts (request input) and returns validated data or raises `ValidationException` with field-level error messages.
+The validation layer follows a conventional `Validator` with a rule DSL. It operates on plain dicts (request input) and returns validated data or raises `ValidationException` with field-level error messages.
 
 ### Rule Syntax
 
@@ -848,8 +848,8 @@ Guards are the authentication mechanism. Each guard has a driver and a user prov
 
 | Guard | Driver | Provider | Use Case |
 |---|---|---|---|
-| `web` | session | users (Eloquent) | Browser sessions, HTML routes |
-| `api` | token | users (Eloquent) | API tokens, JSON routes |
+| `web` | session | users (Codepyquent) | Browser sessions, HTML routes |
+| `api` | token | users (Codepyquent) | API tokens, JSON routes |
 
 **Session guard flow**:
 1. Check session for `auth_id` → if present, load user from provider
@@ -869,7 +869,7 @@ Providers retrieve users from a data source:
 
 | Provider | Source |
 |---|---|
-| `eloquent` | Codepyquent model (configured in `config/auth.py` as `providers.users.model`) |
+| `codepyquent` | Codepyquent model (configured in `config/auth.py` as `providers.users.model`) |
 | `database` | Raw DB table query (no model) |
 
 ### Gates
@@ -902,7 +902,7 @@ class PostPolicy:
 
 **Registration**: `Gate.policy(Post, PostPolicy)` in `AuthServiceProvider.boot()`.
 
-**Usage in controller**: `self.authorize("update", user, post)` or via `@can` Blade directive in views.
+**Usage in controller**: `self.authorize("update", user, post)` or via `@can` Forge directive in views.
 
 **Policy methods**: `view_any`, `view`, `create`, `update`, `delete`, `restore`, `force_delete`. Plus any custom methods.
 
@@ -1058,7 +1058,7 @@ Schedule.command("telescope:prune").weekly()->sundays()->at("03:00")
 A single cron entry runs the scheduler every minute:
 
 ```
-* * * * * cd /app && python artisan.py schedule:run >> /dev/null 2>&1
+* * * * * cd /app && python craft.py schedule:run >> /dev/null 2>&1
 ```
 
 `schedule:run` evaluates all scheduled tasks and dispatches those due in the current minute. Overlapping prevention is available via `->without_overlapping()` which uses an advisory lock to prevent concurrent execution.
@@ -1072,11 +1072,11 @@ A single cron entry runs the scheduler every minute:
 
 ---
 
-## 13. CLI Tool Design (Artisan Equivalent)
+## 13. CLI Tool Design
 
 ### Overview
 
-The CLI is a Typer-based application invoked via `python artisan.py <command>`. It provides scaffolding, database management, server control, and utility commands.
+The CLI is a Typer-based application invoked via `python craft.py <command>`. It provides scaffolding, database management, server control, and utility commands.
 
 ### Command Categories
 
@@ -1340,12 +1340,12 @@ When `APP_DEBUG=False`:
 
 ### Forge Engine
 
-Forge is a Jinja2-based templating engine extended with Blade-style directives. It provides a two-phase compilation:
+Forge is a Jinja2-based templating engine extended with Forge directives. It provides a two-phase compilation:
 
-1. **Blade preprocessing**: Convert `@directives` to Jinja2 `{{ }}` / `{% %}` syntax
+1. **Directive preprocessing**: Convert `@directives` to Jinja2 `{{ }}` / `{% %}` syntax
 2. **Jinja2 rendering**: Standard Jinja2 template rendering with autoescape
 
-### Blade Directives
+### Forge Directives
 
 | Directive | Compiles To | Description |
 |---|---|---|
@@ -1419,7 +1419,7 @@ View.composer("layouts.app", lambda view: view.with("nav", NavService.get_items(
 
 ### Design Goal
 
-The framework supports a modular package system where self-contained features can be developed, installed, and reused across applications — mirroring Laravel's package ecosystem.
+The framework supports a modular package system where self-contained features can be developed, installed, and reused across applications — mirroring the framework's package ecosystem.
 
 ### Package Structure
 
@@ -1476,7 +1476,7 @@ Codepy prioritizes readability and expressiveness over brevity. Code should read
 | Declarative validation | `rules = {"title": ["required", "string", "max:255"]}` |
 | Resource routing | `Route.resource("posts", PostController)` |
 | Facade accessors | `DB.table("users").where("active", True).get()` |
-| Blade directives | `@foreach(posts as post) ... @endforeach` |
+| Forge directives | `@foreach(posts as post) ... @endforeach` |
 | Convention over configuration | `User` model → `users` table automatically |
 
 ### Convention Over Configuration
