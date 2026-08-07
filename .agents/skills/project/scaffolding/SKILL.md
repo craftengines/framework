@@ -5,26 +5,46 @@ description: Project-specific instructions for running Docker containers, execut
 
 # Craft Project Scaffolding Guidelines (Project Skill)
 
-This skill governs local execution, testing, and container management for this repository.
+This skill governs local execution, testing, and container management for this
+repository. All commands below run **from inside `data/`** — that directory is
+the deployable unit and the Compose project root; see
+`craft-workspace-architecture` for why. `pytest` alone has no `test` subcommand
+on `dev.py`; use the bare command.
 
 ---
 
 ## 1. Commands and CLI Tools
 
-Always use `dev.py` to trigger local operations. Since command signatures are hyphenated, refer to this reference:
+Always use `dev.py` to trigger local operations. Both `command:sub` and
+`command sub` spellings work (e.g. `migrate:status` == `migrate status`).
 
 | Action | Command |
 |---|---|
 | Generate App Key | `python dev.py key:generate` |
-| Refresh Migrations | `python dev.py migrate fresh` |
-| Run Test Suite | `pytest` or `python dev.py test` |
+| Run Migrations | `python dev.py migrate` |
+| Reset + Reseed | `python dev.py migrate fresh --seed` |
+| Run Test Suite | `python -m pytest` |
 | Start Server | `python dev.py serve` |
+| Route List | `python dev.py route list` |
+| Generate Model + Migration | `python dev.py make model <Name> -m` |
 
 ---
 
-## 2. Docker Environments
+## 2. Docker Environment
 
-* **Compose Service:** `craft-app` (built using `Dockerfile` in the root).
-* **Port Binding:** Mapped to host port **`8300`** to prevent collisions.
-* **Environment Variables:** Set in `docker-compose.yml` (`DB_CONNECTION=sqlite`, `APP_ENV=local`).
-* **Test Command:** `docker compose exec craft-app pytest` runs the automated validation suite in the container.
+* **Compose services:** `app` (container name `framework`, built from
+  `data/Dockerfile`) and `db` (container name `framework-db`, `postgres:15-alpine`).
+* **Compose project name:** pinned to `name: framework` in `docker-compose.yml`
+  — the workspace directory has a space in it, which Compose cannot derive a
+  project name from.
+* **Port binding:** app on host **`8300`** → container `8000`; Postgres on
+  host **`5499`** (both host and container side, non-default, to avoid
+  colliding with other local Postgres instances).
+* **Environment variables:** set in `docker-compose.yml` — `DB_CONNECTION=pgsql`,
+  `APP_ENV=local`, `APP_DEBUG=true`. The default *outside* Docker (via
+  `.env.example`) is SQLite; Docker Compose always brings up Postgres.
+* **Bind mount:** `.:/app`, relative to `data/` — editing any file under
+  `data/` is live in the running container immediately, no rebuild needed.
+* **Test command:** `docker exec framework python -m pytest` runs the suite
+  on the container's Python (currently the framework's minimum supported
+  version), independent of whatever interpreter is on the host.

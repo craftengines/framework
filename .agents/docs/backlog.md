@@ -227,3 +227,57 @@ identidade ou remover por honestidade é uma decisão sua.
 
 `CRAFT_DESIGN.md` (74 KB) ainda descreve o desenho antigo. O `README.md` e
 `documentation/*.md` foram atualizados.
+
+**Fatia em andamento (2026-08-07), checkpoint 1/4 concluído:**
+
+- ✅ Skill nova `.agents/skills/project/workspace-architecture/SKILL.md` —
+  contrato do split raiz-do-workspace vs `data/` (o que é montado no
+  container) e o procedimento para clonar isto e iniciar uma nova app.
+- ✅ `.agents/skills/project/scaffolding/SKILL.md` corrigida — descrevia um
+  serviço Compose (`craft-app`), porta e `DB_CONNECTION` que não existem mais
+  desde a reorganização para `data/`.
+- ✅ `README.md` na raiz do workspace, apontando para `data/README.md` e para
+  as skills acima.
+- ✅ Fatia 2: `documentation/*.md` auditada linha a linha contra o código
+  (achou e corrigiu 2 mentiras: SQLAlchemy no ORM, PQC na sessão).
+  `CRAFT_DESIGN.md` ganhou banner deixando claro que é visão aspiracional, não
+  o implementado. Português residual traduzido (README/CHANGELOG/SECURITY do
+  `data/` + 5 docstrings). 41 arquivos em `services/` ganharam o cabeçalho de
+  orientação `Category/Relations/References`. Achado não corrigido (fora do
+  escopo desta fatia): `resources/views/{access,dashboard,layout}` e
+  `admin/translations/index.forge.py` ainda são views órfãs do domínio
+  SoftPax em português, apesar do CHANGELOG dizer que o domínio foi removido —
+  decidir se apaga ou mantém como demo.
+- ✅ Fatia 3: `PluginManager` nivelado ao `ModuleManager` — migração
+  `plugins` (id, name, slug único, enabled, path, timestamps), model
+  `app/Models/Plugin.py`, descoberta em disco (`plugins/<slug>/plugin.py`
+  expondo um dict `PLUGIN`), persistência via `installed()/is_enabled()/
+  enable()/disable()` (mesmo padrão try-DB-fallback-memória do
+  ModuleManager, nunca finge sucesso), `sync()` faz upsert sem reativar
+  plugin que o operador desligou. CLI: `plugin:list|enable|disable|sync`.
+  Testes novos em `tests/test_plugins.py`. Suíte completa: **612 passed**
+  (rodado no container, Python 3.11). Decisão tomada: o `all()` antigo
+  (registro de hooks em memória) foi mantido como está — a listagem
+  DB-backed ganhou o nome `installed()` para não quebrar os testes
+  pré-existentes de hooks.
+- ✅ Fatia 4: CRUD builder — `services/cli/crud_builder.py` gera migration +
+  model + FormRequest + Resource + controller (ligado de verdade ao ORM, não
+  placeholder) a partir de `dev.py make crud <Entity> --fields "nome:tipo:
+  regra1|regra2,..."`. Tela admin em `/admin/crud-builder` (atrás de `auth`,
+  igual `/admin`) chama o mesmo `build_crud()`. Documentado em
+  `documentation/crud-builder.md`. Suíte: **627 passed** (612 + 15 novos).
+  Validado ao vivo: gerado `Product`, migrado, `GET/POST /api/v1/products`
+  respondendo de verdade no container.
+  - **Bug real encontrado e corrigido no smoke test**: `dev.py` dividia
+    *qualquer* argumento com `:` em dois tokens — isso quebrava
+    `--fields "name:string:required,..."`. Corrigido para só dividir o
+    primeiro token (o comando), preservando `migrate:status`/`plugin:list`.
+  - **Correção de design**: a rota gerada foi registrada em `routes/api.py`
+    (via `Route.api_resource(..., write_middleware="api")`, mesmo padrão do
+    `PostController`) em vez de `routes/web.py` — o controller só devolve
+    JSON e `web.py` exige CSRF, que um cliente de API não tem como satisfazer
+    (a primeira versão gerada caía em 419 nesse smoke test).
+  - **Limite documentado, não corrigido**: o controller gerado não chama
+    `Gate.authorize(...)` como o `PostController` faz — então as rotas de
+    escrita de uma entidade gerada ficam abertas até o dev adicionar uma
+    Policy. Está explícito em `documentation/crud-builder.md`.
