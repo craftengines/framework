@@ -92,10 +92,37 @@ patch version, is `r00002`.
 
 To cut a release:
 
-1. Update `CHANGELOG.md`: fold `### Validation pass` / any uncommitted work
-   at the top into a new `## [X.Y.Z] rNNNNN — YYYY-MM-DD` heading.
+1. Update `CHANGELOG.md`: rename `## [Unreleased]` to
+   `## [X.Y.Z] rNNNNN — YYYY-MM-DD`, then add a fresh empty `## [Unreleased]`
+   above it for whatever comes next.
 2. Bump `pyproject.toml` and `services/__init__.py` to match.
 3. Commit, then tag: `git tag -a vX.Y.Z-rNNNNN -m "..."`.
+
+### Every change gets a CHANGELOG entry — no exceptions
+
+Not just at release time. **The same commit or PR that makes a change adds
+its line to `## [Unreleased]`.** This is what lets a developer or an AI agent
+understand what happened to the framework without reconstructing it from
+`git log` — memory and diffs decay, the changelog is the durable record.
+
+Use the standard Keep a Changelog categories under `[Unreleased]`, creating
+whichever ones you need:
+
+- **Added** — a new feature, command, endpoint, or capability.
+- **Changed** — existing behaviour that shifted (including dependency bumps
+  that could affect behaviour, not just version-number churn).
+- **Fixed** — a bug, however small. If it changed what the code returns,
+  raises, or persists, it's a Fixed entry.
+- **Security** — any vulnerability closed, any hardening applied, any
+  authn/authz/CSRF/injection/secrets-handling change. Say what the exposure
+  was, not just what the patch does — "X could bypass Y because Z" is what
+  makes this useful to a future reader deciding whether they're affected.
+- **Deprecated** / **Removed** — something going away, or already gone.
+
+A one-line entry is fine for a small fix. A larger change (new subsystem,
+security incident) gets a short paragraph — see the `[3.11.0] r00001` entry
+for the level of detail expected: what changed, why, and what a reader should
+independently verify rather than take on faith.
 
 ## Building a release
 

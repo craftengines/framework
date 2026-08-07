@@ -5,6 +5,36 @@ Versioning: `MAJOR.MINOR.PATCH` plus a release counter (`rNNNNN`) that
 increments on every cut release, tracked in `services/__init__.py`
 (`__version__`, `__release__`) and `pyproject.toml`.
 
+**Every change to `services/`, `app/`, `bootstrap/`, `config/`, `database/`,
+`routes/`, or `dev.py` gets an entry here, in the same change/PR that makes
+it** — not batched later, not left for the release cut to reconstruct from
+memory or `git log`. This applies to humans and AI agents alike: a bug fixed,
+a feature added, a dependency bumped, a vulnerability closed. If it isn't
+here, an agent reading this file has no way to know it happened without
+re-deriving it from the diff — which is exactly the blind spot this file
+exists to remove. See "Versioning and releases" in `CONTRIBUTING.md` for the
+full policy (categories to use, what counts as security-relevant, how
+`[Unreleased]` gets folded into a release).
+
+---
+
+## [Unreleased]
+
+### Fixed
+
+- `.agents/skills/framework/craft-development/SKILL.md` still claimed the ORM
+  "wraps SQLAlchemy 2.0 Core" — missed by the earlier documentation audit
+  because it lives outside `data/`. It's a custom query builder over
+  `sqlite3`/`psycopg2`/`PyMySQL`; no SQLAlchemy, no Pydantic.
+
+### Changed
+
+- Every change to the framework now requires a `CHANGELOG.md` entry in the
+  same commit that makes it (not batched for the release cut) — policy
+  documented in `CONTRIBUTING.md` ("Every change gets a CHANGELOG entry") and
+  in `.agents/skills/framework/craft-development/SKILL.md` §3, so both human
+  contributors and AI agents working in this repo pick it up.
+
 ---
 
 ## [3.11.0] r00001 — 2026-08-07
