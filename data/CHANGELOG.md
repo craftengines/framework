@@ -1,13 +1,20 @@
 # Changelog
 
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versioning follows [Semantic Versioning](https://semver.org/).
-
-The project is at `0.x`: the public API can still change between minor versions.
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versioning: `MAJOR.MINOR.PATCH` plus a release counter (`rNNNNN`) that
+increments on every cut release, tracked in `services/__init__.py`
+(`__version__`, `__release__`) and `pyproject.toml`.
 
 ---
 
-## 2026-08-07 — Workspace reorganization, plugin management, CRUD builder
+## [3.11.0] r00001 — 2026-08-07
+
+First cut release. Everything below this line — the full validation pass
+(15 → 627 tests), the security/reliability hardening, the workspace
+reorganization into `data/`, plugin management, and the CRUD builder — ships
+as `v3.11.0-r00001`.
+
+### 2026-08-07 — Workspace reorganization, plugin management, CRUD builder
 
 The application skeleton moved to `data/` at the workspace root — that
 directory is now the single deployable unit and the Docker Compose project
@@ -70,7 +77,7 @@ outside `data/` is copied into the container image.
 
 ---
 
-## 2026-08-07 — Security hardening and fixes
+### 2026-08-07 — Security hardening and fixes
 
 Hardening and bug-fix pass over the validated skeleton. The suite went from
 530 to **596 tests**.
@@ -133,7 +140,7 @@ Hardening and bug-fix pass over the validated skeleton. The suite went from
 
 ---
 
-## [Unreleased]
+### Validation pass — from "does not matter" to a green suite
 
 Validation work on the base skeleton, from "does not matter" to 530 green
 tests on SQLite, real PostgreSQL, and Python 3.11.
