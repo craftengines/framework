@@ -26,4 +26,5 @@ Route.get("/admin", [HomeController, "admin"]).middleware("auth").name("admin.da
 
 # Resource & Web Content Routes
 Route.resource("posts", PostController)
+Route.get("/docs", [DocsController, "index"]).name("docs.index")
 Route.get("/docs/{page}", [DocsController, "show"]).name("docs.show")

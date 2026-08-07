@@ -11,68 +11,30 @@
 
 @extends("layouts.app")
 
-@section("title", "Codepy Documentation")
+@section("title", page_title ~ " — Codepy Documentation")
 
 @section("content")
 <div class="max-w-7xl mx-auto w-full flex-1 flex">
     <!-- Left Sidebar: Documentation Navigation -->
     <aside class="w-72 flex-shrink-0 bg-white border-r border-slate-250/60 p-8 hidden md:block select-none">
         <nav class="space-y-8 sticky top-24">
-            <!-- Group 1 -->
-            <div>
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Getting Started</h4>
-                <ul class="space-y-2 text-sm font-medium">
-                    <li>
-                        <a href="/docs/introduction" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'introduction' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Introduction
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Group 2 -->
-            <div>
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Core Architecture</h4>
-                <ul class="space-y-2 text-sm font-medium">
-                    <li>
-                        <a href="/docs/routing" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'routing' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Routing
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/docs/controllers" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'controllers' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Controllers & Requests
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/docs/orm" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'orm' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Codepyquent ORM
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/docs/migrations" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'migrations' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Migrations & Seeding
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Group 3 -->
-            <div>
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Advanced Features</h4>
-                <ul class="space-y-2 text-sm font-medium">
-                    <li>
-                        <a href="/docs/security" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'security' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Security & Auth
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/docs/queues_events" class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == 'queues_events' %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
-                            Events & Queues
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            {# Built from the files in documentation/ — adding a guide needs no
+               change here. See DocsController.navigation(). #}
+            @foreach(navigation as group)
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">{{ group.heading }}</h4>
+                    <ul class="space-y-2 text-sm font-medium">
+                        @foreach(group['items'] as item)
+                            <li>
+                                <a href="/docs/{{ item.slug }}"
+                                   class="flex items-center px-3 py-2 rounded-lg transition duration-150 {% if current_page == item.slug %}bg-orange-50 text-orange-600{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                                    {{ item.title }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endforeach
         </nav>
     </aside>
 

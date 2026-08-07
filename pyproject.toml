@@ -35,6 +35,9 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "jinja2>=3.1",
     "typer>=0.9",
+    # Renders the Markdown documentation. It arrived transitively through
+    # typer -> rich; depending on that was luck, not a decision.
+    "markdown-it-py>=3.0",
     # Starlette needs this to parse multipart/form-data.
     "python-multipart>=0.0.6",
     # passlib's bcrypt backend reads `bcrypt.__about__`, which 4.1 removed. Pin
