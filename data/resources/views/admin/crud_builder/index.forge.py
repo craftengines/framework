@@ -46,14 +46,26 @@
     </form>
 </div>
 
+<!-- Rows submitted before a validation failure, restored on redisplay. Read
+     from a data attribute (not a <script type="application/json"> body) so
+     Jinja's autoescaping keeps it HTML-safe and the browser decodes entities
+     for us. -->
+<div id="field-rows-data" data-fields="{{ fields_json }}" class="hidden"></div>
+
 <template id="field-row-template">
     <div class="flex items-center space-x-3 field-row">
-        <input type="text" placeholder="name" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm field-name-input">
-        <select class="px-3 py-2 rounded-lg border border-slate-200 text-sm field-type-input">
-            @foreach(field_types as type)
-                <option value="{{ type }}">{{ type }}</option>
-            @endforeach
-        </select>
+        <div class="flex-1">
+            <label class="sr-only field-name-label">Field name</label>
+            <input type="text" placeholder="name" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm field-name-input">
+        </div>
+        <div>
+            <label class="sr-only field-type-label">Field type</label>
+            <select class="px-3 py-2 rounded-lg border border-slate-200 text-sm field-type-input">
+                @foreach(field_types as type)
+                    <option value="{{ type }}">{{ type }}</option>
+                @endforeach
+            </select>
+        </div>
         <label class="flex items-center text-xs text-slate-500 space-x-1">
             <input type="checkbox" class="field-required-input">
             <span>required</span>
@@ -69,19 +81,40 @@
     var form = document.getElementById("crud-builder-form");
     var counter = 0;
 
-    function addRow() {
+    function addRow(data) {
+        data = data || {};
         var index = counter++;
         var fragment = template.content.cloneNode(true);
         var row = fragment.querySelector(".field-row");
 
         var nameInput = row.querySelector(".field-name-input");
         nameInput.name = "field_name_" + index;
+        nameInput.id = "field_name_" + index;
+        if (data.name) {
+            nameInput.value = data.name;
+        }
+        var nameLabel = row.querySelector(".field-name-label");
+        if (nameLabel) {
+            nameLabel.setAttribute("for", nameInput.id);
+        }
 
         var typeInput = row.querySelector(".field-type-input");
         typeInput.name = "field_type_" + index;
+        typeInput.id = "field_type_" + index;
+        if (data.type) {
+            typeInput.value = data.type;
+        }
+        var typeLabel = row.querySelector(".field-type-label");
+        if (typeLabel) {
+            typeLabel.setAttribute("for", typeInput.id);
+        }
 
         var requiredInput = row.querySelector(".field-required-input");
         requiredInput.name = "field_required_" + index;
+        requiredInput.id = "field_required_" + index;
+        if (data.required) {
+            requiredInput.checked = true;
+        }
 
         row.querySelector(".remove-field-row").addEventListener("click", function () {
             row.remove();
@@ -90,12 +123,27 @@
         rowsContainer.appendChild(row);
     }
 
-    document.getElementById("add-field-row").addEventListener("click", addRow);
+    document.getElementById("add-field-row").addEventListener("click", function () {
+        addRow();
+    });
     form.addEventListener("submit", function () {
         // Checkboxes only submit when checked — nothing else to normalise here.
     });
 
-    addRow();
+    var restoredFields = [];
+    try {
+        restoredFields = JSON.parse(document.getElementById("field-rows-data").getAttribute("data-fields") || "[]");
+    } catch (e) {
+        restoredFields = [];
+    }
+
+    if (restoredFields.length > 0) {
+        restoredFields.forEach(function (field) {
+            addRow(field);
+        });
+    } else {
+        addRow();
+    }
 })();
 </script>
 @endsection

@@ -4,15 +4,20 @@ This document records the architecture and Developer Experience goals of **Craft
 
 ---
 
-## 1. Architectural & DX Comparison Matrix
+## 1. Architectural & DX Summary
 
-| Feature | Craft (Python) |
-|---|---|---|---|---|
-| **Structure** | Convention-based (Highly rigid) | Module-based (Decorator heavy) | No default (Freeform) | expressive folders (Deterministic) |
-| **Boilerplate** | Low | High (Decorators & Modules) | Low | Low (ActiveRecord, Facades) |
-| **Typing & Validation** | Dynamic (FormRequest validation) | TS Types & Class-validator | Strict Pydantic annotations | Strict Pydantic FormRequest |
-| **Scaffolding Tool** | The dev CLI (Rich) | Nest CLI (Schematics) | None | `dev.py` CLI (Modular) |
-| **AI Ergonomics** | Moderate (Conventions help AI) | Hard (Too many files to connect) | Hard (No standard conventions) | **Excellent** (Convention + `.ai` memory) |
+Craft is convention-based (rigid directory layout mirrored after mature MVC
+frameworks) rather than freeform. Boilerplate per feature is low: a model,
+migration, controller, and routes are enough to get a working endpoint.
+Validation is dynamic, driven by `FormRequest` classes rather than static
+type annotations. Scaffolding goes through the `dev.py` CLI. AI ergonomics
+are the strongest asset — the fixed directory conventions plus the
+`.agents/` directory (skills, plans, docs) let an agent orient itself without
+reading the whole codebase first.
+
+The competitor comparison in section 2 below covers the trade-offs against
+non-convention-based and decorator-heavy alternatives in more detail than a
+table could capture accurately, so no comparison matrix is kept here.
 
 ---
 
@@ -40,8 +45,8 @@ This document records the architecture and Developer Experience goals of **Craft
 Since Craft mirrors a conventional MVC directory structure (`app/Http/Controllers`, `app/Models`, `routes/web.py`), any developer with PHP, Symfony, or Rails experience instantly knows where everything belongs. There is no new architecture paradigm to learn.
 
 ### 2. High-Density Context (For AI Agents)
-By using a dedicated `.ai/` directory containing **Skills**, **Blueprints**, and **Plans**, AI agents do not need to read the entire codebase to understand conventions. 
-* The AI simply reads `.ai/skills/framework/craft-development/SKILL.md` to acquire the framework rules in a single turn.
+By using a dedicated `.agents/` directory containing **Skills**, **Blueprints**, and **Plans**, AI agents do not need to read the entire codebase to understand conventions.
+* The AI simply reads `.agents/skills/framework/craft-development/SKILL.md` to acquire the framework rules in a single turn.
 
 ### 3. CLI Scaffolding for AI Agents
 Writing code from scratch is error-prone for AIs. By expanding `dev.py` with commands like:

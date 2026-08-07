@@ -4,60 +4,69 @@
    with modern gradients, glassmorphism, and micro-animations.
    ============================================================ */
 
-/* ---------- Design Tokens ---------- */
+/* ---------- Design Tokens ----------
+   Aliased to the canonical `--craft-*` custom properties declared in
+   `assets/css/craft-theme.css` (loaded by every page through
+   `layouts/app.forge.py`) instead of redeclaring the palette here. Retheming
+   the app still means editing one place — `craft-theme.css` — and this file
+   picks the change up automatically. Tokens with no `--craft-*` equivalent
+   (glass surfaces, hero glow shadow, extra accent hues) keep their own
+   value. */
 :root {
     /* Brand palette */
-    --orange-50:  #fff7ed;
-    --orange-100: #ffedd5;
-    --orange-200: #fed7aa;
+    --orange-50:  var(--craft-brand-50);
+    --orange-100: var(--craft-brand-100);
+    --orange-200: var(--craft-brand-200);
     --orange-300: #fdba74;
-    --orange-400: #fb923c;
-    --orange-500: #f97316;
-    --orange-600: #ea580c;
-    --orange-700: #c2410c;
+    --orange-400: var(--craft-brand-400);
+    --orange-500: var(--craft-brand-500);
+    --orange-600: var(--craft-brand-600);
+    --orange-700: var(--craft-brand-700);
     --orange-800: #9a3412;
 
     /* Neutrals */
-    --slate-50:  #f8fafc;
-    --slate-100: #f1f5f9;
-    --slate-200: #e2e8f0;
-    --slate-300: #cbd5e1;
-    --slate-400: #94a3b8;
-    --slate-500: #64748b;
-    --slate-600: #475569;
-    --slate-700: #334155;
-    --slate-800: #1e293b;
-    --slate-900: #0f172a;
-    --slate-950: #020617;
+    --slate-50:  var(--craft-slate-50);
+    --slate-100: var(--craft-slate-100);
+    --slate-200: var(--craft-slate-200);
+    --slate-300: var(--craft-slate-300);
+    --slate-400: var(--craft-slate-400);
+    --slate-500: var(--craft-slate-500);
+    --slate-600: var(--craft-slate-600);
+    --slate-700: var(--craft-slate-700);
+    --slate-800: var(--craft-slate-800);
+    --slate-900: var(--craft-slate-900);
+    --slate-950: var(--craft-slate-950);
 
-    /* Semantic accents */
+    /* Semantic accents — no `--craft-*` equivalent, kept local */
     --blue-500:   #3b82f6;
-    --blue-600:   #2563eb;
+    --blue-600:   var(--craft-blue-600);
     --green-500:  #22c55e;
     --green-600:  #16a34a;
     --purple-500: #a855f7;
-    --purple-600: #9333ea;
+    --purple-600: var(--craft-purple-600);
     --pink-500:   #ec4899;
     --amber-500:  #f59e0b;
 
     /* Surfaces */
-    --bg-body:    #fafbfc;
-    --bg-section: #ffffff;
+    --bg-body:    var(--craft-bg);
+    --bg-section: var(--craft-surface);
     --bg-glass:   rgba(255, 255, 255, 0.72);
     --border-subtle: rgba(0, 0, 0, 0.06);
 
-    /* Typography */
+    /* Typography — this page's brand font is heavier than the framework
+       default system stack, so it stays local rather than aliasing
+       `--craft-font-sans`. */
     --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    --font-mono: var(--craft-font-mono);
 
     /* Transitions */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
     /* Shadows */
-    --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md:  0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-sm:  var(--craft-shadow-sm);
+    --shadow-md:  var(--craft-shadow-md);
     --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.08);
-    --shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.10);
+    --shadow-xl:  var(--craft-shadow-xl);
     --shadow-glow: 0 0 60px rgba(249, 115, 22, 0.15);
 }
 

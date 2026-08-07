@@ -20,14 +20,102 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Security
+
+- CRUD-builder-generated write routes (`store`/`update`/`destroy`) had no
+  authentication or authorization at all — `write_middleware="api"` alone
+  never rejects a missing/invalid token (`AuthenticateApiToken` only
+  resolves a user if present, it doesn't gate). Generated routes now use
+  `write_middleware=["api", "auth"]`, and the generated `FormRequest.
+  authorize()` checks for an authenticated user instead of always returning
+  `True`. Anyone who ran `make crud` before this fix has a public
+  read/write/delete API for that entity — regenerate or add auth manually.
+- Mass-assignment protection was inverted: an undeclared/empty `fillable`
+  meant *no* filtering, not full protection. `Model.create()`/
+  `update_attributes()` now fail closed — nothing is mass-assignable unless
+  `fillable` lists it or the model opts out with `guarded = False`.
+- Added `SecurityHeaders` middleware (`X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`),
+  registered first in the default `bootstrap/app.py` stack. HSTS/CSP left
+  opt-in — they need per-app tuning.
+- `APP_KEY` empty in `APP_ENV=production` now fails startup loudly instead
+  of silently falling back to a per-process ephemeral signing key (which
+  broke sessions across restarts/workers without ever surfacing as an
+  error). Non-production environments keep the ephemeral fallback.
+- `docker-compose.prod.yml` no longer defaults `DB_PASSWORD` to the literal
+  `secretpassword` — unset now fails the compose file loudly instead of
+  silently shipping a known password. `docker-compose.yml` (dev) unchanged.
+- `SECURITY.md`'s "Known gaps" section falsely claimed "no rate limiting on
+  authentication endpoints" — `ThrottleRequests` is implemented and wired to
+  `/login`/`/register`; corrected.
+
 ### Fixed
 
+- `/admin` rendered a hardcoded `<h1>Admin Dashboard</h1>` instead of the
+  real, styled `admin.dashboard` template that already existed in the repo.
+  `HomeController.admin()` now fetches tenants/users and renders it.
+- The demo blog (`PostController.store`/`update`) let a validation failure
+  fall through to the generic exception handler, losing all typed input and
+  showing an unstyled error fragment. Now redisplays the form with errors
+  and preserved input, via a newly-wired `_old_input` session flash (the
+  `old()` view helper existed but nothing populated it).
+- CRUD-builder form lost all entered field rows on a server-side validation
+  failure (only the entity name was preserved) and its dynamically-added
+  field-row inputs had no `<label>` elements. Both fixed.
+- `paginate()` had no maximum `per_page` — `?per_page=999999` was honored
+  as-is. Capped to 100.
 - `.agents/skills/framework/craft-development/SKILL.md` still claimed the ORM
   "wraps SQLAlchemy 2.0 Core" — missed by the earlier documentation audit
   because it lives outside `data/`. It's a custom query builder over
   `sqlite3`/`psycopg2`/`PyMySQL`; no SQLAlchemy, no Pydantic.
 
 ### Changed
+
+- CI now matches what `CONTRIBUTING.md` already asked of a human: the
+  suite runs against Python 3.11/3.12/3.13 (matrix) **and** against a real
+  PostgreSQL service container, not SQLite only. Added `ruff check .`
+  (non-blocking for now) and coverage reporting (`pytest-cov`,
+  `--cov=services --cov-report=term-missing`) to CI output.
+- `Dockerfile.prod` had stale "Codepy" branding (`addgroup/adduser codepy`)
+  left over from before the framework's rename — now `dev`, matching
+  `documentation/deployment.md`. Its `CMD` now runs `python dev.py migrate`
+  (non-destructive) before starting gunicorn, since the prior boot sequence
+  would serve against an unmigrated schema on a fresh deploy.
+- `public/css/app.css`'s design tokens now alias the canonical `--craft-*`
+  custom properties from `craft-theme.css` instead of redeclaring a
+  near-duplicate palette — was a real footgun for anyone re-theming the app.
+  `posts/show.forge.py`'s orphaned unstyled classes replaced with the
+  utility classes the rest of `posts/*.forge.py` already uses.
+- `.agents/docs/dx_and_ai_learning_curve.md` referenced a `.ai/` directory
+  that doesn't exist (it's `.agents/`) and had a malformed comparison table
+  with orphaned placeholder cells — fixed the path references, replaced the
+  table with an accurate prose summary.
+
+### Added
+
+- `ruff` and `pytest-cov` added to the `[dev]` extra in `pyproject.toml`,
+  with a deliberately small starting lint ruleset scoped to `services/`
+  only (`E9`, `F`, `B`) — widen incrementally rather than false-starting a
+  full-codebase style pass in one go.
+
+### Not fixed — deliberately deferred
+
+- **The concurrency ceiling measured in `.agents/docs/benchmark-2026-08-07.md`
+  §1 is still there.** A real load test showed throughput flat at ~30 req/s
+  regardless of concurrency (fully serialized). Root cause: sync dispatch on
+  the event loop + a single shared `psycopg2` connection + no multi-worker
+  option, and the three have to be fixed together — offloading sync work to
+  a thread pool without first fixing the connection would corrupt concurrent
+  cursor state. An attempt this session to add connection pooling found the
+  fix isn't a local swap: `Connection` conflates the raw driver connection
+  with mutable per-request session state (transaction depth, active tenant
+  schema), so a real fix needs request-scoped connection lifecycle — new
+  work touching `DatabaseManager`, `Connection`, tenant middleware, the
+  migrator, and `conftest.py`, not a contained change. Stopped rather than
+  ship something that passes tests today and breaks under real concurrency
+  tomorrow — exactly the "degrades silently to something plausible" failure
+  mode this project has been burned by before. This needs its own dedicated
+  fatia with room to get the design right.
 
 - Every change to the framework now requires a `CHANGELOG.md` entry in the
   same commit that makes it (not batched for the release cut) — policy

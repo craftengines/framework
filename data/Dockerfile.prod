@@ -1,4 +1,4 @@
-# Multi-stage production Dockerfile for Codepy Framework
+# Multi-stage production Dockerfile for the Craft framework
 
 # --- Stage 1: Builder ---
 FROM python:3.11-slim as builder
@@ -47,12 +47,14 @@ RUN mkdir -p storage/app/public storage/framework/cache storage/framework/sessio
     && chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 
 # Create non-root system user for production security
-RUN addgroup --system codepy && adduser --system --group codepy \
-    && chown -R codepy:codepy /app
+RUN addgroup --system dev && adduser --system --group dev \
+    && chown -R dev:dev /app
 
-USER codepy
+USER dev
 
 EXPOSE 8000
 
-# Production Entrypoint: Run Gunicorn with Uvicorn ASGI Workers pointing to public.index:application
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "public.index:application", "--bind", "0.0.0.0:8000"]
+# Production Entrypoint: apply pending migrations only (never `migrate fresh`,
+# which drops data), then run Gunicorn with Uvicorn ASGI Workers pointing to
+# public.index:application.
+CMD ["sh", "-c", "python dev.py migrate && gunicorn -w 4 -k uvicorn.workers.UvicornWorker public.index:application --bind 0.0.0.0:8000"]

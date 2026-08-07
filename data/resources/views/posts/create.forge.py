@@ -5,22 +5,32 @@
 @section("content")
 <div class="max-w-2xl bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm">
     <h1 class="text-2xl font-bold text-slate-900 mb-6">Create New Post</h1>
-    
+
+    @if(errors|length > 0)
+    <div class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm space-y-1">
+        @foreach(errors.values() as messages)
+            @foreach(messages as message)
+                <p>{{ message }}</p>
+            @endforeach
+        @endforeach
+    </div>
+    @endif
+
     <form action="/posts" method="POST" class="space-y-6">
         @csrf
-        
+
         <div class="space-y-2">
             <label for="title" class="block text-sm font-semibold text-slate-700">Title</label>
-            <input type="text" name="title" id="title" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required>
+            <input type="text" name="title" id="title" value="{{ old('title') }}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required>
         </div>
-        
+
         <div class="space-y-2">
             <label for="body" class="block text-sm font-semibold text-slate-700">Content Body</label>
-            <textarea name="body" id="body" rows="6" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required></textarea>
+            <textarea name="body" id="body" rows="6" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500" required>{{ old('body') }}</textarea>
         </div>
-        
+
         <div class="flex items-center">
-            <input type="checkbox" name="published" id="published" value="1" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-slate-300 rounded">
+            <input type="checkbox" name="published" id="published" value="1" {% if old('published') %}checked{% endif %} class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-slate-300 rounded">
             <label for="published" class="ml-2 block text-sm text-slate-700 font-medium">Publish immediately</label>
         </div>
         

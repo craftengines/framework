@@ -29,21 +29,25 @@ This creates:
 
 It also appends a self-contained `Route.group(..., prefix="/api/v1", ...)`
 block registering `Route.api_resource("products", ProductController,
-write_middleware="api")` to `routes/api.py`, after a `# CRUD Builder Routes`
-marker comment — idempotent, so generating the same entity twice does not
-duplicate the route. Generated controllers only return JSON, so they're
-registered as an API resource (matching the existing `PostController`
-convention) rather than in `routes/web.py`, which is behind CSRF
-verification that a JSON client has no `_token` to satisfy. Reads stay
-public; writes (`store`/`update`/`destroy`) go through the `api` middleware,
-same as `posts`. That middleware only *resolves* a user from a bearer token
-if one is sent — it does not itself reject a missing token. `PostController`
-additionally calls `Gate.authorize(...)` in `store`/`update`/`destroy` to
-actually deny anonymous or non-owner writes; the generated CRUD controller
-does **not** add that call, since there's no policy to authorize against for
-an arbitrary entity. A generated entity's write routes are open until you add
-a `Gate`/`Policy` check yourself — treat this as a starting scaffold, not a
-finished authorization story.
+write_middleware=["api", "auth"])` to `routes/api.py`, after a `# CRUD
+Builder Routes` marker comment — idempotent, so generating the same entity
+twice does not duplicate the route. Generated controllers only return JSON,
+so they're registered as an API resource (matching the existing
+`PostController` convention) rather than in `routes/web.py`, which is behind
+CSRF verification that a JSON client has no `_token` to satisfy. Reads stay
+public; writes (`store`/`update`/`destroy`) go through `["api", "auth"]`:
+`api` (`AuthenticateApiToken`) resolves a user from a bearer token if one is
+sent, then `auth` (`RequireAuth`) is the alias that actually rejects the
+request when nobody ended up authenticated — `AuthenticateApiToken` alone
+never blocks a missing/invalid token, it just continues unauthenticated.
+The generated `StoreProductRequest.authorize()` also checks for an
+authenticated user by default (see the `request_stub` template in
+`services/cli/generators.py`). `PostController` additionally calls
+`Gate.authorize(...)` in `store`/`update`/`destroy` to deny non-owner
+writes; the generated CRUD controller does **not** add that call, since
+there's no policy to authorize against for an arbitrary entity — add an
+ownership check yourself once the model has a `user_id` column, following
+the `TODO` left in the generated FormRequest.
 
 Run the migration afterwards:
 

@@ -4,9 +4,11 @@
 
 Work through this before the first production request.
 
-- [ ] `python dev.py key:generate` — without `APP_KEY`, session signing falls
-      back to a random per-process key. Sessions break on restart and are not
-      shared between workers.
+- [ ] `python dev.py key:generate` — with `APP_ENV=production` and no
+      `APP_KEY`, the app now refuses to boot rather than degrading silently.
+      Outside production, an empty `APP_KEY` falls back to a random
+      per-process key: sessions break on restart and are not shared between
+      workers.
 - [ ] `APP_DEBUG=false` — with it on, stack traces reach the client.
 - [ ] `APP_ENV=production`
 - [ ] `SESSION_SECURE_COOKIE=true` — the cookie becomes HTTPS-only.

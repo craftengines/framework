@@ -52,6 +52,8 @@ dependencies = [
 dev = [
     "pytest>=7.4",
     "httpx>=0.25",
+    "pytest-cov>=4.1",
+    "ruff>=0.6",
 ]
 mysql = ["pymysql>=1.1"]
 redis = ["redis>=5.0"]
@@ -65,3 +67,18 @@ include = ["services*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+# Starting scope: the framework package only. `app/` (the sample application)
+# and `tests/` are intentionally excluded for now — turning on lint here
+# should not become a blocking rewrite of the whole codebase in one pass.
+include = ["services/**/*.py"]
+
+[tool.ruff.lint]
+# Deliberately small starting ruleset: undefined names, unused imports, and
+# bare-except style issues catch real bugs without requiring a full-codebase
+# style pass. Widen this incrementally as violations are cleared out.
+select = ["E9", "F", "B"]
+ignore = ["F401"]

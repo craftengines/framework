@@ -24,12 +24,19 @@ class PostController(Controller):
         return self.view("posts.index", {"posts": posts})
 
     def create(self, request):
-        return self.view("posts.create", {"show_sidebar": True})
+        return self.view("posts.create", {"show_sidebar": True, "errors": {}})
 
     def store(self, request):
         user = Auth.user()
         Gate.authorize("create", user)
         form = StorePostRequest(request)
+
+        if form.fails():
+            if request.expects_json():
+                return JsonResponse({"errors": form.errors}, status=422)
+            self._flash_old_input(request)
+            return self.view("posts.create", {"show_sidebar": True, "errors": form.errors})
+
         data = form.validated()
         data["user_id"] = user.get_attribute("id")
 
@@ -51,7 +58,7 @@ class PostController(Controller):
         if not post:
             return Response("Not found", 404)
         Gate.authorize("update", Auth.user(), post)
-        return self.view("posts.edit", {"post": post, "show_sidebar": True})
+        return self.view("posts.edit", {"post": post, "show_sidebar": True, "errors": {}})
 
     def update(self, request, posts):
         post = Post.query().where("id", posts).first()
@@ -59,6 +66,13 @@ class PostController(Controller):
             return Response("Not found", 404)
         Gate.authorize("update", Auth.user(), post)
         form = StorePostRequest(request)
+
+        if form.fails():
+            if request.expects_json():
+                return JsonResponse({"errors": form.errors}, status=422)
+            self._flash_old_input(request)
+            return self.view("posts.edit", {"post": post, "show_sidebar": True, "errors": form.errors})
+
         post.update_attributes(form.validated())
         if request.expects_json():
             return PostResource(post)
@@ -73,3 +87,16 @@ class PostController(Controller):
         if request.expects_json():
             return self.no_content()
         return redirect(route="posts.index")
+
+    # -- helpers -------------------------------------------------------------
+
+    def _flash_old_input(self, request):
+        """Flash submitted input so the redisplayed form's `old()` calls can
+        restore it, matching the fail-and-redisplay pattern used by
+        `CrudBuilderController.store()`."""
+        try:
+            session = request.session()
+        except Exception:
+            session = None
+        if session is not None:
+            session.flash("_old_input", request.all())

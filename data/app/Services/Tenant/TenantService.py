@@ -5,8 +5,29 @@
 
 class TenantService:
     def get_active_tenants(self):
+        # Static demo data until multi-tenant routing (subdomain -> tenant
+        # database) is implemented for real. Shape matches what
+        # `resources/views/admin/dashboard.forge.py` renders.
         return [
-            {"id": 1, "name": "Acme Global Corporation"},
-            {"id": 2, "name": "Beta Industries"},
-            {"id": 3, "name": "Gamma Logistics"}
+            {
+                "id": 1,
+                "name": "Acme Global Corporation",
+                "domain": "acme.craft.local",
+                "db_engine": "pgsql",
+                "status": "Active",
+            },
+            {
+                "id": 2,
+                "name": "Beta Industries",
+                "domain": "beta.craft.local",
+                "db_engine": "pgsql",
+                "status": "Active",
+            },
+            {
+                "id": 3,
+                "name": "Gamma Logistics",
+                "domain": "gamma.craft.local",
+                "db_engine": "pgsql",
+                "status": "Suspended",
+            },
         ]

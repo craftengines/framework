@@ -101,6 +101,15 @@ class TestFormRequestRules:
 
         assert "boolean" in source
 
+    def test_authorize_checks_for_an_authenticated_user(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(result["files"]["request"], encoding="utf-8").read()
+
+        assert "def authorize(self) -> bool:" in source
+        assert "return self.user() is not None" in source
+        assert "return True" not in source
+
 
 class TestRouteAppendIsIdempotent:
     def test_route_is_appended_once(self, tmp_path):
@@ -108,6 +117,16 @@ class TestRouteAppendIsIdempotent:
         crud_builder.build_crud("Product", FIELDS, str(tmp_path))
         source = open(routes_path, encoding="utf-8").read()
         assert source.count('Route.api_resource("products"') == 1
+
+    def test_write_routes_require_real_authentication(self, tmp_path):
+        # `write_middleware="api"` alone never rejects a missing/invalid
+        # token — `AuthenticateApiToken` only resolves a user if present.
+        # The generated route must also carry `"auth"` (`RequireAuth`), the
+        # alias that actually blocks an unauthenticated request.
+        routes_path = _make_routes_file(str(tmp_path))
+        crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(routes_path, encoding="utf-8").read()
+        assert 'write_middleware=["api", "auth"]' in source
 
     def test_running_twice_does_not_duplicate_the_route(self, tmp_path):
         routes_path = _make_routes_file(str(tmp_path))

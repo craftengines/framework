@@ -3,33 +3,62 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
-> Estado: **627/627 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> Estado: **633/633 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
 > App real validado em `http://localhost:8300`, incluindo o fluxo de login com
-> CSRF e captcha.
+> CSRF e captcha, headers de segurança confirmados ao vivo.
 
 ## 🔬 Benchmark e stress test (2026-08-07)
 
 Relatório completo em [`benchmark-2026-08-07.md`](benchmark-2026-08-07.md):
-teste de carga real (RPS plano em ~30 independente da concorrência 1→100 —
-assinatura de processamento totalmente serializado; `/docs` quebrou com
-74% de erro em concorrência 100) + 4 auditorias especializadas (segurança,
+teste de carga real + 4 auditorias especializadas (segurança,
 performance/escalabilidade, CI/CD/DX, UI/UX) contra código real, comparadas
-com Laravel/Django/Rails/FastAPI. 26 achados no total; top-10 consolidado no
-fim do relatório. Achados críticos mais urgentes:
+com Laravel/Django/Rails/FastAPI. 26 achados no total.
 
-1. `/admin` não renderiza o template que já existe (`HomeController.admin()`
-   devolve `<h1>` hardcoded) — 1 linha, maior alavancagem do relatório inteiro.
-2. Rotas de escrita geradas pelo CRUD builder não têm autenticação nem
-   autorização — API pública de leitura/escrita/exclusão por padrão.
-3. Fluxo de validação do blog (única CRUD de verdade no framework) quebra
-   visivelmente em input ruim — `old()` existe mas nada popula `_old_input`.
-4. Dispatch síncrono bloqueia o único event loop — sem `run_in_threadpool`,
-   sem pool de conexão, processo único — teto medido de ~30 req/s constante.
+**Corrigido no mesmo dia** (4 agentes em paralelo, revalidado com
+`pytest` + checagem ao vivo no container):
 
-Nenhum código foi alterado para produzir o relatório — é auditoria, não
-correção. Cada achado deve virar fatia própria neste backlog antes de ser
-mexido.
+- ✅ `/admin` agora renderiza o template real (`admin.dashboard`) em vez do
+  `<h1>` hardcoded.
+- ✅ Rotas de escrita do CRUD builder exigem autenticação de verdade
+  (`write_middleware=["api", "auth"]`, não só `"api"` que nunca bloqueava) e
+  o `FormRequest.authorize()` gerado checa usuário autenticado em vez de
+  sempre `True`.
+- ✅ Fluxo de validação do blog (posts) corrigido — redisplay com erros e
+  input preservado, `_old_input` agora é populado de verdade.
+- ✅ Mass assignment invertido para fail-closed (`fillable` vazio = nada
+  gravável, era o oposto).
+- ✅ `SecurityHeaders` middleware novo (X-Content-Type-Options, X-Frame-Options,
+  Referrer-Policy), `APP_KEY` vazio em produção agora falha o boot em vez de
+  degradar em silêncio, `docker-compose.prod.yml` não tem mais senha padrão
+  conhecida, `SECURITY.md` corrigido (afirmava não ter rate limiting — tem).
+- ✅ CI agora testa Python 3.11/3.12/3.13 × PostgreSQL real (antes: só
+  3.11 × SQLite), `ruff` e `pytest-cov` adicionados.
+- ✅ `Dockerfile.prod` sem branding "Codepy" residual, ganhou passo de
+  migração antes do boot do gunicorn.
+- ✅ CRUD builder: linhas de campo preservadas em falha de validação, labels
+  de acessibilidade adicionados, `per_page` sem limite agora capado em 100.
+- ✅ Sistema de tokens CSS unificado (`app.css` duplicava paleta em vez de
+  reusar `craft-theme.css`), `posts/show.forge.py` limpo de classes órfãs.
+
+**Deliberadamente NÃO corrigido — precisa de fatia própria:**
+
+- 🔴 **O teto de concorrência medido (~30 req/s constante, independente de
+  1 ou 100 clientes) continua lá.** Um agente tentou o pool de conexão e
+  parou de propósito: `Connection` mistura a conexão bruta com estado
+  mutável por-requisição (profundidade de transação, schema de tenant
+  ativo) — resolver isso direito exige lifecycle de conexão por-requisição,
+  não uma troca local. Toca `DatabaseManager`, `Connection`, middleware de
+  tenant, o migrator e `conftest.py`. Decisão certa foi parar em vez de
+  arriscar um "passa nos testes, quebra em produção" — mas o problema real
+  segue sem solução. Ordem obrigatória quando essa fatia for feita: pool de
+  conexão → offload de thread → `--workers` no `dev.py serve`. Nunca threading
+  sem pool primeiro (corrompe cursor sob concorrência real).
+- Item 4 do relatório de UX (gerador de UI admin genérica para entidades do
+  CRUD builder — hoje só API JSON) — avaliado como meio-dia de trabalho
+  próprio, não uma correção pequena junto com o resto.
+- CRUD builder ainda sem reordenar linhas de campo (só adicionar/remover).
+- Sem validação client-side no formulário do CRUD builder antes do submit.
 
 ## Como rodar
 

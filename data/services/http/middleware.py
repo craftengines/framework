@@ -351,6 +351,31 @@ class AuthenticateApiToken(Middleware):
         return next_callable(request)
 
 
+class SecurityHeaders(Middleware):
+    """Set the baseline response headers every app should ship with.
+
+    Deliberately minimal and safe to enable everywhere by default:
+    `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` never
+    break a working app. HSTS and a Content-Security-Policy are *not* set
+    here on purpose — both need per-app tuning (HSTS is dangerous to enable
+    before HTTPS is confirmed everywhere; a CSP has to be built from the
+    app's actual script/style/asset origins). Add them per-app once tuned.
+    """
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        response = next_callable(request)
+        starlette_response = _as_starlette(response)
+        if starlette_response is None:
+            return response
+
+        starlette_response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        starlette_response.headers.setdefault("X-Frame-Options", "DENY")
+        starlette_response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
+        return starlette_response
+
+
 class ThrottleRequests(Middleware):
     """Fixed-window per-IP+route rate limit — closes the "no rate limiting
     on authentication endpoints" gap called out in SECURITY.md. Backed by
@@ -396,5 +421,6 @@ __all__ = [
     "Authenticate",
     "RequireAuth",
     "AuthenticateApiToken",
+    "SecurityHeaders",
     "ThrottleRequests",
 ]

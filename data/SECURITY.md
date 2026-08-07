@@ -52,9 +52,11 @@ returns `False` rather than allowing the action.
 validates identifiers and whitelists operators. String interpolation of user
 input into a query is a bug — please report it.
 
-**Mass assignment** is blocked: with a non-empty `fillable`, `Model.create()`
-drops any attribute outside it. `force_create()` is the explicit bypass for
-trusted, internal input.
+**Mass assignment** is blocked by default and fails closed: `Model.create()`
+and `update_attributes()` drop any attribute outside `fillable`, and an
+empty/undeclared `fillable` means *nothing* is mass-assignable. A model
+opts into unrestricted mass assignment explicitly with `guarded = False`.
+`force_create()` is the explicit bypass for trusted, internal input.
 
 **Debug output** is controlled by `APP_DEBUG`, which defaults to off. Stack
 traces reach the client only when it is on, and the exception page HTML-escapes
@@ -62,9 +64,10 @@ everything it prints. Keep it off in production.
 
 ## Before deploying
 
-- Run `python dev.py key:generate`. Without `APP_KEY`, session signing falls
-  back to a per-process random key: sessions do not survive a restart and are
-  not shared between workers.
+- Run `python dev.py key:generate`. With `APP_ENV=production`, an empty
+  `APP_KEY` now fails loudly at boot instead of degrading silently. Outside
+  production, session signing falls back to a per-process random key:
+  sessions do not survive a restart and are not shared between workers.
 - Leave `APP_DEBUG` unset or `false` — it defaults to off; `.env.example`
   enables it for local development only.
 - Set `SESSION_SECURE_COOKIE=true` so the cookie is HTTPS-only.
@@ -76,5 +79,4 @@ These are documented rather than hidden. They are tracked in
 `.agents/docs/backlog.md` (workspace root, outside this repository).
 
 - The cookie session driver signs but does not encrypt.
-- There is no rate limiting on authentication endpoints.
 - There is no password reset or email verification flow yet.

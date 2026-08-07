@@ -346,10 +346,23 @@ def make_store(app: Any = None) -> SessionStore:
 
     app_key = str(setting("app.APP_KEY", "") or setting("app.app_key", "") or "")
     if not app_key:
+        env = str(setting("app.APP_ENV", "") or setting("app.env", "") or "").lower()
+        if env == "production":
+            # Fail loud, mirroring the unknown-middleware-alias pattern in
+            # `services/http/kernel.py` — an ephemeral per-process key in
+            # production silently breaks sessions across restarts/workers,
+            # and would make the failure mode "sessions randomly stop
+            # working" instead of an obvious boot-time error.
+            raise RuntimeError(
+                "APP_KEY is empty in a production environment (APP_ENV=production). "
+                "Run `python dev.py key:generate` to write a real APP_KEY before "
+                "starting the app — an ephemeral per-process key would silently "
+                "invalidate every session on restart or across workers."
+            )
         # Never sign with an empty key — that would make forgery trivial. Fall
         # back to one random key per process: sessions work, but they do not
         # survive a restart and are not shared between workers, until
-        # `dev key:generate` writes a real APP_KEY.
+        # `dev key:generate` writes a real APP_KEY. Non-production only.
         app_key = _ephemeral_key()
 
     lifetime = int(setting("session.lifetime", 7200) or 7200)

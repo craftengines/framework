@@ -79,13 +79,22 @@ from craft.http.kernel import Kernel
 from app.Http.Middleware.DatabaseLoggingMiddleware import DatabaseLoggingMiddleware
 from app.Http.Middleware.TenantMiddleware import TenantMiddleware
 
-from craft.http.middleware import Authenticate, SetLocale, StartSession, VerifyCsrfToken
+from craft.http.middleware import (
+    Authenticate,
+    SecurityHeaders,
+    SetLocale,
+    StartSession,
+    VerifyCsrfToken,
+)
 
 kernel = Kernel(app)
 
 # Order matters: the session must exist before the locale can be remembered in
 # it, before CSRF verification, and before the user is resolved from it.
+# SecurityHeaders goes first so every response — including error responses
+# rendered inside StartSession — carries the baseline headers.
 kernel.with_middleware(
+    SecurityHeaders,
     StartSession,
     SetLocale,
     VerifyCsrfToken,

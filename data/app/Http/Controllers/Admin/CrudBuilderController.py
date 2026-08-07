@@ -3,6 +3,7 @@
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
+import json
 import re
 
 from craft.http.controller import Controller
@@ -27,16 +28,20 @@ class CrudBuilderController(Controller):
             "field_types": FIELD_TYPES,
             "errors": [],
             "entity": "",
+            "fields_json": "[]",
         })
 
     def store(self, request):
         form = CrudBuilderRequest(request)
+        raw_rows_json = json.dumps(self._raw_field_rows(request))
+
         if form.fails():
             return self.view("admin.crud_builder.index", {
                 "show_sidebar": True,
                 "field_types": FIELD_TYPES,
                 "errors": [msg for msgs in form.errors.values() for msg in msgs],
                 "entity": request.input("entity", ""),
+                "fields_json": raw_rows_json,
             })
 
         entity = form.validated()["entity"]
@@ -48,6 +53,7 @@ class CrudBuilderController(Controller):
                 "field_types": FIELD_TYPES,
                 "errors": field_errors,
                 "entity": entity,
+                "fields_json": raw_rows_json,
             })
 
         from services.cli import crud_builder
@@ -61,6 +67,7 @@ class CrudBuilderController(Controller):
                 "field_types": FIELD_TYPES,
                 "errors": [f"A generated file already exists: {exc}"],
                 "entity": entity,
+                "fields_json": raw_rows_json,
             })
         except ValueError as exc:
             return self.view("admin.crud_builder.index", {
@@ -68,6 +75,7 @@ class CrudBuilderController(Controller):
                 "field_types": FIELD_TYPES,
                 "errors": [str(exc)],
                 "entity": entity,
+                "fields_json": raw_rows_json,
             })
 
         return self.view("admin.crud_builder.result", {
@@ -77,6 +85,28 @@ class CrudBuilderController(Controller):
         })
 
     # -- helpers -----------------------------------------------------------
+
+    def _raw_field_rows(self, request):
+        """Every submitted field row, unfiltered, for redisplay after a failure.
+
+        Unlike `_parse_fields`, this keeps rows even when they are invalid
+        (unknown type, blank name) so the browser can restore exactly what the
+        user typed instead of silently dropping rows on a validation error.
+        """
+        data = request.all()
+        indexes = sorted(
+            int(match.group(1))
+            for key in data
+            if (match := FIELD_NAME_RE.match(key))
+        )
+        return [
+            {
+                "name": str(data.get(f"field_name_{index}", "")),
+                "type": str(data.get(f"field_type_{index}", "string")),
+                "required": bool(data.get(f"field_required_{index}")),
+            }
+            for index in indexes
+        ]
 
     def _parse_fields(self, request):
         data = request.all()

@@ -175,7 +175,11 @@ from craft.validation.form_request import FormRequest
 
 class {name}(FormRequest):
     def authorize(self) -> bool:
-        return True
+        # Require an authenticated user by default — mirror this pattern in
+        # your own FormRequests instead of returning `True` unconditionally.
+        return self.user() is not None
+        # TODO: also check ownership once the model has a user_id column,
+        # e.g. `self.user().id == record.get_attribute("user_id")`.
 
     def rules(self) -> dict:
         return {{
@@ -197,7 +201,11 @@ from craft.validation.form_request import FormRequest
 
 class {name}(FormRequest):
     def authorize(self) -> bool:
-        return True
+        # Require an authenticated user by default — mirror this pattern in
+        # your own FormRequests instead of returning `True` unconditionally.
+        return self.user() is not None
+        # TODO: also check ownership once the model has a user_id column,
+        # e.g. `self.user().id == record.get_attribute("user_id")`.
 
     def rules(self) -> dict:
         return {{

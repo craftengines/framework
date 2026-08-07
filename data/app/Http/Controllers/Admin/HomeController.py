@@ -4,7 +4,7 @@
 # Licensed under the MIT License. See LICENSE in the project root.
 
 from craft.http.controller import Controller
-from craft.http.response import Response, redirect
+from craft.http.response import redirect
 
 
 class HomeController(Controller):
@@ -22,5 +22,29 @@ class HomeController(Controller):
         user = Auth.user()
         if not user:
             return redirect(url="/login", status=302)
-        return Response("<h1>Admin Dashboard</h1>")
+
+        from app.Models.User import User
+        from app.Services.Tenant.TenantService import TenantService
+
+        try:
+            tenants = TenantService().get_active_tenants()
+        except Exception:
+            tenants = []
+
+        try:
+            users = User.query().order_by("created_at", "desc").get()
+        except Exception:
+            users = []
+
+        try:
+            administrators = User.query().where("is_admin", True).get()
+        except Exception:
+            administrators = []
+
+        return self.view("admin.dashboard", {
+            "tenants": tenants,
+            "administrators": administrators,
+            "users": users,
+            "show_sidebar": True,
+        })
 

@@ -423,9 +423,14 @@ class QueryBuilder:
     def min(self, column: str) -> Any:
         return self._aggregate(f"MIN({column})")
 
+    #: Hard ceiling on `per_page` — an uncapped value lets a single client
+    #: request an arbitrarily large page and load the database.
+    MAX_PER_PAGE = 100
+
     def paginate(self, per_page: int = 15, page: int = 1) -> Any:
         total = self.count()
         page = max(page, 1)
+        per_page = max(1, min(int(per_page or 15), self.MAX_PER_PAGE))
         self._limit = per_page
         self._offset = (page - 1) * per_page
         items = self.get()

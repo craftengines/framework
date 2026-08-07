@@ -32,7 +32,18 @@ class Model:
     """Active Record Base Model."""
 
     __table__: Optional[str] = None
+    #: Mass-assignable columns. Fail closed by default: an empty/undeclared
+    #: `fillable` means **nothing** is mass-assignable through `create()` /
+    #: `update_attributes()` — the exact opposite of the old (insecure)
+    #: default, where empty meant unrestricted. A model that genuinely wants
+    #: every column writable from request input must opt in explicitly with
+    #: `guarded = False` (mirrors the "guarded" escape hatch other frameworks
+    #: use for the same purpose). Trusted internal writes should keep using
+    #: `force_create()` / `update()` instead of reaching for `guarded = False`.
     fillable: List[str] = []
+    #: Set `False` to disable mass-assignment filtering entirely for this
+    #: model — an explicit opt-out, not the default.
+    guarded: bool = True
     hidden: List[str] = []
     #: Column values applied on create when the caller omits them.
     defaults: Dict[str, Any] = {}
@@ -151,11 +162,15 @@ class Model:
 
     @classmethod
     def create(cls, attributes: Dict[str, Any]) -> 'Model':
-        # Mass-assignment protection: with a non-empty `fillable`, only those
-        # columns may arrive from bulk input. Framework-managed columns
-        # (primary key, UUID, timestamps) stay allowed; `force_create()`
-        # bypasses the guard for trusted internal writes.
-        if cls.fillable:
+        # Mass-assignment protection, fail closed: only columns listed in
+        # `fillable` may arrive from bulk input. An empty/undeclared
+        # `fillable` means *nothing* is mass-assignable — not "everything",
+        # which was the old, insecure default. Framework-managed columns
+        # (primary key, UUID, timestamps) stay allowed regardless.
+        # `guarded = False` is the explicit opt-out for a model that wants
+        # every column writable; `force_create()` bypasses the guard
+        # entirely for trusted internal writes.
+        if cls.guarded is not False:
             allowed = set(cls.fillable) | {
                 cls.primary_key, cls.uuid_column, "created_at", "updated_at",
             }
@@ -232,8 +247,10 @@ class Model:
 
     def update_attributes(self, attributes: Dict[str, Any]) -> 'Model':
         """Mass-assignment-guarded update: the `update()` counterpart to
-        `create()` for input coming from a request body."""
-        if self.fillable:
+        `create()` for input coming from a request body. Fails closed the
+        same way `create()` does — an empty/undeclared `fillable` allows
+        nothing through unless the model opts out with `guarded = False`."""
+        if self.guarded is not False:
             allowed = set(self.fillable)
             attributes = {k: v for k, v in attributes.items() if k in allowed}
         return self.update(attributes)

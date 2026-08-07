@@ -21,7 +21,8 @@ Class attributes a model understands:
 | Attribute | Default | Purpose |
 |---|---|---|
 | `__table__` | inferred | Override the table name |
-| `fillable` | `[]` | Columns allowed in mass assignment via `create()` |
+| `fillable` | `[]` | Columns allowed in mass assignment via `create()`. Fails closed: empty means *nothing* is mass-assignable. |
+| `guarded` | `True` | Set `False` to disable mass-assignment filtering entirely (explicit opt-out) |
 | `hidden` | `[]` | Columns excluded from `to_dict()` |
 | `defaults` | `{}` | Column values applied on create when the caller omits them |
 | `primary_key` | `"id"` | Primary key column |
@@ -43,10 +44,14 @@ post = Post.create({
 })
 ```
 
-With a non-empty `fillable`, `create()` enforces mass-assignment protection:
-only fillable columns (plus the framework-managed primary key, UUID, and
-timestamp columns) are taken from the input; everything else is dropped.
-Use `Post.force_create({...})` to bypass the guard for trusted, internal input.
+`create()` enforces mass-assignment protection and fails closed: only
+columns listed in `fillable` (plus the framework-managed primary key, UUID,
+and timestamp columns) are taken from the input; everything else is
+dropped. An empty/undeclared `fillable` means *nothing* is mass-assignable —
+not "everything". A model that genuinely wants every column writable from
+request input must opt in explicitly with `guarded = False`. Trusted,
+internal input should instead use `Post.force_create({...})`, which bypasses
+the guard entirely.
 
 ### Read
 ```python

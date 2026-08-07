@@ -122,6 +122,13 @@ def _append_route(base_path: str, entity_class: str, slug: str) -> Optional[str]
     Idempotent: running `build_crud` twice for the same entity does not add
     a second import or route block. Writes are append-only after the marker
     comment, never touching existing lines.
+
+    Write actions (`store`/`update`/`destroy`) get `write_middleware=["api",
+    "auth"]`: `AuthenticateApiToken` ("api") resolves a bearer token into the
+    auth manager first, then `RequireAuth` ("auth") is the alias that
+    actually rejects the request when nobody ended up authenticated —
+    `AuthenticateApiToken` alone never blocks a missing/invalid token, it
+    just continues unauthenticated.
     """
     routes_path = os.path.join(base_path, "routes", "api.py")
     if not os.path.isfile(routes_path):
@@ -143,7 +150,7 @@ def _append_route(base_path: str, entity_class: str, slug: str) -> Optional[str]
     group_block = (
         "Route.group(\n"
         "    lambda: (\n"
-        f'        Route.api_resource("{slug}", {entity_class}Controller, write_middleware="api"),\n'
+        f'        Route.api_resource("{slug}", {entity_class}Controller, write_middleware=["api", "auth"]),\n'
         "    ),\n"
         '    prefix="/api/v1",\n'
         f'    name="api.{slug}.",\n'

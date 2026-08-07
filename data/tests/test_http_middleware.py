@@ -117,6 +117,56 @@ class TestCsrf:
         response = client.post("/t/echo", data={"a": "1", "_token": token})
         assert response.status_code == 200
 
+
+class TestSecurityHeaders:
+    def test_baseline_headers_are_present(self, client):
+        response = client.get("/t/counter")
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+    def test_headers_are_present_on_error_responses_too(self, client):
+        client.get("/t/token")  # establish a session
+        response = client.post("/t/echo", data={"a": "1"})  # missing CSRF token -> 419
+        assert response.status_code == 419
+        assert response.headers["x-content-type-options"] == "nosniff"
+
+
+class _FakeConfig:
+    def __init__(self, values):
+        self._values = values
+
+    def get(self, key, default=None):
+        return self._values.get(key, default)
+
+
+class _FakeApp:
+    def __init__(self, config):
+        self._config = config
+        self.base_path = "."
+
+    def make(self, name):
+        if name == "config":
+            return self._config
+        raise KeyError(name)
+
+
+class TestAppKeyEnforcement:
+    def test_empty_app_key_in_production_fails_loudly(self):
+        from services.http.session import make_store
+
+        app = _FakeApp(_FakeConfig({"app.APP_KEY": "", "app.APP_ENV": "production"}))
+        with pytest.raises(RuntimeError):
+            make_store(app)
+
+    def test_empty_app_key_outside_production_falls_back_to_ephemeral(self):
+        from services.http.session import make_store
+
+        app = _FakeApp(_FakeConfig({"app.APP_KEY": "", "app.APP_ENV": "testing"}))
+        # Must not raise — the ephemeral per-process key is fine outside prod.
+        store = make_store(app)
+        assert store is not None
+
     def test_post_with_the_header_token_is_accepted(self, client):
         token = csrf_for(client)
         response = client.post("/t/echo", data={"a": "1"}, headers={"X-CSRF-TOKEN": token})
