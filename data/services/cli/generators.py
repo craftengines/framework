@@ -248,6 +248,297 @@ class {name}(Resource):
 '''
 
 
+#: DDL field type -> HTML `<input type="...">`, for fields that are not
+#: rendered as a checkbox or textarea.
+_HTML_INPUT_TYPES: Dict[str, str] = {
+    "integer": "number",
+    "decimal": "number",
+    "date": "date",
+    "datetime": "date",
+}
+
+
+def _field_input_html(field: dict, value_expr: str) -> str:
+    """One labeled form control for `field`, matching `posts/create.forge.py`'s
+    markup (Tailwind-esque utility classes, a `label`/control pair per field).
+
+    `value_expr` is the Forge/Jinja expression used to prefill the control —
+    `old('name')` on create, `old('name') or record.get_attribute('name')` on
+    edit, matching the `old()`-based redisplay pattern in
+    `posts/edit.forge.py`.
+    """
+    name = field["name"]
+    label = name.replace("_", " ").title()
+    type_ = field.get("type", "string")
+    required = "required" in (field.get("rules") or [])
+    required_attr = " required" if required else ""
+    input_classes = (
+        "w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none "
+        "focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+    )
+
+    if type_ == "boolean":
+        return (
+            '        <div class="flex items-center">\n'
+            f'            <input type="checkbox" name="{name}" id="{name}" value="1" '
+            f'{{% if {value_expr} %}}checked{{% endif %}} class="h-4 w-4 text-orange-600 '
+            'focus:ring-orange-500 border-slate-300 rounded">\n'
+            f'            <label for="{name}" class="ml-2 block text-sm text-slate-700 font-medium">{label}</label>\n'
+            '        </div>'
+        )
+
+    if type_ == "text":
+        return (
+            '        <div class="space-y-2">\n'
+            f'            <label for="{name}" class="block text-sm font-semibold text-slate-700">{label}</label>\n'
+            f'            <textarea name="{name}" id="{name}" rows="6" class="{input_classes}"{required_attr}>'
+            f'{{{{ {value_expr} }}}}</textarea>\n'
+            '        </div>'
+        )
+
+    html_type = _HTML_INPUT_TYPES.get(type_, "text")
+    return (
+        '        <div class="space-y-2">\n'
+        f'            <label for="{name}" class="block text-sm font-semibold text-slate-700">{label}</label>\n'
+        f'            <input type="{html_type}" name="{name}" id="{name}" value="{{{{ {value_expr} }}}}" '
+        f'class="{input_classes}"{required_attr}>\n'
+        '        </div>'
+    )
+
+
+def admin_index_stub(entity: str, slug: str, fields: Optional[List[dict]] = None) -> str:
+    """List view for a generated entity's admin UI: one table column per
+    field, an edit/delete action per row, and the same dashed-border
+    empty-state used by `resources/views/posts/index.forge.py` when there
+    are zero records."""
+    fields = fields or []
+    header_cells = "\n".join(
+        f'                            <th class="px-6 py-3.5">{f["name"].replace("_", " ").title()}</th>'
+        for f in fields
+    )
+    row_cells_lines = []
+    for f in fields:
+        expr = f"record.get_attribute('{f['name']}')"
+        if f.get("type") == "text":
+            # Long free-text fields are truncated in the list view — the full
+            # value belongs on the edit form, not a table cell.
+            row_cells_lines.append(
+                f'                                <td class="px-6 py-4 text-slate-600">'
+                f'{{{{ ({expr} or "")|string|truncate(80) }}}}</td>'
+            )
+        else:
+            row_cells_lines.append(
+                f'                                <td class="px-6 py-4 text-slate-600">{{{{ {expr} }}}}</td>'
+            )
+    row_cells_body = "\n".join(row_cells_lines)
+
+    return f'''@extends("layouts.app")
+
+@section("title", "{entity} Records")
+
+@section("content")
+<div class="space-y-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">{entity} Records</h1>
+            <p class="text-sm text-slate-500 mt-1">Manage {entity} records</p>
+        </div>
+        <a href="/admin/{slug}/create" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition duration-150 text-sm">
+            New {entity}
+        </a>
+    </div>
+
+    @if(records is defined and records is not none and records|length > 0)
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/75 border-b border-slate-200 text-xs font-bold uppercase text-slate-500 font-mono">
+                            <th class="px-6 py-3.5">ID</th>
+{header_cells}
+                            <th class="px-6 py-3.5">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-sm text-slate-700">
+                        @foreach(records as record)
+                            <tr>
+                                <td class="px-6 py-4 font-mono">{{{{ record.get_attribute('id') }}}}</td>
+{row_cells_body}
+                                <td class="px-6 py-4 space-x-3">
+                                    <a href="/admin/{slug}/{{{{ record.get_attribute('id') }}}}/edit" class="text-orange-600 hover:text-orange-700 font-semibold">Edit</a>
+                                    <form action="/admin/{slug}/{{{{ record.get_attribute('id') }}}}" method="POST" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="_method" value="DELETE">
+                                        <button type="submit" class="text-rose-600 hover:text-rose-700 font-semibold" onclick="return confirm('Delete this record?')">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @else
+        <div class="text-center py-16 bg-white border border-dashed border-slate-200 rounded-3xl text-slate-400 max-w-lg mx-auto">
+            <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6A2.25 2.25 0 015.25 3.75h9L18 7.5zm-3 0h.008v.008H15V7.5z"></path>
+            </svg>
+            <p class="text-sm font-semibold">No {entity} records yet.</p>
+            <p class="text-xs text-slate-400 mt-1 mb-4">Be the first to create one!</p>
+            <a href="/admin/{slug}/create" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl shadow-md transition duration-150 text-xs">
+                New {entity}
+            </a>
+        </div>
+    @endif
+</div>
+@endsection
+'''
+
+
+def admin_form_stub(entity: str, slug: str, fields: Optional[List[dict]] = None, mode: str = "create") -> str:
+    """Create/edit form for a generated entity's admin UI.
+
+    `mode` is `"create"` (posts to `/admin/{slug}`, `old()`-only prefill) or
+    `"edit"` (posts to `/admin/{slug}/{id}` with a `_method=PUT` override,
+    `old() or record.get_attribute()` prefill) — the same two-file split and
+    redisplay pattern as `posts/create.forge.py` / `posts/edit.forge.py`.
+    """
+    fields = fields or []
+    is_edit = mode == "edit"
+
+    inputs = []
+    for field in fields:
+        if is_edit:
+            value_expr = f"old('{field['name']}') or record.get_attribute('{field['name']}')"
+        else:
+            value_expr = f"old('{field['name']}')"
+        inputs.append(_field_input_html(field, value_expr))
+    inputs_body = "\n\n".join(inputs)
+
+    action = f"/admin/{slug}/{{{{ record.get_attribute('id') }}}}" if is_edit else f"/admin/{slug}"
+    method_field = '\n        <input type="hidden" name="_method" value="PUT">' if is_edit else ""
+    title = f"Edit {entity}" if is_edit else f"Create {entity}"
+    submit_label = f"Update {entity}" if is_edit else f"Create {entity}"
+
+    return f'''@extends("layouts.app")
+
+@section("title", "{title}")
+
+@section("content")
+<div class="max-w-2xl bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm">
+    <h1 class="text-2xl font-bold text-slate-900 mb-6">{title}</h1>
+
+    @if(errors|length > 0)
+    <div class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm space-y-1">
+        @foreach(errors.values() as messages)
+            @foreach(messages as message)
+                <p>{{{{ message }}}}</p>
+            @endforeach
+        @endforeach
+    </div>
+    @endif
+
+    <form action="{action}" method="POST" class="space-y-6">
+        @csrf{method_field}
+
+{inputs_body}
+
+        <div class="flex items-center space-x-4 pt-2">
+            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition duration-150 text-sm">
+                {submit_label}
+            </button>
+            <a href="/admin/{slug}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+@endsection
+'''
+
+
+def admin_controller_stub(entity: str, model: str, request: str, slug: str) -> str:
+    """Admin HTML controller for a generated entity — list/create/edit/delete
+    server-rendered views, distinct from the JSON API `{model}Controller`
+    generated alongside it (different class, different directory, so both
+    coexist without a name collision)."""
+    return f'''"""{entity} — admin HTML controller generated by the CRUD builder."""
+
+from craft.http.controller import Controller
+from craft.http.response import Response, redirect
+from app.Models.{model} import {model}
+from app.Http.Requests.{request} import {request}
+
+
+class {entity}(Controller):
+    def index(self, request):
+        """GET /admin/{slug} — list records."""
+        per_page = min(int(request.input("per_page", 15) or 15), 100)
+        records = {model}.query().order_by_desc("created_at").paginate(per_page)
+        return self.view("admin.{slug}.index", {{"records": records, "show_sidebar": True}})
+
+    def create(self, request):
+        """GET /admin/{slug}/create — show the empty form."""
+        return self.view("admin.{slug}.create", {{"show_sidebar": True, "errors": {{}}}})
+
+    def store(self, request):
+        """POST /admin/{slug} — create a record."""
+        form = {request}(request)
+
+        if form.fails():
+            self._flash_old_input(request)
+            return self.view("admin.{slug}.create", {{"show_sidebar": True, "errors": form.errors}})
+
+        {model}.create(form.validated())
+        return redirect(route="admin.{slug}.index")
+
+    def show(self, request, id):
+        """GET /admin/{slug}/{{id}} — no standalone show page, go to edit."""
+        return redirect(route="admin.{slug}.edit", id=id)
+
+    def edit(self, request, id):
+        """GET /admin/{slug}/{{id}}/edit — show the form for an existing record."""
+        record = {model}.find(id)
+        if record is None:
+            return Response("Not found", status=404)
+        return self.view("admin.{slug}.edit", {{"record": record, "show_sidebar": True, "errors": {{}}}})
+
+    def update(self, request, id):
+        """PUT /admin/{slug}/{{id}} — update a record."""
+        record = {model}.find(id)
+        if record is None:
+            return Response("Not found", status=404)
+        form = {request}(request)
+
+        if form.fails():
+            self._flash_old_input(request)
+            return self.view("admin.{slug}.edit", {{"record": record, "show_sidebar": True, "errors": form.errors}})
+
+        record.update_attributes(form.validated())
+        return redirect(route="admin.{slug}.index")
+
+    def destroy(self, request, id):
+        """DELETE /admin/{slug}/{{id}} — remove a record."""
+        record = {model}.find(id)
+        if record is None:
+            return Response("Not found", status=404)
+        record.delete()
+        return redirect(route="admin.{slug}.index")
+
+    # -- helpers -------------------------------------------------------------
+
+    def _flash_old_input(self, request):
+        """Flash submitted input so the redisplayed form's `old()` calls can
+        restore it, matching `PostController._flash_old_input`."""
+        try:
+            session = request.session()
+        except Exception:
+            session = None
+        if session is not None:
+            session.flash("_old_input", request.all())
+'''
+
+
 def job_stub(name: str) -> str:
     return f'''"""{name} queued job."""
 

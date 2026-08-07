@@ -54,9 +54,14 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
   segue sem solução. Ordem obrigatória quando essa fatia for feita: pool de
   conexão → offload de thread → `--workers` no `dev.py serve`. Nunca threading
   sem pool primeiro (corrompe cursor sob concorrência real).
-- Item 4 do relatório de UX (gerador de UI admin genérica para entidades do
-  CRUD builder — hoje só API JSON) — avaliado como meio-dia de trabalho
-  próprio, não uma correção pequena junto com o resto.
+- ✅ **Item 4 resolvido (2026-08-07, fatia própria)**: CRUD builder agora
+  gera UI admin de verdade por padrão — lista paginada + form de criar/editar
+  com `old()`/erros de validação, controller HTML dedicado em
+  `Admin/<Entity>AdminController.py`, registrado em `/admin/<slug>` atrás de
+  `auth`. Convive sem colisão com a API JSON existente (nomes de classe,
+  arquivos e rotas distintos, confirmado por teste). Validado ao vivo: gerado
+  `Product`, migrado, gate de auth confirmado (302 sem login). 641/641 testes
+  (+8 novos). Limpo depois — nenhum resíduo de `Product` ficou no repo.
 - CRUD builder ainda sem reordenar linhas de campo (só adicionar/remover).
 - Sem validação client-side no formulário do CRUD builder antes do submit.
 

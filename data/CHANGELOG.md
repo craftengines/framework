@@ -20,6 +20,22 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **CRUD builder now generates a real admin UI by default**, not just a JSON
+  API — closing the gap flagged in `.agents/docs/benchmark-2026-08-07.md` §5
+  ("Django gives a free admin list+edit UI from a model; Craft only gave
+  JSON"). `make crud <Entity>` now also generates: a list view
+  (`resources/views/admin/<slug>/index.forge.py`, paginated, with the same
+  empty-state pattern `posts/index.forge.py` uses), a create/edit form
+  (`admin/<slug>/{create,edit}.forge.py`, one input per field typed to match
+  the field's DDL type, CSRF, validation errors + `old()`-preserved input on
+  failure — same redisplay pattern the posts fix added), and a dedicated
+  HTML controller (`app/Http/Controllers/Admin/<Entity>AdminController.py`)
+  registered under `/admin/<slug>` behind `auth` middleware in `routes/web.py`
+  — separate from, and non-colliding with, the existing JSON API controller
+  and route in `routes/api.py`. Both can coexist for the same entity.
+
 ### Security
 
 - CRUD-builder-generated write routes (`store`/`update`/`destroy`) had no

@@ -26,6 +26,15 @@ def _make_routes_file(base_path):
     return path
 
 
+def _make_web_routes_file(base_path):
+    routes_dir = os.path.join(base_path, "routes")
+    os.makedirs(routes_dir, exist_ok=True)
+    path = os.path.join(routes_dir, "web.py")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write('from craft.facades import Route\n\nRoute.get("/", [None, "index"])\n')
+    return path
+
+
 class TestBuildCrudFileShapes:
     def test_generates_every_expected_file(self, tmp_path):
         _make_routes_file(str(tmp_path))
@@ -38,6 +47,10 @@ class TestBuildCrudFileShapes:
         assert os.path.isfile(files["request"])
         assert os.path.isfile(files["resource"])
         assert os.path.isfile(files["controller"])
+        assert os.path.isfile(files["admin_view_index"])
+        assert os.path.isfile(files["admin_view_create"])
+        assert os.path.isfile(files["admin_view_edit"])
+        assert os.path.isfile(files["admin_controller"])
 
     def test_migration_has_the_declared_columns(self, tmp_path):
         _make_routes_file(str(tmp_path))
@@ -77,6 +90,106 @@ class TestBuildCrudFileShapes:
 
         for field in FIELDS:
             assert f'"{field["name"]}"' in source
+
+
+class TestAdminUiGeneration:
+    def test_admin_index_view_lists_every_field(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(result["files"]["admin_view_index"], encoding="utf-8").read()
+
+        assert '@extends("layouts.app")' in source
+        assert "records" in source
+        for field in FIELDS:
+            assert field["name"] in source
+        assert "New Product" in source
+        assert "No Product records yet." in source  # empty-state, dashed border pattern
+        assert "/admin/products/create" in source
+
+    def test_admin_create_view_has_one_input_per_field_and_csrf(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(result["files"]["admin_view_create"], encoding="utf-8").read()
+
+        assert "@csrf" in source
+        assert 'action="/admin/products"' in source
+        assert 'name="name"' in source
+        assert 'name="price"' in source
+        assert 'type="checkbox" name="active"' in source
+        assert "old('name')" in source
+
+    def test_admin_edit_view_prefills_from_record_and_old(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(result["files"]["admin_view_edit"], encoding="utf-8").read()
+
+        assert 'value="PUT"' in source
+        assert "old('name') or record.get_attribute('name')" in source
+
+    def test_admin_controller_is_distinct_from_json_api_controller(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(result["files"]["admin_controller"], encoding="utf-8").read()
+
+        assert "class ProductAdminController(Controller):" in source
+        assert "class ProductController" not in source
+        assert "from app.Models.Product import Product" in source
+        assert "def store(self, request):" in source
+        assert "def update(self, request, id):" in source
+        assert "def destroy(self, request, id):" in source
+        # File paths never collide even though both controllers exist.
+        assert result["files"]["controller"] != result["files"]["admin_controller"]
+        assert "Admin" in result["files"]["admin_controller"]
+
+    def test_admin_route_block_is_appended_and_idempotent(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        web_routes_path = _make_web_routes_file(str(tmp_path))
+        crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+        source = open(web_routes_path, encoding="utf-8").read()
+
+        assert 'Route.resource("products", ProductAdminController)' in source
+        assert 'prefix="/admin"' in source
+        assert 'middleware="auth"' in source
+        assert source.count(crud_builder.WEB_ROUTES_MARKER) == 1
+
+    def test_running_twice_does_not_duplicate_the_admin_route(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        web_routes_path = _make_web_routes_file(str(tmp_path))
+        crud_builder.build_crud("Product", FIELDS, str(tmp_path), force=True)
+        crud_builder.build_crud("Product", FIELDS, str(tmp_path), force=True)
+        source = open(web_routes_path, encoding="utf-8").read()
+
+        assert source.count('Route.resource("products", ProductAdminController)') == 1
+        assert source.count(
+            "from app.Http.Controllers.Admin.ProductAdminController import ProductAdminController"
+        ) == 1
+        assert source.count(crud_builder.WEB_ROUTES_MARKER) == 1
+
+    def test_build_crud_does_not_error_when_web_routes_file_is_missing(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+
+        assert "admin_routes" not in result["files"]
+
+    def test_json_api_and_admin_ui_coexist_for_the_same_entity(self, tmp_path):
+        """Generating one entity produces both a JSON API controller/route
+        and an admin HTML controller/route, with no name or file collision."""
+        _make_routes_file(str(tmp_path))
+        _make_web_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Product", FIELDS, str(tmp_path))
+
+        files = result["files"]
+        assert os.path.isfile(files["controller"])
+        assert os.path.isfile(files["admin_controller"])
+        assert files["controller"] != files["admin_controller"]
+        assert os.path.isfile(files["routes"])
+        assert os.path.isfile(files["admin_routes"])
+        assert files["routes"] != files["admin_routes"]
+
+        api_source = open(files["routes"], encoding="utf-8").read()
+        web_source = open(files["admin_routes"], encoding="utf-8").read()
+        assert 'Route.api_resource("products"' in api_source
+        assert 'Route.resource("products", ProductAdminController)' in web_source
 
 
 class TestFormRequestRules:

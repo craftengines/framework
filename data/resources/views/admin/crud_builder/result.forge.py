@@ -11,7 +11,7 @@
     <div class="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
         @foreach(files.items() as kind, path)
             <div class="flex items-center justify-between px-5 py-3 text-sm">
-                <span class="font-semibold text-slate-700 capitalize">{{ kind }}</span>
+                <span class="font-semibold text-slate-700">{{ kind.replace('_', ' ')|title }}</span>
                 <code class="text-xs text-slate-500 font-mono">{{ path }}</code>
             </div>
         @endforeach

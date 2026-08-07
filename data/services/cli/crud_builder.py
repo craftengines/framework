@@ -1,6 +1,8 @@
 """
 CrudBuilder — generates a full vertical slice (migration, model, controller,
-FormRequest, Resource, route) for a described entity, wired to real ORM calls.
+FormRequest, Resource, JSON API route, and a server-rendered admin UI —
+list/create/edit views, an admin controller, admin routes) for a described
+entity, wired to real ORM calls.
 
 Category: Core Framework (CLI).
 Relations:
@@ -8,8 +10,10 @@ Relations:
     accept a `fields` list) instead of duplicating codegen.
   - Called from `dev.py make:crud` (`services/cli/app.py`) and from the admin
     CRUD builder UI (`app/Http/Controllers/Admin/CrudBuilderController.py`).
-  - Appends the generated route to `routes/web.py`, idempotently, after the
-    `# CRUD Builder Routes` marker comment.
+  - Appends the JSON API route to `routes/api.py`, idempotently, after the
+    `# CRUD Builder Routes` marker comment, and the admin HTML routes to
+    `routes/web.py`, idempotently, after the `# CRUD Builder Admin Routes`
+    marker comment.
 References:
   - Guide: `documentation/crud-builder.md`
 """
@@ -36,6 +40,7 @@ FIELD_TYPES = {
 }
 
 ROUTES_MARKER = "# CRUD Builder Routes"
+WEB_ROUTES_MARKER = "# CRUD Builder Admin Routes"
 
 
 def normalize_field(field: Dict[str, Any]) -> Dict[str, Any]:
@@ -78,6 +83,19 @@ def _write(path: str, content: str, force: bool) -> str:
     init_path = os.path.join(os.path.dirname(path), "__init__.py")
     if not os.path.exists(init_path):
         open(init_path, "a", encoding="utf-8").close()
+    return path
+
+
+def _write_view(path: str, content: str, force: bool) -> str:
+    """Same overwrite discipline as `_write`, minus the `__init__.py`
+    sibling — `resources/views/**` is never imported as a Python package,
+    and the existing `posts/*.forge.py` views directory has no `__init__.py`
+    either."""
+    if os.path.exists(path) and not force:
+        raise FileExistsError(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(content)
     return path
 
 
@@ -170,6 +188,64 @@ def _append_route(base_path: str, entity_class: str, slug: str) -> Optional[str]
     return routes_path
 
 
+def _append_web_route(base_path: str, admin_controller_class: str, slug: str) -> Optional[str]:
+    """Register the generated admin controller's HTML CRUD routes.
+
+    Registers in `routes/web.py` under `/admin/<slug>`, behind the `auth`
+    middleware — same alias and area as `/admin/crud-builder`
+    (`routes/web.py`). Uses `Route.resource()` (the HTML-form variant with
+    `create`/`edit`, unlike `Route.api_resource()` used for the JSON side)
+    nested in a `Route.group(..., prefix="/admin", middleware="auth", name=
+    "admin.")` block, so every action — including reads — requires a logged
+    -in user, matching the rest of the admin area. Named routes come out as
+    `admin.<slug>.index` etc.
+
+    Idempotent, mirroring `_append_route`: running `build_crud` twice for the
+    same entity does not add a second import or route block.
+    """
+    routes_path = os.path.join(base_path, "routes", "web.py")
+    if not os.path.isfile(routes_path):
+        return None
+
+    with open(routes_path, "r", encoding="utf-8") as handle:
+        content = handle.read()
+
+    import_line = (
+        f"from app.Http.Controllers.Admin.{admin_controller_class} import {admin_controller_class}"
+    )
+    marker_token = f'Route.resource("{slug}", {admin_controller_class})'
+
+    if marker_token in content:
+        return routes_path  # already registered
+
+    additions = []
+    if import_line not in content:
+        additions.append(import_line)
+
+    group_block = (
+        "Route.group(\n"
+        "    lambda: (\n"
+        f"        Route.resource(\"{slug}\", {admin_controller_class}),\n"
+        "    ),\n"
+        '    prefix="/admin",\n'
+        '    middleware="auth",\n'
+        '    name="admin.",\n'
+        ")"
+    )
+    additions.append(group_block)
+    block = "\n".join(additions)
+
+    if WEB_ROUTES_MARKER in content:
+        content = content.rstrip("\n") + "\n" + block + "\n"
+    else:
+        content = content.rstrip("\n") + f"\n\n{WEB_ROUTES_MARKER}\n" + block + "\n"
+
+    with open(routes_path, "w", encoding="utf-8") as handle:
+        handle.write(content)
+
+    return routes_path
+
+
 def build_crud(
     entity: str,
     fields: List[Dict[str, Any]],
@@ -189,6 +265,7 @@ def build_crud(
     request_name = f"Store{class_name}Request"
     resource_name = f"{class_name}Resource"
     controller_name = f"{class_name}Controller"
+    admin_controller_name = f"{class_name}AdminController"
 
     created: Dict[str, Any] = {"entity": class_name, "files": {}}
 
@@ -228,11 +305,44 @@ def build_crud(
     )
     created["files"]["controller"] = _write(controller_path, controller_content, force)
 
-    # 6. Route
+    # 6. JSON API route
     if resource_route:
         route_path = _append_route(base_path, model_name, slug)
         if route_path:
             created["files"]["routes"] = route_path
+
+    # 7. Admin UI — list/create/edit views, generated by default (no flag),
+    # matching the "free from the model registration" framing this closes.
+    views_dir = os.path.join(base_path, "resources", "views", "admin", slug)
+    index_view_path = os.path.join(views_dir, "index.forge.py")
+    created["files"]["admin_view_index"] = _write_view(
+        index_view_path, generators.admin_index_stub(class_name, slug, fields=fields), force
+    )
+    create_view_path = os.path.join(views_dir, "create.forge.py")
+    created["files"]["admin_view_create"] = _write_view(
+        create_view_path, generators.admin_form_stub(class_name, slug, fields=fields, mode="create"), force
+    )
+    edit_view_path = os.path.join(views_dir, "edit.forge.py")
+    created["files"]["admin_view_edit"] = _write_view(
+        edit_view_path, generators.admin_form_stub(class_name, slug, fields=fields, mode="edit"), force
+    )
+
+    # 8. Admin HTML controller — separate class from the JSON API controller
+    # above (`{class_name}AdminController` under `app/Http/Controllers/Admin/`)
+    # so the two coexist without a name collision.
+    admin_controller_path = os.path.join(
+        base_path, "app", "Http", "Controllers", "Admin", f"{admin_controller_name}.py"
+    )
+    admin_controller_content = generators.admin_controller_stub(
+        admin_controller_name, model_name, request_name, slug
+    )
+    created["files"]["admin_controller"] = _write(admin_controller_path, admin_controller_content, force)
+
+    # 9. Admin HTML route
+    if resource_route:
+        admin_route_path = _append_web_route(base_path, admin_controller_name, slug)
+        if admin_route_path:
+            created["files"]["admin_routes"] = admin_route_path
 
     return created
 
