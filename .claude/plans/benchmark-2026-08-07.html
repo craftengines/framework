@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Craft vs. Market Leaders — Enterprise Framework Benchmark</title>
+<style>
+  /* ---------------------------------------------------------------
+     Design plan
+     Subject: an engineering benchmark readout — a spec sheet, not a
+     marketing chart. Two data classes matter: what was MEASURED this
+     session (Craft — real load test + code audit) vs. what is an
+     ESTIMATE of market capability (everyone else, from public
+     reputation, not independently re-run here). The type system and
+     palette both carry that distinction.
+
+     Color — 5 named values:
+       --paper   #F1F4F2  cool, faintly green-grey neutral ground
+       --ink     #12181A  near-black, blue undertone
+       --ink-mut #566360  muted ink for secondary text
+       --line    #DBE3DF  hairline rule / cell border
+       --teal    #0F766E  single accent + sequential ramp hue (magnitude)
+       --amber   #B8721F  reserved status color — "measured live" marker only
+
+     Type — 2 roles:
+       display/label/data → monospace stack (instrument-panel character,
+         tabular nums for every number that lines up in a column)
+       body/prose         → Georgia-led serif stack (readable running text
+         for the methodology paragraphs)
+
+     Layout: header block → methodology strip → heatmap grid (the
+     primary read) → composite ranking bars (the headline read) →
+     footnotes. Single column, generous width for the grid, everything
+     else clamped to a prose measure.
+     --------------------------------------------------------------- */
+
+  :root {
+    --paper: #F1F4F2;
+    --surface: #FFFFFF;
+    --ink: #12181A;
+    --ink-mut: #566360;
+    --ink-faint: #8B948F;
+    --line: #DBE3DF;
+    --line-strong: #C2CCC7;
+
+    --teal-100: #E1F3F0;
+    --teal-200: #BFE6DF;
+    --teal-300: #93D2C7;
+    --teal-400: #5FB6A8;
+    --teal-500: #2F9483;
+    --teal-600: #16786A;
+    --teal-700: #0F5F54;
+    --teal-800: #0B463E;
+
+    --amber: #B8721F;
+    --amber-soft: #F3E4CE;
+
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", "Consolas", "Liberation Mono", monospace;
+    --font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10151A;
+      --surface: #161D22;
+      --ink: #E7EDEA;
+      --ink-mut: #93A19B;
+      --ink-faint: #5C6A64;
+      --line: #263129;
+      --line-strong: #33413A;
+
+      --teal-100: #0E2C29;
+      --teal-200: #123B34;
+      --teal-300: #16544A;
+      --teal-400: #1B6E5F;
+      --teal-500: #248C77;
+      --teal-600: #3FA893;
+      --teal-700: #6EC4B0;
+      --teal-800: #A6DDCE;
+
+      --amber: #E0A857;
+      --amber-soft: #3A2C15;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10151A;
+    --surface: #161D22;
+    --ink: #E7EDEA;
+    --ink-mut: #93A19B;
+    --ink-faint: #5C6A64;
+    --line: #263129;
+    --line-strong: #33413A;
+
+    --teal-100: #0E2C29;
+    --teal-200: #123B34;
+    --teal-300: #16544A;
+    --teal-400: #1B6E5F;
+    --teal-500: #248C77;
+    --teal-600: #3FA893;
+    --teal-700: #6EC4B0;
+    --teal-800: #A6DDCE;
+
+    --amber: #E0A857;
+    --amber-soft: #3A2C15;
+  }
+
+  * { box-sizing: border-box; }
+  html { text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 28px 80px; }
+  .prose { max-width: 66ch; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--teal-600);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 22px;
+    height: 1px;
+    background: var(--teal-600);
+    display: inline-block;
+  }
+
+  h1 {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: clamp(28px, 4vw, 44px);
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+    margin: 14px 0 12px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--teal-600);
+  }
+
+  .lede {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    color: var(--ink-mut);
+    max-width: 62ch;
+    margin: 0 0 6px;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin-top: 26px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .meta-row b { color: var(--ink-mut); font-weight: 600; }
+
+  /* ---- methodology strip ---- */
+  .method {
+    margin-top: 44px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  @media (max-width: 720px) { .method { grid-template-columns: 1fr; } }
+  .method-cell {
+    background: var(--surface);
+    padding: 20px 22px;
+  }
+  .method-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 100px;
+    margin-bottom: 10px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .method-tag.measured { color: var(--amber); background: var(--amber-soft); }
+  .method-tag.measured .dot { background: var(--amber); }
+  .method-tag.estimate { color: var(--ink-mut); background: var(--line); }
+  .method-tag.estimate .dot { background: var(--ink-faint); }
+  .method-cell p { margin: 0; font-size: 14.5px; color: var(--ink-mut); }
+  .method-cell p code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: var(--paper);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  /* ---- section headings ---- */
+  h2 {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mut);
+    margin: 64px 0 6px;
+    font-weight: 600;
+  }
+  .section-sub {
+    font-size: 15.5px;
+    color: var(--ink-mut);
+    margin: 0 0 22px;
+    max-width: 62ch;
+  }
+
+  /* ---- heatmap grid ---- */
+  .grid-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--surface);
+  }
+  table.heat {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 780px;
+    font-family: var(--font-mono);
+  }
+  table.heat th, table.heat td {
+    padding: 0;
+    text-align: left;
+  }
+  table.heat thead th {
+    padding: 14px 10px 12px;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-mut);
+    font-weight: 600;
+    border-bottom: 1px solid var(--line-strong);
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+  table.heat thead th:first-child { padding-left: 20px; }
+  table.heat tbody th {
+    padding: 0 14px 0 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+  }
+  table.heat tbody tr.craft th { color: var(--amber); }
+  table.heat tbody th .fw-lang {
+    display: block;
+    font-weight: 400;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+    margin-top: 1px;
+  }
+  table.heat tbody td {
+    border-bottom: 1px solid var(--line);
+    border-left: 1px solid var(--paper);
+    padding: 2px;
+  }
+  .cell {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    border-radius: 2px;
+  }
+  tr.craft td { padding: 4px 2px; }
+  tr.craft .cell {
+    height: 46px;
+    box-shadow: inset 0 0 0 2px var(--amber);
+  }
+  tr:last-child td, tr:last-child th { border-bottom: none; }
+
+  /* score → fill, computed by hand against the ramp above (light-mode values) */
+  .s0 { background: var(--teal-100); color: var(--ink-mut); }
+  .s1 { background: var(--teal-200); color: var(--ink); }
+  .s2 { background: var(--teal-300); color: var(--ink); }
+  .s3 { background: var(--teal-400); color: #FFFFFF; }
+  .s4 { background: var(--teal-500); color: #FFFFFF; }
+  .s5 { background: var(--teal-600); color: #FFFFFF; }
+  .s6 { background: var(--teal-700); color: #FFFFFF; }
+  .s7 { background: var(--teal-800); color: #FFFFFF; }
+
+  .legend-strip {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    flex-wrap: wrap;
+  }
+  .legend-ramp {
+    display: flex;
+    height: 12px;
+    border-radius: 2px;
+    overflow: hidden;
+    width: 168px;
+  }
+  .legend-ramp span { flex: 1; }
+  .legend-marker { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-marker .dot { box-shadow: 0 0 0 2px var(--amber); background: transparent; width: 9px; height: 9px; }
+
+  /* ---- composite ranking ---- */
+  .rank-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 168px 1fr 54px;
+    align-items: center;
+    gap: 14px;
+  }
+  @media (max-width: 620px) {
+    .rank-row { grid-template-columns: 108px 1fr 42px; gap: 8px; }
+  }
+  .rank-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rank-row.craft .rank-name { color: var(--amber); }
+  .rank-track {
+    position: relative;
+    height: 22px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .rank-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--teal-500);
+    border-radius: 3px;
+  }
+  .rank-row.craft .rank-fill {
+    background: var(--teal-600);
+    box-shadow: inset 0 0 0 2px var(--amber);
+  }
+  .rank-score {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .rank-row.craft .rank-score { color: var(--amber); }
+
+  /* ---- verdict ---- */
+  .verdict {
+    margin-top: 64px;
+    padding: 26px 28px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 3px 3px 0;
+  }
+  .verdict p { margin: 0 0 12px; font-size: 16px; color: var(--ink); }
+  .verdict p:last-child { margin-bottom: 0; }
+  .verdict b { color: var(--ink); }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  :focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Craft Framework · v3.11.0-r00001</div>
+  <h1>Confronto com os <em>líderes de mercado</em></h1>
+  <p class="lede">Seis dimensões, independentes de linguagem — o que uma equipe enterprise
+    avalia ao escolher um framework, não benchmarks de sintaxe. Comparado contra os
+    padrões dominantes de cada ecossistema: PHP, Python, Ruby, Java, .NET e Node.</p>
+
+  <div class="meta-row">
+    <span><b>Data</b> 2026-08-07</span>
+    <span><b>Metodologia</b> ver abaixo</span>
+    <span><b>Fonte completa</b> .agents/docs/benchmark-2026-08-07.md</span>
+  </div>
+
+  <div class="method">
+    <div class="method-cell">
+      <span class="method-tag measured"><span class="dot"></span>Medido</span>
+      <p>Craft foi auditado nesta própria sessão: leitura direta do código-fonte em
+        <code>services/</code>, mais um teste de carga real (<code>ThreadPoolExecutor</code>,
+        concorrência 1→100) contra o container rodando. Não é opinião — é o que o
+        framework fez quando testado.</p>
+    </div>
+    <div class="method-cell">
+      <span class="method-tag estimate"><span class="dot"></span>Estimativa de mercado</span>
+      <p>Os demais frameworks foram pontuados pela postura padrão bem documentada de
+        cada um (o que vem de fábrica, não com pacotes de terceiros) — não foram
+        re-executados nesta sessão. Trate como leitura de posicionamento, não como
+        benchmark de laboratório equivalente ao de Craft.</p>
+    </div>
+  </div>
+
+  <h2>Grade completo — 7 frameworks × 6 dimensões</h2>
+  <p class="section-sub">Cada célula é uma nota de 0–10. Mais escuro = mais forte nessa
+    dimensão. A linha do Craft carrega o contorno âmbar — é a única linha medida ao vivo.</p>
+
+  <div class="grid-scroll">
+    <table class="heat" id="heat"></table>
+  </div>
+
+  <div class="legend-strip">
+    <span>0</span>
+    <span class="legend-ramp">
+      <span style="background:var(--teal-100)"></span>
+      <span style="background:var(--teal-200)"></span>
+      <span style="background:var(--teal-300)"></span>
+      <span style="background:var(--teal-400)"></span>
+      <span style="background:var(--teal-500)"></span>
+      <span style="background:var(--teal-600)"></span>
+      <span style="background:var(--teal-700)"></span>
+      <span style="background:var(--teal-800)"></span>
+    </span>
+    <span>10</span>
+    <span class="legend-marker"><span class="dot"></span>contorno âmbar = medido ao vivo</span>
+  </div>
+
+  <h2>Pontuação composta</h2>
+  <p class="section-sub">Média simples das 6 dimensões — um número não substitui a
+    grade acima, mas ordena a conversa.</p>
+
+  <div class="rank-list" id="rank"></div>
+
+  <div class="verdict">
+    <p><b>Onde o Craft compete de verdade:</b> segurança primitiva (CSRF, sessão,
+      hash de senha, defesa contra SQLi) e, principalmente, <b>prontidão para agentes
+      de IA</b> — nenhum concorrente listado tem o equivalente à biblioteca de skills
+      e à disciplina de CHANGELOG obrigatório que este projeto construiu. É a única
+      dimensão onde o Craft lidera o grupo, não só participa.</p>
+    <p><b>Onde perde feio, e por quê é medido, não achismo:</b> escalabilidade.
+      O teste de carga real mostrou throughput constante em ~30 req/s independente
+      da concorrência (1 a 100 clientes) — assinatura de processamento totalmente
+      serializado. Nenhum dos seis concorrentes roda em produção com processo único
+      e conexão de banco compartilhada por padrão; é aí que a distância é maior.</p>
+    <p>Admin/scaffolding de UI é o segundo maior gap — Django dá tela de admin de
+      graça a partir do model; o CRUD builder do Craft ainda gera só API JSON.
+      Já corrigido nesta sessão: as rotas de escrita geradas agora exigem
+      autenticação real (antes, API pública de exclusão por padrão).</p>
+  </div>
+
+  <footer>
+    <span>Craft Framework — auditoria interna, não publicada</span>
+    <span>Metodologia mista: medição direta (Craft) + estimativa de mercado (demais)</span>
+  </footer>
+
+</div>
+
+<script>
+  const DIMENSIONS = [
+    { key: "security",     label: "Segurança" },
+    { key: "perf",         label: "Performance" },
+    { key: "admin",        label: "Admin UI" },
+    { key: "cicd",         label: "CI/CD" },
+    { key: "ecosystem",    label: "Ecossistema" },
+    { key: "ai",           label: "Pronto p/ IA" },
+  ];
+
+  // Craft: measured this session (audits + live load test).
+  // Everyone else: market-capability estimate, out-of-the-box defaults only.
+  const FRAMEWORKS = [
+    { name: "Craft",        lang: "Python · Starlette",  measured: true,
+      security: 7, perf: 2, admin: 2, cicd: 4, ecosystem: 1, ai: 9 },
+    { name: "Django",       lang: "Python",
+      security: 8, perf: 6, admin: 10, cicd: 8, ecosystem: 9, ai: 2 },
+    { name: "Laravel",      lang: "PHP",
+      security: 8, perf: 6, admin: 6,  cicd: 8, ecosystem: 8, ai: 2 },
+    { name: "Rails",        lang: "Ruby",
+      security: 7, perf: 6, admin: 7,  cicd: 8, ecosystem: 7, ai: 2 },
+    { name: "Spring Boot",  lang: "Java",
+      security: 8, perf: 8, admin: 3,  cicd: 9, ecosystem: 10, ai: 1 },
+    { name: "ASP.NET Core", lang: "C# / .NET",
+      security: 8, perf: 9, admin: 4,  cicd: 9, ecosystem: 9, ai: 1 },
+    { name: "Node.js",      lang: "Express / NestJS",
+      security: 5, perf: 8, admin: 2,  cicd: 7, ecosystem: 9, ai: 2 },
+  ];
+
+  function bucket(score) {
+    // 0–10 mapped to the 8-step ramp (s0..s7)
+    return "s" + Math.max(0, Math.min(7, Math.round((score / 10) * 7)));
+  }
+
+  function buildHeat() {
+    const table = document.getElementById("heat");
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    headRow.innerHTML = "<th>Framework</th>" +
+      DIMENSIONS.map(d => `<th>${d.label}</th>`).join("");
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    FRAMEWORKS.forEach(fw => {
+      const tr = document.createElement("tr");
+      if (fw.measured) tr.className = "craft";
+      const rowHead = document.createElement("th");
+      rowHead.innerHTML = `${fw.name}<span class="fw-lang">${fw.lang}</span>`;
+      tr.appendChild(rowHead);
+      DIMENSIONS.forEach(d => {
+        const td = document.createElement("td");
+        const score = fw[d.key];
+        const cell = document.createElement("div");
+        cell.className = "cell " + bucket(score);
+        cell.textContent = score;
+        cell.title = `${fw.name} — ${d.label}: ${score}/10`;
+        td.appendChild(cell);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  }
+
+  function buildRank() {
+    const el = document.getElementById("rank");
+    const withComposite = FRAMEWORKS.map(fw => {
+      const total = DIMENSIONS.reduce((sum, d) => sum + fw[d.key], 0);
+      return { ...fw, composite: total / DIMENSIONS.length };
+    }).sort((a, b) => b.composite - a.composite);
+
+    withComposite.forEach(fw => {
+      const row = document.createElement("div");
+      row.className = "rank-row" + (fw.measured ? " craft" : "");
+      const pct = (fw.composite / 10) * 100;
+      row.innerHTML = `
+        <div class="rank-name">${fw.name}</div>
+        <div class="rank-track"><div class="rank-fill" style="width:${pct}%"></div></div>
+        <div class="rank-score">${fw.composite.toFixed(1)}</div>
+      `;
+      el.appendChild(row);
+    });
+  }
+
+  buildHeat();
+  buildRank();
+</script>
+</body>
+</html>
