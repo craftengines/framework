@@ -22,6 +22,19 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **Login page shows the 3 demo accounts, gated by `APP_DEBUG`.**
+  `resources/views/auth/login.forge.py` now renders a small credentials
+  table under the form when `config("app.APP_DEBUG")` is true — never in a
+  production build. Discoverable without opening the README.
+- `documentation/authorization.md` gained a **Recipes** section: protect a
+  route by role/permission, check inside a controller or a Forge view,
+  create a brand-new role end to end via the CLI — worked examples on top
+  of the existing reference documentation.
+- New `.agents/docs/resumo-executivo-2026-08-07.md` — a session-level
+  executive summary (workspace reorg, English-only pass, plugin management,
+  CRUD builder + its admin UI, the release cut, the benchmark, the fixes
+  that followed it, and RBAC) for anyone — human or agent — resuming this
+  work without re-reading every commit.
 - **Functional RBAC**, not just a data model. `roles`/`permissions` tables
   existed before but had no enforcement layer — now: `Model.has_role(slug)`
   (mirroring the existing `has_permission`), a third fallback tier on

@@ -114,6 +114,68 @@ Both are behind `auth` and `role:admin` (`app/Http/Controllers/Admin/RoleControl
 `resources/views/admin/permissions/index.forge.py`) — the first real usage of
 the `role:<slug>` middleware in the shipped skeleton.
 
+## Recipes
+
+**Protect a new route by role.**
+
+```python
+# routes/web.py
+Route.get("/reports", [ReportController, "index"]).middleware("auth", "role:admin")
+```
+
+`"auth"` first (redirects a guest to `/login` before `RequireRole` even runs —
+without it, an unauthenticated request would 403 instead of getting the
+familiar login redirect). Order matters here the same way it does for
+`session`/`csrf`/`auth` in `bootstrap/app.py`.
+
+**Protect a route by permission instead of role** — use this when the check
+should survive a role being renamed or restructured later:
+
+```python
+Route.get("/reports", [ReportController, "index"]).middleware("auth", "permission:view-reports")
+```
+
+**Check inside a controller**, when the route-level middleware isn't granular
+enough (e.g. the same route serves different content by permission):
+
+```python
+from craft.facades import Auth, Gate
+
+class ReportController(Controller):
+    def index(self, request):
+        if not Auth.user().has_permission("view-reports"):
+            return self.json({"message": "Forbidden"}, status=403)
+        ...
+```
+
+or, to reuse the Gate fallback tier and get consistent exception handling:
+
+```python
+Gate.authorize("view-reports", Auth.user())  # raises AuthorizationException if denied
+```
+
+**Check inside a Forge view** — `has_permission`/`has_role` are plain model
+methods, so they work through the `auth` global helper:
+
+```html
+@if(auth() and auth().has_permission("manage-users"))
+    <a href="/admin/roles">Manage roles</a>
+@endif
+```
+
+**Add a brand-new role from scratch**, end to end:
+
+```bash
+python dev.py permission:create "Export Data" export-data
+python dev.py role:create "Analyst" analyst
+python dev.py role:grant analyst export-data
+python dev.py user:assign-role someone@example.com analyst
+```
+
+No migration needed — `roles`/`permissions`/the two pivot tables already
+exist from the framework's own migrations. A new role or permission is just
+a row.
+
 ## The 3 demo accounts
 
 The framework seeds 3 demo accounts forming a role ladder: `user` (basic) ->

@@ -75,9 +75,20 @@
         </form>
 
         <p class="mt-8 text-center text-xs text-slate-500">
-            Don't have an account? 
+            Don't have an account?
             <a href="/register" class="text-orange-500 hover:text-orange-600 font-bold transition">Register Profile</a>
         </p>
+
+        @if(config("app.APP_DEBUG"))
+            <div class="mt-6 pt-6 border-t border-dashed border-slate-200">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Demo accounts (debug only)</p>
+                <table class="w-full text-xs text-slate-500 font-mono">
+                    <tr><td class="py-0.5 pr-3 text-slate-700 font-semibold">admin@craft.local</td><td>craft — full admin</td></tr>
+                    <tr><td class="py-0.5 pr-3 text-slate-700 font-semibold">tenant@craft.local</td><td>craft — tenant-manager</td></tr>
+                    <tr><td class="py-0.5 pr-3 text-slate-700 font-semibold">user@craft.local</td><td>craft — basic user</td></tr>
+                </table>
+            </div>
+        @endif
     </div>
 </div>
 @endsection
