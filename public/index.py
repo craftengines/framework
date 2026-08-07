@@ -1,8 +1,8 @@
 """
-Codepy — a batteries-included Python web framework.
+Craft — a batteries-included Python web framework.
 
-@package Codepy
-@author  Codepy Team
+@package Craft
+@author  Craft Team
 """
 
 import sys

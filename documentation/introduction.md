@@ -1,6 +1,6 @@
-# Introduction to Codepy
+# Introduction to Craft
 
-Codepy is a modern, full-stack MVC backend framework that brings the framework's expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **FastAPI** (for high-performance routing), **SQLAlchemy 2.0 Core** (for database abstraction), and **Jinja2** (preprocessed as the **Forge** engine), Codepy makes it easy to construct robust APIs and server-rendered web applications.
+Craft is a modern, full-stack MVC backend framework that brings the framework's expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **FastAPI** (for high-performance routing), **SQLAlchemy 2.0 Core** (for database abstraction), and **Jinja2** (preprocessed as the **Forge** engine), Craft makes it easy to construct robust APIs and server-rendered web applications.
 
 ---
 
@@ -14,7 +14,7 @@ Codepy is a modern, full-stack MVC backend framework that brings the framework's
 
 ## Directory Structure
 
-An out-of-the-box Codepy project follows this standard layout:
+An out-of-the-box Craft project follows this standard layout:
 
 ```
 project/
@@ -24,7 +24,7 @@ project/
 │   │   ├── Middleware/         # HTTP request/response middleware
 │   │   ├── Requests/           # Typed validation requests (FormRequest)
 │   │   └── Resources/          # API JSON transformers
-│   ├── Models/                  # ActiveRecord database entities (Codepyquent)
+│   ├── Models/                  # ActiveRecord database entities (Craft ORM)
 │   ├── Policies/                # Gate authorization policy classes
 │   ├── Providers/               # Service Providers for DI binding
 │   └── Services/               # Custom business logic layer
@@ -34,7 +34,7 @@ project/
 │   └── views/                   # HTML templates (Forge)
 ├── routes/                      # Route maps (web.py, api.py, console.py)
 ├── storage/                     # File uploads, cache, logs
-└── craft.py                    # CLI command runner
+└── dev.py                    # CLI command runner
 ```
 
 ---
@@ -56,7 +56,7 @@ project/
    ```
 4. Run migrations and seed the database inside the container:
    ```bash
-   docker exec -it framework python craft.py migrate fresh
-   docker exec -it framework python craft.py db seed
+   docker exec -it framework python dev.py migrate fresh
+   docker exec -it framework python dev.py db seed
    ```
 5. Access your application locally at `http://localhost:8300`.

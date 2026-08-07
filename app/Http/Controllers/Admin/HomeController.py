@@ -1,10 +1,10 @@
 """Home Controller for Admin and Dashboard views."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.http.controller import Controller
-from codepy.http.response import Response, redirect
+from craft.http.controller import Controller
+from craft.http.response import Response, redirect
 
 
 class HomeController(Controller):
@@ -18,7 +18,7 @@ class HomeController(Controller):
         return self.view("home", {"posts": posts, "show_sidebar": False})
 
     def admin(self, request):
-        from codepy.facades import Auth
+        from craft.facades import Auth
         user = Auth.user()
         if not user:
             return redirect(url="/login", status=302)

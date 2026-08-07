@@ -1,5 +1,5 @@
-"""Exceptions and the HTTP exception handler for Codepy Framework."""
-# Codepy Framework
+"""Exceptions and the HTTP exception handler for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -9,19 +9,19 @@ import traceback
 from typing import Any, Optional
 
 
-class CodepyException(Exception):
+class CraftException(Exception):
     status_code = 500
 
 
-class NotFoundHttpException(CodepyException):
+class NotFoundHttpException(CraftException):
     status_code = 404
 
 
-class AuthorizationException(CodepyException):
+class AuthorizationException(CraftException):
     status_code = 403
 
 
-class ValidationException(CodepyException):
+class ValidationException(CraftException):
     status_code = 422
 
     def __init__(self, errors: dict):
@@ -122,7 +122,7 @@ class ExceptionHandler:
 
 
 __all__ = [
-    "CodepyException",
+    "CraftException",
     "NotFoundHttpException",
     "AuthorizationException",
     "ValidationException",

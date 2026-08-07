@@ -1,9 +1,9 @@
 ---
-name: codepy-blog-business-rules
-description: Business logic and validation rules for the Codepy demo blog application (app/ directory).
+name: craft-blog-business-rules
+description: Business logic and validation rules for the Craft demo blog application (app/ directory).
 ---
 
-# Codepy Blog Business Rules (Business Skill)
+# Craft Blog Business Rules (Business Skill)
 
 This skill governs the domain-specific business rules for the blog application code located in the `app/` directory.
 

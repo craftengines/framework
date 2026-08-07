@@ -1,4 +1,4 @@
-# Contributing to Codepy
+# Contributing to Craft
 
 Thanks for considering a contribution. This document covers how to get set up,
 what the project expects from a change, and how to report problems.
@@ -6,13 +6,13 @@ what the project expects from a change, and how to report problems.
 ## Getting set up
 
 ```bash
-git clone <your-fork-url> codepy
-cd codepy
+git clone <your-fork-url> craft
+cd craft
 pip install -e ".[dev]"
 
 cp .env.example .env
-python craft.py key:generate
-python craft.py migrate --seed
+python dev.py key:generate
+python dev.py migrate --seed
 python -m pytest
 ```
 
@@ -33,9 +33,9 @@ Dialect bugs and version bugs only show up on the target that exercises them.
 python -m pytest
 
 # PostgreSQL
-docker exec framework-db psql -U codepy -d codepy_db -p 5499 -c "CREATE DATABASE codepy_validation;"
-CODEPY_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
-  DB_DATABASE=codepy_validation DB_USERNAME=codepy DB_PASSWORD=secretpassword \
+docker exec framework-db psql -U craft -d craft_db -p 5499 -c "CREATE DATABASE craft_validation;"
+CRAFT_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
+  DB_DATABASE=craft_validation DB_USERNAME=craft DB_PASSWORD=secretpassword \
   python -m pytest
 
 # Python 3.11, the minimum supported version
@@ -97,7 +97,7 @@ importable, or you end up testing `services/` on disk rather than the wheel:
 unset PYTHONPATH            # a venv does not override it
 python -m venv /tmp/clean
 cd /tmp
-/tmp/clean/bin/pip install /path/to/dist/codepy-0.1.0-py3-none-any.whl
+/tmp/clean/bin/pip install /path/to/dist/craft-0.1.0-py3-none-any.whl
 /tmp/clean/bin/python -c 'import services; print(services.__file__)'
 /tmp/clean/bin/craft --help
 ```

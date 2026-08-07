@@ -6,7 +6,7 @@ an uppercase region subtag — `en`, `pt`, `pt-BR`, `es`.
 ## Translating
 
 ```python
-from codepy.support import __
+from craft.support import __
 
 __("login")                    # active locale
 __("login", "pt-BR")           # a specific locale
@@ -32,7 +32,7 @@ pt-BR  →  pt  →  en
 ```
 
 ```python
-from codepy.support import locale_chain
+from craft.support import locale_chain
 
 locale_chain("pt-BR", "en")   # ['pt-BR', 'pt', 'en']
 locale_chain("pt", "en")      # ['pt', 'en']
@@ -53,7 +53,7 @@ APP_FALLBACK_LOCALE=en
 Tags are normalised, so lookups are case-insensitive and underscore-tolerant:
 
 ```python
-from codepy.support import normalize_locale
+from craft.support import normalize_locale
 
 normalize_locale("PT-br")   # 'pt-BR'
 normalize_locale("pt_BR")   # 'pt-BR'
@@ -96,7 +96,7 @@ TRANSLATIONS = {
 ```
 
 ```bash
-python craft.py db seed
+python dev.py db seed
 ```
 
 ## pt and pt-BR are not the same
@@ -148,7 +148,7 @@ Placeholders must match across locales — a key with `{min}` in English needs
 ## Adding a locale
 
 1. Add its entries to `TRANSLATIONS` in the seeder.
-2. Re-seed: `python craft.py db seed`.
+2. Re-seed: `python dev.py db seed`.
 3. Set `APP_LOCALE`, or pass the locale per call.
 
 Only the keys that differ from the base language are needed — the chain covers

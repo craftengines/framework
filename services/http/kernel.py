@@ -1,5 +1,5 @@
-"""HTTP Kernel for Codepy Framework."""
-# Codepy Framework
+"""HTTP Kernel for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -23,7 +23,7 @@ class DynamicStarletteApp:
 
 
 class Kernel:
-    """HTTP Kernel wrapping Starlette app with Codepy pipeline dispatching."""
+    """HTTP Kernel wrapping Starlette app with Craft pipeline dispatching."""
 
     def __init__(self, app: Any):
         self.app = app

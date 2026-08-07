@@ -1,4 +1,4 @@
-"""Translation helper for Codepy Framework.
+"""Translation helper for Craft Framework.
 
 Locales follow BCP 47: a lowercase language subtag, optionally followed by an
 uppercase region subtag — `en`, `pt`, `pt-BR`, `es`.
@@ -11,7 +11,7 @@ language and finally from the configured fallback:
 Without that chain, asking for `pt-BR` when only `pt` is translated returned the
 raw key.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

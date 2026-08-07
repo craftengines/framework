@@ -4,9 +4,9 @@ Category: Subsystem (Core Framework).
 Relations:
   - Registers, boots, and triggers hooks across third-party framework plugins.
 References:
-  - Skill: `codepy-development` ([SKILL.md](file:///d:/data/www/codepy/.agents/skills/codepy-development/SKILL.md))
+  - Skill: `craft-development` ([SKILL.md](file:///d:/data/www/craft/.agents/skills/craft-development/SKILL.md))
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -79,7 +79,7 @@ class PluginManager:
             except Exception:
                 import logging
 
-                logging.getLogger("codepy").warning(
+                logging.getLogger("craft").warning(
                     "Plugin hook '%s' raised in %s",
                     event_name,
                     getattr(callback, "__qualname__", repr(callback)),

@@ -1,6 +1,6 @@
-# Codepy Architectural Design Review Report
+# Craft Architectural Design Review Report
 
-This report captures the critical review and resolutions implemented for the Codepy framework's design.
+This report captures the critical review and resolutions implemented for the Craft framework's design.
 
 ## 1. Security Mitigations
 
@@ -29,7 +29,7 @@ This report captures the critical review and resolutions implemented for the Cod
 ### Namespace and Path Resolution
 * **Problem 1:** Forge did not register the default view path (`resources/views`) back to the internal `_namespaces[""]` dictionary, causing `TemplateNotFound` errors.
 * **Problem 2:** Forge did not support dot-notation template strings (e.g. `layouts.app`), failing to convert dots to directory separators.
-* **Problem 3:** Forge `@yield` preprocessor regex did not support default values (e.g. `@yield("title", "Codepy Blog")`).
+* **Problem 3:** Forge `@yield` preprocessor regex did not support default values (e.g. `@yield("title", "Craft Blog")`).
 * **Resolution:**
   * Configured `_setup_env()` to populate `self._namespaces[""]`.
   * Added dot-to-slash conversion (`template.replace(".", "/")`) inside `_resolve_template()`.

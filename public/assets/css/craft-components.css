@@ -1,73 +1,73 @@
 /*!
- * codepy-components.css - landing page and application components
- * Codepy Framework - Copyright (c) 2026 Antonio Santos - MIT
+ * craft-components.css - landing page and application components
+ * Craft Framework - Copyright (c) 2026 Antonio Santos - MIT
  */
 
 /* ============================================================
-   Codepy Framework — Premium Landing Page Styles
+   Craft Framework — Premium Landing Page Styles
    Inspired by CodeIgniter's clean, professional aesthetic
    with modern gradients, glassmorphism, and micro-animations.
    ============================================================ */
 
 /* ---------- Design Tokens ---------- */
 :root {
-    /* Every value below resolves to a token in codepy-theme.css. Retheming the
+    /* Every value below resolves to a token in craft-theme.css. Retheming the
        application means editing that file — this sheet follows automatically.
        These names are kept so the existing component rules need no rewrite. */
 
     /* Brand palette */
-    --orange-50:  var(--codepy-brand-50);
-    --orange-100: var(--codepy-brand-100);
-    --orange-200: var(--codepy-brand-200);
+    --orange-50:  var(--craft-brand-50);
+    --orange-100: var(--craft-brand-100);
+    --orange-200: var(--craft-brand-200);
     --orange-300: #fdba74;
-    --orange-400: var(--codepy-brand-400);
-    --orange-500: var(--codepy-brand-500);
-    --orange-600: var(--codepy-brand-600);
-    --orange-700: var(--codepy-brand-700);
+    --orange-400: var(--craft-brand-400);
+    --orange-500: var(--craft-brand-500);
+    --orange-600: var(--craft-brand-600);
+    --orange-700: var(--craft-brand-700);
     --orange-800: #9a3412;
 
     /* Neutrals */
-    --slate-50:  var(--codepy-slate-50);
-    --slate-100: var(--codepy-slate-100);
-    --slate-200: var(--codepy-slate-200);
-    --slate-300: var(--codepy-slate-300);
-    --slate-400: var(--codepy-slate-400);
-    --slate-500: var(--codepy-slate-500);
-    --slate-600: var(--codepy-slate-600);
-    --slate-700: var(--codepy-slate-700);
-    --slate-800: var(--codepy-slate-800);
-    --slate-900: var(--codepy-slate-900);
-    --slate-950: var(--codepy-slate-950);
+    --slate-50:  var(--craft-slate-50);
+    --slate-100: var(--craft-slate-100);
+    --slate-200: var(--craft-slate-200);
+    --slate-300: var(--craft-slate-300);
+    --slate-400: var(--craft-slate-400);
+    --slate-500: var(--craft-slate-500);
+    --slate-600: var(--craft-slate-600);
+    --slate-700: var(--craft-slate-700);
+    --slate-800: var(--craft-slate-800);
+    --slate-900: var(--craft-slate-900);
+    --slate-950: var(--craft-slate-950);
 
     /* Semantic accents */
     --blue-500:   #3b82f6;
-    --blue-600:   var(--codepy-blue-600);
-    --green-500:  var(--codepy-emerald-500);
-    --green-600:  var(--codepy-emerald-600);
+    --blue-600:   var(--craft-blue-600);
+    --green-500:  var(--craft-emerald-500);
+    --green-600:  var(--craft-emerald-600);
     --purple-500: #a855f7;
-    --purple-600: var(--codepy-purple-600);
+    --purple-600: var(--craft-purple-600);
     --pink-500:   #ec4899;
     --amber-500:  #f59e0b;
 
     /* Surfaces */
-    --bg-body:    var(--codepy-bg);
-    --bg-section: var(--codepy-surface);
+    --bg-body:    var(--craft-bg);
+    --bg-section: var(--craft-surface);
     --bg-glass:   rgba(255, 255, 255, 0.72);
     --border-subtle: rgba(0, 0, 0, 0.06);
 
     /* Typography — the system stack from the theme, so nothing is fetched. */
-    --font-sans: var(--codepy-font-sans);
-    --font-mono: var(--codepy-font-mono);
+    --font-sans: var(--craft-font-sans);
+    --font-mono: var(--craft-font-mono);
 
     /* Transitions */
-    --ease-out-expo: var(--codepy-ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+    --ease-out-expo: var(--craft-ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
 
     /* Shadows */
     --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-md:  0 4px 16px rgba(0, 0, 0, 0.06);
     --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.08);
     --shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.10);
-    --shadow-glow: 0 0 60px color-mix(in srgb, var(--codepy-brand-500) 15%, transparent);
+    --shadow-glow: 0 0 60px color-mix(in srgb, var(--craft-brand-500) 15%, transparent);
 }
 
 /* ---------- Base ---------- */

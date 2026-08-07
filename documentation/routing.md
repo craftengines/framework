@@ -1,6 +1,6 @@
 # Routing
 
-Codepy includes a highly flexible and expressive routing engine mapped via the `Route` facade. The routes map incoming HTTP request methods and paths directly to controller actions or closure handlers.
+Craft includes a highly flexible and expressive routing engine mapped via the `Route` facade. The routes map incoming HTTP request methods and paths directly to controller actions or closure handlers.
 
 Routes are defined inside the `routes/` directory:
 - `routes/web.py` for standard browser-based HTML routes (supporting session state, cookie-based auth, CSRF validations, and template responses).
@@ -13,7 +13,7 @@ Routes are defined inside the `routes/` directory:
 You map paths to a controller action using a list with the controller class and the string action name:
 
 ```python
-from codepy.facades import Route
+from craft.facades import Route
 from app.Http.Controllers.Blog.PostController import PostController
 
 # Basic GET route

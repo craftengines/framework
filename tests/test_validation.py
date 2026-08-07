@@ -1,11 +1,11 @@
 """Validator rules."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 
-from codepy.facades import DB
+from craft.facades import DB
 from services.exceptions.handler import ValidationException
 from services.validation.validator import Validator
 
@@ -163,35 +163,35 @@ class TestSetsAndComparisons:
 class TestDatabaseRules:
     @pytest.fixture(autouse=True)
     def seeded(self, migrated_database):
-        DB.statement("DELETE FROM users WHERE email = 'taken@codepy.local'")
+        DB.statement("DELETE FROM users WHERE email = 'taken@craft.local'")
         from app.Models.User import User
 
         user = User.create(
-            {"name": "Taken", "email": "taken@codepy.local", "password": "x"}
+            {"name": "Taken", "email": "taken@craft.local", "password": "x"}
         )
         yield user
-        DB.statement("DELETE FROM users WHERE email = 'taken@codepy.local'")
+        DB.statement("DELETE FROM users WHERE email = 'taken@craft.local'")
 
     def test_unique_rejects_an_existing_value(self):
         assert check(
-            {"email": "taken@codepy.local"}, {"email": ["unique:users,email"]}
+            {"email": "taken@craft.local"}, {"email": ["unique:users,email"]}
         ).fails()
 
     def test_unique_accepts_a_free_value(self):
         assert check(
-            {"email": "free@codepy.local"}, {"email": ["unique:users,email"]}
+            {"email": "free@craft.local"}, {"email": ["unique:users,email"]}
         ).passes()
 
     def test_unique_can_ignore_the_current_record(self, seeded):
         rules = {"email": [f"unique:users,email,{seeded.get_attribute('id')},id"]}
-        assert check({"email": "taken@codepy.local"}, rules).passes()
+        assert check({"email": "taken@craft.local"}, rules).passes()
 
     def test_exists(self):
         assert check(
-            {"email": "taken@codepy.local"}, {"email": ["exists:users,email"]}
+            {"email": "taken@craft.local"}, {"email": ["exists:users,email"]}
         ).passes()
         assert check(
-            {"email": "ghost@codepy.local"}, {"email": ["exists:users,email"]}
+            {"email": "ghost@craft.local"}, {"email": ["exists:users,email"]}
         ).fails()
 
 

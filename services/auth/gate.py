@@ -1,5 +1,5 @@
-"""Gate and Auth Manager for Codepy Framework."""
-# Codepy Framework
+"""Gate and Auth Manager for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -49,5 +49,5 @@ class GateManager:
 
 
 # The real implementation lives in `services.auth.manager`; re-exported here so
-# existing `from codepy.auth.gate import AuthManager` imports keep working.
+# existing `from craft.auth.gate import AuthManager` imports keep working.
 from services.auth.manager import AuthManager  # noqa: E402,F401

@@ -1,6 +1,6 @@
 # Strategic Guidelines: Scaling, Performance, and Security
 
-This document outlines the core architecture and strategic guidelines for **Codepy** to guarantee high scalability, maintainability, peak performance, and enterprise-grade security.
+This document outlines the core architecture and strategic guidelines for **Craft** to guarantee high scalability, maintainability, peak performance, and enterprise-grade security.
 
 ---
 
@@ -14,7 +14,7 @@ This document outlines the core architecture and strategic guidelines for **Code
          ┌──────────────────────┼──────────────────────┐
          ▼                      ▼                      ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│   Codepy Node 1  │  │   Codepy Node 2  │  │   Codepy Node 3  │
+│   Craft Node 1  │  │   Craft Node 2  │  │   Craft Node 3  │
 │    (Stateless)   │  │    (Stateless)   │  │    (Stateless)   │
 └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
          │                     │                     │
@@ -28,7 +28,7 @@ This document outlines the core architecture and strategic guidelines for **Code
 ```
 
 ### Stateless Execution
-* **Rule:** All Codepy nodes must be completely stateless. Session data, cached variables, and file uploads must live in centralized stores (Redis, AWS S3, or PostgreSQL).
+* **Rule:** All Craft nodes must be completely stateless. Session data, cached variables, and file uploads must live in centralized stores (Redis, AWS S3, or PostgreSQL).
 * **Benefit:** Allows spinning up hundreds of backend containers behind an Nginx/Traefik load balancer instantly.
 
 ### Query Splitting (Read/Write Replicas)
@@ -44,7 +44,7 @@ This document outlines the core architecture and strategic guidelines for **Code
 * **Benefit:** Changing system adapters (e.g. switching mail provider from SMTP to Mailgun or database queues to Celery/RabbitMQ) only requires updating a single binding in the container, keeping business controllers untouched.
 
 ### Convention Over Configuration (AI Scaffolding)
-* **Rule:** Always generate code structures via the CLI (`craft.py`).
+* **Rule:** Always generate code structures via the CLI (`dev.py`).
 * **Benefit:** Prevents "architectural style drift". Whether a human or an AI agent writes a model or controller, the code looks exactly the same, reducing technical debt and context parsing overhead.
 
 ---

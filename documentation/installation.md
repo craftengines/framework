@@ -26,7 +26,7 @@ pip install -e ".[redis]"   # Redis cache store
 
 ```bash
 cp .env.example .env
-python craft.py key:generate
+python dev.py key:generate
 ```
 
 `key:generate` writes `APP_KEY`, which signs session cookies. Skip it and the
@@ -54,20 +54,20 @@ DB_DATABASE=storage/database.sqlite
 ## Create the schema
 
 ```bash
-python craft.py migrate --seed
+python dev.py migrate --seed
 ```
 
 Confirm the connection first if you like:
 
 ```bash
-python craft.py db ping
-python craft.py db show
+python dev.py db ping
+python dev.py db show
 ```
 
 ## Run
 
 ```bash
-python craft.py serve
+python dev.py serve
 ```
 
 The application is at `http://127.0.0.1:8000`. Use `--host`, `--port` and
@@ -82,7 +82,7 @@ docker compose up -d --build
 ```
 
 - Application: `http://localhost:8300`
-- PostgreSQL: `localhost:5499` (user `codepy`, database `codepy_db`)
+- PostgreSQL: `localhost:5499` (user `dev`, database `craft_db`)
 
 Run the suite inside the container to check the minimum Python version:
 
@@ -106,7 +106,7 @@ app/                     Your application code
   Http/Middleware/       Middleware
   Http/Requests/         FormRequests
   Http/Resources/        JSON transformers
-  Models/                Codepyquent models
+  Models/                Craft ORM models
   Policies/ Events/ Listeners/ Jobs/ Providers/ Services/
 bootstrap/app.py         Builds the container, registers providers, mounts the kernel
 config/                  app, auth, cache, database, logging, queue, session
@@ -115,10 +115,10 @@ public/index.py          Front controller (`application = asgi_app`)
 resources/views/         Forge templates
 resources/lang/          Translation catalog
 routes/                  web.py, api.py, console.py
-services/                The framework itself, imported as codepy.*
+services/                The framework itself, imported as craft.*
 storage/                 Logs, cache, sessions
 tests/                   Test suite
-craft.py                 CLI entry point
+dev.py                 CLI entry point
 ```
 
 ## Troubleshooting
@@ -127,7 +127,7 @@ craft.py                 CLI entry point
 project root, or install with `pip install -e .`.
 
 **`psycopg2` errors on connect** — check `db ping` output and confirm the
-database exists. `craft` cannot create the database itself.
+database exists. `dev` cannot create the database itself.
 
 **Passwords hash slowly, or a bcrypt warning appears** — `passlib` breaks with
 bcrypt 4.1+. The dependency is pinned to `<4.1`; if your environment has a newer

@@ -1,4 +1,4 @@
-# Explicit project name — the directory is "codepy framework" and Compose would
+# Explicit project name — the directory is "craft framework" and Compose would
 # otherwise derive the project (and volume/network prefixes) from that space.
 name: framework
 
@@ -9,16 +9,16 @@ services:
     ports:
       - "5499:5499"
     environment:
-      POSTGRES_USER: codepy
+      POSTGRES_USER: craft
       POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: codepy_db
+      POSTGRES_DB: craft_db
       PGPORT: 5499
     volumes:
       # Named volume so recreating the container does not wipe the database.
       - framework_db_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -p 5499 -U codepy -d codepy_db"]
+      test: ["CMD-SHELL", "pg_isready -p 5499 -U craft -d craft_db"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -36,8 +36,8 @@ services:
       - DB_CONNECTION=pgsql
       - DB_HOST=db
       - DB_PORT=5499
-      - DB_DATABASE=codepy_db
-      - DB_USERNAME=codepy
+      - DB_DATABASE=craft_db
+      - DB_USERNAME=craft
       - DB_PASSWORD=secretpassword
       - PYTHONPATH=/app
     depends_on:

@@ -1,4 +1,4 @@
-name: Codepy CI/CD Production Build & Test
+name: Craft CI/CD Production Build & Test
 
 on:
   push:
@@ -46,4 +46,4 @@ jobs:
           context: .
           file: ./Dockerfile.prod
           push: false
-          tags: codepy-framework:latest
+          tags: craft-framework:latest

@@ -2,16 +2,16 @@
   show.forge.py — Preprocessed layout for rendering Markdown documentation pages.
   Category: View (Presentation Layer).
   Relations:
-    - Preprocessed by Forge view engine, extends [layouts/app.forge.py](file:///d:/data/www/codepy/resources/views/layouts/app.forge.py).
-    - Renders variables sent by [DocsController.py](file:///d:/data/www/codepy/app/Http/Controllers/Blog/DocsController.py).
+    - Preprocessed by Forge view engine, extends [layouts/app.forge.py](file:///d:/data/www/craft/resources/views/layouts/app.forge.py).
+    - Renders variables sent by [DocsController.py](file:///d:/data/www/craft/app/Http/Controllers/Blog/DocsController.py).
   References:
-    - Documentation: [documentation/routing.md](file:///d:/data/www/codepy/documentation/routing.md)
-    - Skill: `codepy-development` ([SKILL.md](file:///d:/data/www/codepy/.agents/skills/codepy-development/SKILL.md))
+    - Documentation: [documentation/routing.md](file:///d:/data/www/craft/documentation/routing.md)
+    - Skill: `craft-development` ([SKILL.md](file:///d:/data/www/craft/.agents/skills/craft-development/SKILL.md))
 #}
 
 @extends("layouts.app")
 
-@section("title", page_title ~ " — Codepy Documentation")
+@section("title", page_title ~ " — Craft Documentation")
 
 @section("content")
 <div class="max-w-7xl mx-auto w-full flex-1 flex">

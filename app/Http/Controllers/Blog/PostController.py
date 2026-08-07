@@ -1,10 +1,10 @@
 """Post controller — demonstrates CRUD with models, validation, and resources under Blog directory."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.http.controller import Controller
-from codepy.http.response import JsonResponse, Response, redirect
+from craft.http.controller import Controller
+from craft.http.response import JsonResponse, Response, redirect
 from app.Models.Post import Post
 from app.Http.Requests.StorePostRequest import StorePostRequest
 from app.Http.Resources.PostResource import PostResource
@@ -22,7 +22,7 @@ class PostController(Controller):
         return self.view("posts.create", {"show_sidebar": True})
 
     def store(self, request):
-        from codepy.facades import Auth
+        from craft.facades import Auth
         form = StorePostRequest(request)
         data = form.validated()
         

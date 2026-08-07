@@ -19,11 +19,11 @@ version bugs only appear on the target that exercises them.
 python -m pytest
 
 # 2. PostgreSQL
-docker exec framework-db psql -U codepy -d codepy_db -p 5499 \
-  -c "CREATE DATABASE codepy_validation;"
+docker exec framework-db psql -U craft -d craft_db -p 5499 \
+  -c "CREATE DATABASE craft_validation;"
 
-CODEPY_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
-  DB_DATABASE=codepy_validation DB_USERNAME=codepy DB_PASSWORD=secretpassword \
+CRAFT_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
+  DB_DATABASE=craft_validation DB_USERNAME=craft DB_PASSWORD=secretpassword \
   python -m pytest
 
 # 3. Python 3.11, the minimum supported version
@@ -33,8 +33,8 @@ docker exec framework python -m pytest
 PowerShell:
 
 ```powershell
-$env:CODEPY_TEST_DB="pgsql"; $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
-$env:DB_DATABASE="codepy_validation"; $env:DB_USERNAME="codepy"; $env:DB_PASSWORD="secretpassword"
+$env:CRAFT_TEST_DB="pgsql"; $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
+$env:DB_DATABASE="craft_validation"; $env:DB_USERNAME="craft"; $env:DB_PASSWORD="secretpassword"
 python -m pytest
 ```
 

@@ -1,4 +1,4 @@
-"""Session handling for Codepy Framework.
+"""Session handling for Craft Framework.
 
 Two drivers ship by default:
 
@@ -10,7 +10,7 @@ Two drivers ship by default:
 Both sign the cookie with the application key, so a tampered cookie is rejected
 rather than trusted.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -330,7 +330,7 @@ def make_store(app: Any = None) -> SessionStore:
         # Never sign with an empty key — that would make forgery trivial. Fall
         # back to one random key per process: sessions work, but they do not
         # survive a restart and are not shared between workers, until
-        # `craft key:generate` writes a real APP_KEY.
+        # `dev key:generate` writes a real APP_KEY.
         app_key = _ephemeral_key()
 
     lifetime = int(setting("session.lifetime", 7200) or 7200)

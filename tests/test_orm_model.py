@@ -1,11 +1,11 @@
 """Active Record model, relationships and soft deletes."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 
-from codepy.facades import DB
+from craft.facades import DB
 from services.orm.model import Model
 from services.orm.exceptions import ModelNotFoundError
 from services.orm.relationships import BelongsTo, BelongsToMany, HasMany
@@ -209,7 +209,7 @@ class TestRelationships:
         DB.statement("DELETE FROM role_user")
 
         user = User.create(
-            {"name": "Pivot", "email": "pivot@codepy.local", "password": "x"}
+            {"name": "Pivot", "email": "pivot@craft.local", "password": "x"}
         )
         role = Role.create({"name": "Editor", "slug": "editor-pivot"})
         permission = Permission.create({"name": "Publish", "slug": "publish-pivot"})

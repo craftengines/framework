@@ -1,5 +1,5 @@
-"""DatabaseLoggingMiddleware for Codepy Framework."""
-# Codepy Framework
+"""DatabaseLoggingMiddleware for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -19,7 +19,7 @@ class DatabaseLoggingMiddleware(Middleware):
             )
         except Exception:
             # Logging must never break the request — but it must be visible.
-            logging.getLogger("codepy").warning(
+            logging.getLogger("craft").warning(
                 "DatabaseLoggingMiddleware could not write a system log.", exc_info=True
             )
         return next_callable(request)

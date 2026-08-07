@@ -1,7 +1,7 @@
-# The craft CLI
+# The dev CLI
 
 ```bash
-python craft.py <command>
+python dev.py <command>
 ```
 
 Colon-separated commands work, and so does the plain form: `migrate:status` and
@@ -71,17 +71,17 @@ Migration names drive the stub: `create_*_table` produces a create migration and
 ## Routes
 
 ```bash
-python craft.py route list
-python craft.py route list --method POST
-python craft.py route list --path /api
+python dev.py route list
+python dev.py route list --method POST
+python dev.py route list --path /api
 ```
 
 ## Queue
 
 ```bash
-python craft.py queue work
-python craft.py queue work --queue emails
-python craft.py queue work --once
+python dev.py queue work
+python dev.py queue work --queue emails
+python dev.py queue work --once
 ```
 
 See [Queues and events](queues_events.md).
@@ -89,7 +89,7 @@ See [Queues and events](queues_events.md).
 ## Cache
 
 ```bash
-python craft.py cache clear
+python dev.py cache clear
 ```
 
 ## Application
@@ -114,12 +114,12 @@ python craft.py cache clear
 Commands exit non-zero on failure, so they compose in scripts and CI:
 
 ```bash
-python craft.py db ping && python craft.py migrate
+python dev.py db ping && python dev.py migrate
 ```
 
 ## Adding a command
 
-`craft` is built with [Typer](https://typer.tiangolo.com/). Add commands in
+`dev` is built with [Typer](https://typer.tiangolo.com/). Add commands in
 `services/cli/app.py`:
 
 ```python

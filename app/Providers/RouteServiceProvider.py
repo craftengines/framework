@@ -1,9 +1,9 @@
 """Route service provider — load route files."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.providers import ServiceProvider
+from craft.providers import ServiceProvider
 
 
 class RouteServiceProvider(ServiceProvider):
@@ -14,7 +14,7 @@ class RouteServiceProvider(ServiceProvider):
         import os
         import importlib.util
         routes_dir = os.path.join(self.app.base_path, "routes")
-        from codepy.facades import Route
+        from craft.facades import Route
 
         # Load web routes
         web_path = os.path.join(routes_dir, "web.py")
@@ -38,5 +38,5 @@ class RouteServiceProvider(ServiceProvider):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         # Clear facade cache so Route facade picks up newly registered routes
-        from codepy.facades.base import Facade
+        from craft.facades.base import Facade
         Facade._clear_resolved()

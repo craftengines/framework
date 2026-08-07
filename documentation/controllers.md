@@ -6,12 +6,12 @@ Controllers organize request-handling logic in a central location. They receive 
 
 ## Controllers
 
-Controllers inherit from the base class `codepy.http.Controller`. Action methods are typically asynchronous and accept a `Request` parameter:
+Controllers inherit from the base class `craft.http.Controller`. Action methods are typically asynchronous and accept a `Request` parameter:
 
 ```python
-from codepy.http import Controller, Request
+from craft.http import Controller, Request
 from app.Models.Post import Post
-from codepy.support import view
+from craft.support import view
 
 class PostController(Controller):
     async def index(self, request: Request):
@@ -48,7 +48,7 @@ For complex validation layouts, define a `FormRequest` class mapping a declarati
 ### Example FormRequest
 
 ```python
-from codepy.validation import FormRequest
+from craft.validation import FormRequest
 
 class StorePostRequest(FormRequest):
     def authorize(self) -> bool:

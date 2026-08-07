@@ -1,9 +1,9 @@
 """ProcessPodcast — example queued job."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.queue import Job, ShouldQueue
+from craft.queue import Job, ShouldQueue
 
 
 class ProcessPodcast(Job, ShouldQueue):

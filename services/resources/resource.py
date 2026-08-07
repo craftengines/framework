@@ -1,4 +1,4 @@
-"""API Resources for Codepy Framework.
+"""API Resources for Craft Framework.
 
 A Resource controls exactly what leaves the application for a given model.
 Override either `to_array()` or `to_dict()` — whichever reads better; both are
@@ -8,7 +8,7 @@ honoured::
         def to_array(self, request=None):
             return {"id": self.resource.get_attribute("id")}
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

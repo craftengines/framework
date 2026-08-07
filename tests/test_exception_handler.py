@@ -1,5 +1,5 @@
 """Exception handler: status mapping, reporting policy and debug leakage."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -9,7 +9,7 @@ import pytest
 
 from services.exceptions.handler import (
     AuthorizationException,
-    CodepyException,
+    CraftException,
     ExceptionHandler,
     NotFoundHttpException,
     ValidationException,
@@ -68,7 +68,7 @@ class TestStatusMapping:
             (NotFoundHttpException("gone"), 404),
             (AuthorizationException("no"), 403),
             (ValidationException({"a": ["bad"]}), 422),
-            (CodepyException("boom"), 500),
+            (CraftException("boom"), 500),
             (RuntimeError("unexpected"), 500),
         ],
     )
@@ -89,7 +89,7 @@ class TestReportingPolicy:
     def test_client_errors_are_not_logged_as_faults(self, handler, app):
         # A failed CSRF check or a 404 is the client getting it wrong; a stack
         # trace for each one buries the real faults.
-        error = CodepyException("CSRF token mismatch.")
+        error = CraftException("CSRF token mismatch.")
         error.status_code = 419
         handler.report(error)
 
@@ -119,7 +119,7 @@ class TestDebugLeakage:
         assert response.status_code == 403
 
     def test_json_render_carries_the_message(self, handler):
-        response = handler.render(CodepyException("boom"), wants_json=True)
+        response = handler.render(CraftException("boom"), wants_json=True)
         assert json.loads(response.body)["message"] == "boom"
 
     def test_html_render_hides_the_trace_without_debug(self, handler):

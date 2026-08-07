@@ -1,11 +1,11 @@
 """Global Framework Configurations and Features Defaults."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.config import env
+from craft.config import env
 
-FRAMEWORK_NAME = "Codepy"
+FRAMEWORK_NAME = "Craft"
 FRAMEWORK_VERSION = env("APP_VERSION", "v3.11")
 FRAMEWORK_RELEASE = env("APP_RELEASE", "r00002")
 

@@ -1,10 +1,10 @@
-"""Request class for Codepy Framework.
+"""Request class for Craft Framework.
 
 Wraps Starlette's request with expressive input access. The body is parsed
 once, up front, by `prepare()` — controllers and middleware are synchronous, so
 they cannot await `request.form()` themselves.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -164,7 +164,7 @@ class Request(StarletteRequest):
 
 
 def from_starlette(request: StarletteRequest) -> Request:
-    """Rebuild a Starlette request as a Codepy request, sharing scope and state."""
+    """Rebuild a Starlette request as a Craft request, sharing scope and state."""
     if isinstance(request, Request):
         return request
     return Request(request.scope, request.receive)

@@ -1,5 +1,5 @@
-"""Framework Service Providers for Codepy Framework."""
-# Codepy Framework
+"""Framework Service Providers for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -57,7 +57,7 @@ class QueueServiceProvider(ServiceProvider):
 class LoggingServiceProvider(ServiceProvider):
     def register(self):
         import logging
-        self.app.singleton("log", lambda c: logging.getLogger("codepy"))
+        self.app.singleton("log", lambda c: logging.getLogger("craft"))
 
 
 class CacheServiceProvider(ServiceProvider):

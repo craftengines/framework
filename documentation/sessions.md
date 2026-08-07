@@ -14,7 +14,7 @@ tampered cookie is rejected rather than trusted.
 ```ini
 SESSION_DRIVER=cookie
 SESSION_LIFETIME=7200
-SESSION_COOKIE=codepy_session
+SESSION_COOKIE=craft_session
 SESSION_SAME_SITE=lax
 SESSION_SECURE_COOKIE=false
 ```
@@ -95,7 +95,7 @@ session id fixed before login stops being valid afterwards.
 View helpers use a context variable that `StartSession` publishes:
 
 ```python
-from codepy.http.session import get_current_session
+from craft.http.session import get_current_session
 
 session = get_current_session()   # None outside a request
 ```
@@ -121,7 +121,7 @@ is about to read.
 Expired files are removed on read, and you can sweep them:
 
 ```python
-from codepy.http.session import FileSessionStore
+from craft.http.session import FileSessionStore
 
 store = FileSessionStore(app_key, "storage/framework/sessions")
 store.gc()                 # delete expired files, returns how many

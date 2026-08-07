@@ -1,6 +1,6 @@
 @extends("layouts.app")
 
-@section("title", "Admin Cockpit — Codepy Cloud SaaS Management")
+@section("title", "Admin Cockpit — Craft Cloud SaaS Management")
 
 @section("content")
     <!-- Dashboard Header -->
@@ -115,7 +115,7 @@
         <div class="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.01)] overflow-hidden">
             <div class="p-6 border-b border-slate-200">
                 <h3 class="text-lg font-bold text-slate-900">System Administrators</h3>
-                <p class="text-xs text-slate-500">Accounts authorized to execute craft.py tasks and configurations.</p>
+                <p class="text-xs text-slate-500">Accounts authorized to execute dev.py tasks and configurations.</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">

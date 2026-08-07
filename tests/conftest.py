@@ -1,4 +1,4 @@
-"""Pytest bootstrap for the Codepy Framework test-suite.
+"""Pytest bootstrap for the Craft Framework test-suite.
 
 By default the suite runs against an in-memory SQLite database whose schema is
 built by the real migrator, so migrations are exercised on every run instead of
@@ -6,13 +6,13 @@ relying on hand-maintained fixture tables.
 
 To validate the PostgreSQL dialect, point the suite at a real server::
 
-    $env:CODEPY_TEST_DB = "pgsql"
+    $env:CRAFT_TEST_DB = "pgsql"
     $env:DB_HOST = "127.0.0.1"; $env:DB_PORT = "5499"
-    $env:DB_DATABASE = "codepy_validation"
-    $env:DB_USERNAME = "codepy"; $env:DB_PASSWORD = "secretpassword"
+    $env:DB_DATABASE = "craft_validation"
+    $env:DB_USERNAME = "craft"; $env:DB_PASSWORD = "secretpassword"
     python -m pytest
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -30,12 +30,12 @@ os.environ.setdefault("APP_ENV", "testing")
 os.environ.setdefault("QUEUE_CONNECTION", "sync")
 os.environ.setdefault("CACHE_DRIVER", "array")
 
-TEST_DB = os.environ.get("CODEPY_TEST_DB", "sqlite").lower()
+TEST_DB = os.environ.get("CRAFT_TEST_DB", "sqlite").lower()
 os.environ["DB_CONNECTION"] = TEST_DB
 if TEST_DB == "sqlite":
     os.environ["DB_DATABASE"] = ":memory:"
 
-import services  # noqa: F401,E402  installs the `codepy.*` import alias
+import services  # noqa: F401,E402  installs the `craft.*` import alias
 
 
 @pytest.fixture(scope="session", autouse=True)

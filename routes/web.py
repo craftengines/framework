@@ -1,9 +1,9 @@
-"""Web routes for Codepy Framework."""
-# Codepy Framework
+"""Web routes for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.facades import Route
+from craft.facades import Route
 from app.Http.Controllers.Admin.HomeController import HomeController
 from app.Http.Controllers.Auth.AuthController import AuthController
 from app.Http.Controllers.Blog.PostController import PostController

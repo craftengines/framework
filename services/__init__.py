@@ -1,9 +1,9 @@
-"""Codepy Framework — a batteries-included Python web framework.
+"""Craft Framework — a batteries-included Python web framework.
 
-The framework lives in `services/` but is imported publicly as `codepy.*`.
-A meta path finder maps `codepy.<anything>` onto `services.<anything>` on
+The framework lives in `services/` but is imported publicly as `craft.*`.
+A meta path finder maps `craft.<anything>` onto `services.<anything>` on
 demand, so new subpackages are exposed automatically with no alias list to
-keep in sync — and the unrelated third-party `codepy` package on PyPI can
+keep in sync — and the unrelated third-party `dev` package on PyPI can
 never shadow the framework.
 
 :copyright: (c) 2026 Antonio Santos.
@@ -30,12 +30,12 @@ _ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT_DIR not in sys.path:
     sys.path.insert(0, _ROOT_DIR)
 
-_ALIAS = "codepy"
+_ALIAS = "craft"
 _TARGET = __name__
 
 
 class _AliasLoader(importlib.abc.Loader):
-    """Loads `codepy.x.y` by importing `services.x.y` and re-exporting it."""
+    """Loads `craft.x.y` by importing `services.x.y` and re-exporting it."""
 
     def __init__(self, real_name: str):
         self.real_name = real_name
@@ -49,7 +49,7 @@ class _AliasLoader(importlib.abc.Loader):
 
 
 class _AliasFinder(importlib.abc.MetaPathFinder):
-    """Resolves the `codepy` namespace to the `services` package."""
+    """Resolves the `dev` namespace to the `services` package."""
 
     def find_spec(
         self,
@@ -74,7 +74,7 @@ class _AliasFinder(importlib.abc.MetaPathFinder):
 
 
 def install_alias() -> None:
-    """Register the `codepy` -> `services` import alias (idempotent)."""
+    """Register the `dev` -> `services` import alias (idempotent)."""
     if not any(isinstance(finder, _AliasFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _AliasFinder())
     sys.modules[_ALIAS] = sys.modules[_TARGET]

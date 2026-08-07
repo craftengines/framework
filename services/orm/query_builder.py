@@ -1,5 +1,5 @@
-"""QueryBuilder for Codepyquent ORM."""
-# Codepy Framework
+"""QueryBuilder for Craft ORM."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

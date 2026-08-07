@@ -1,15 +1,15 @@
-# Codepyquent ORM (Active Record)
+# Craft ORM (Active Record)
 
-Codepyquent is an Active Record ORM built specifically for the Python ecosystem. It provides a fluent experience by combining simple class-based model definitions with the efficiency of SQLAlchemy 2.0 Core.
+Craft ORM is an Active Record ORM built specifically for the Python ecosystem. It provides a fluent experience by combining simple class-based model definitions with the efficiency of SQLAlchemy 2.0 Core.
 
 ---
 
 ## Defining Models
 
-All database models inherit from `codepy.orm.Model`. By default, the database table name is inferred as the lowercase, snake_case plural version of the model class name:
+All database models inherit from `craft.orm.Model`. By default, the database table name is inferred as the lowercase, snake_case plural version of the model class name:
 
 ```python
-from codepy.orm import Model
+from craft.orm import Model
 
 class Post(Model):
     # Set list of attributes allowed to be set in bulk via create() or fill()
@@ -125,7 +125,7 @@ author = await post.user()
 
 ## Read/Write Database Replicas
 
-Codepyquent has built-in query splitting support. It automatically handles replica routing dynamically:
+Craft ORM has built-in query splitting support. It automatically handles replica routing dynamically:
 - **Write connection (`read=False`)**: Used for mass write executions (`insert`, `update`, `delete`), migrations, and direct database execution statements.
 - **Read connection (`read=True`)**: Used automatically by the query builder for selecting data (`SELECT` queries, `get()`, `first()`, `count()`, `paginate()`, and `Model.find()`).
 This routes heavy data-reading traffic to read-only replicas without requiring manual connection management from the application code.
@@ -184,17 +184,17 @@ class Event(Model):
 
 ## Multi-Tenant Database Schema Isolation
 
-For multi-tenant SaaS environments, Codepyquent supports physical database schema-based isolation out-of-the-box in PostgreSQL.
+For multi-tenant SaaS environments, Craft ORM supports physical database schema-based isolation out-of-the-box in PostgreSQL.
 
 ### Architecture
-1. **Dynamic search_path Switch**: `DB.set_tenant_schema(name)` runs `SET search_path TO "{tenant_schema}", public;` on the connection. Codepy talks to the driver directly (psycopg2), not through a SQLAlchemy pool.
+1. **Dynamic search_path Switch**: `DB.set_tenant_schema(name)` runs `SET search_path TO "{tenant_schema}", public;` on the connection. Craft talks to the driver directly (psycopg2), not through a SQLAlchemy pool.
 2. **On-the-Fly Schema Creation**: `DB.ensure_tenant_schema(name)` checks whether the schema exists; if not, it creates it and runs all migrations inside it. On drivers without schema support (SQLite) it is a no-op, so tenant-aware middleware still runs in development and tests.
 
 ### How it works
 The dynamic schema isolation is automatically handled by the `TenantMiddleware`. You can also switch schemas manually from code:
 
 ```python
-from codepy.facades import DB
+from craft.facades import DB
 
 # Set the active tenant schema
 DB.set_tenant_schema("tenant_cc751989_2bc1_4bcb_ae17_bc46adc5d5f7")

@@ -3,16 +3,16 @@
 Pages are discovered from the `documentation/` directory, so adding a guide is
 a matter of dropping a `.md` file in — no navigation to update by hand.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import os
 import re
 
-from codepy.exceptions import NotFoundHttpException
-from codepy.http import Controller, Request
-from codepy.support import view
+from craft.exceptions import NotFoundHttpException
+from craft.http import Controller, Request
+from craft.support import view
 from markdown_it import MarkdownIt
 
 #: Ordered groups for the sidebar. Anything not listed lands under "More",
@@ -30,7 +30,7 @@ TITLE_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
 class DocsController(Controller):
     def docs_dir(self) -> str:
-        from codepy.facades.base import Facade
+        from craft.facades.base import Facade
 
         return os.path.join(Facade._app.base_path, "documentation")
 

@@ -1,9 +1,9 @@
-"""The `craft` command line interface for Codepy Framework.
+"""The `dev` command line interface for Craft Framework.
 
 Migrations, seeding, generators, routing inspection,
 queue workers and the development server.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -16,8 +16,8 @@ from typing import Any, List, Optional
 import typer
 
 cli = typer.Typer(
-    name="craft",
-    help="Codepy Framework console.",
+    name="dev",
+    help="Craft Framework console.",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -47,7 +47,7 @@ def base_path() -> str:
 
 
 def get_app(boot_http: bool = False) -> Any:
-    """Boot (once) and return the Codepy application."""
+    """Boot (once) and return the Craft application."""
     global _app_instance
     if _app_instance is not None:
         return _app_instance
@@ -55,7 +55,7 @@ def get_app(boot_http: bool = False) -> Any:
     if base_path() not in sys.path:
         sys.path.insert(0, base_path())
 
-    import services  # registers the `codepy.*` module aliases  # noqa: F401
+    import services  # registers the `craft.*` module aliases  # noqa: F401
 
     if boot_http:
         from bootstrap.app import app as booted
@@ -247,7 +247,7 @@ def make_model(
     migration: bool = typer.Option(False, "-m", "--migration", help="Also create a migration."),
     force: bool = typer.Option(False, "--force"),
 ) -> None:
-    """Create a new Codepyquent model."""
+    """Create a new Craft ORM model."""
     from services.cli import generators
 
     path = generators.generate("model", name, base_path(), force=force)
@@ -381,7 +381,7 @@ def serve(
     """Start the development server."""
     import uvicorn
 
-    echo(f"Codepy development server started on http://{host}:{port}", "green")
+    echo(f"Craft development server started on http://{host}:{port}", "green")
     uvicorn.run("bootstrap.app:asgi_app", host=host, port=port, reload=reload)
 
 
@@ -393,12 +393,12 @@ def tinker() -> None:
     app = get_app()
     context = {"app": app, "db": app.make("db")}
     try:
-        from codepy.facades import Config, DB, Route  # type: ignore
+        from craft.facades import Config, DB, Route  # type: ignore
 
         context.update({"Config": Config, "DB": DB, "Route": Route})
     except Exception:
         pass
-    code.interact(banner="Codepy tinker — `app`, `db` and facades are available.", local=context)
+    code.interact(banner="Craft tinker — `app`, `db` and facades are available.", local=context)
 
 
 @cli.command("about")
@@ -408,7 +408,7 @@ def about() -> None:
 
     app = get_app()
     config = app.make("config")
-    echo("Codepy Framework")
+    echo("Craft Framework")
     echo(f"  Environment  : {config.get('app.env', 'local')}")
     echo(f"  Debug        : {config.get('app.debug', False)}")
     echo(f"  Python       : {platform.python_version()}")

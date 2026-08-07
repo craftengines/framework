@@ -1,5 +1,5 @@
 """Plugin manager: registration, activation and hooks."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -98,7 +98,7 @@ class TestHookFailureIsolation:
             raise RuntimeError("bad plugin")
 
         plugins.add_hook("payment", explodes)
-        with caplog.at_level(logging.WARNING, logger="codepy"):
+        with caplog.at_level(logging.WARNING, logger="craft"):
             plugins.trigger_hook("payment")
 
         assert any("payment" in record.message for record in caplog.records)

@@ -29,4 +29,4 @@ EXPOSE 8000
 # Command names must match the craft CLI: `migrate fresh` (not migrate-fresh)
 # and `db seed` (not db:seed). Running the test-suite on every boot was also
 # dropped — a serve command should not depend on pytest.
-CMD ["sh", "-c", "python craft.py migrate fresh --seed && python craft.py serve --host 0.0.0.0 --port 8000 --no-reload"]
+CMD ["sh", "-c", "python dev.py migrate fresh --seed && python dev.py serve --host 0.0.0.0 --port 8000 --no-reload"]

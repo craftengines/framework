@@ -1,6 +1,6 @@
 # Migrations, Seeders & Factories
 
-Codepy provides database schema version control (Migrations) and database seeding tools (Seeders and Factories) to set up and manage database states across different environments.
+Craft provides database schema version control (Migrations) and database seeding tools (Seeders and Factories) to set up and manage database states across different environments.
 
 ---
 
@@ -11,7 +11,7 @@ Migrations are stored in `database/migrations/` and contain two functions: `up()
 ### Example Migration
 
 ```python
-from codepy.migrations import Migration, Schema
+from craft.migrations import Migration, Schema
 
 def up():
     Schema.create_table("posts", lambda t: (
@@ -42,28 +42,28 @@ The table builder object (`t`) supports the following data type definitions:
 
 ### Running Migrations
 
-Manage database schemas using the `craft.py` CLI:
+Manage database schemas using the `dev.py` CLI:
 
 ```bash
 # Run all pending migrations
-python craft.py migrate
+python dev.py migrate
 
 # Drop all tables and rerun all migrations from scratch
-python craft.py migrate fresh
+python dev.py migrate fresh
 ```
 
 ---
 
 ## Seeders
 
-Seeders populate your database with dummy or initial system records. They inherit from `codepy.seeding.Seeder` and define a `run` method:
+Seeders populate your database with dummy or initial system records. They inherit from `craft.seeding.Seeder` and define a `run` method:
 
 ### Example Seeder
 
 ```python
-from codepy.seeding import Seeder
+from craft.seeding import Seeder
 from app.Models.User import User
-from codepy.facades import DB
+from craft.facades import DB
 
 class DatabaseSeeder(Seeder):
     def run(self):
@@ -73,14 +73,14 @@ class DatabaseSeeder(Seeder):
         # 2. Add records
         User.create({
             "name": "Admin User",
-            "email": "admin@codepy.io",
+            "email": "admin@craft.io",
             "password": "hashed-secret-password"
         })
 ```
 
 Execute seeders by running:
 ```bash
-python craft.py db seed
+python dev.py db seed
 ```
 
 ---
@@ -92,7 +92,7 @@ Factories define default mock attribute layouts for your models. They utilize th
 ### Example Factory
 
 ```python
-from codepy.factories import Factory
+from craft.factories import Factory
 from app.Models.Post import Post
 
 class PostFactory(Factory):

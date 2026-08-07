@@ -1,10 +1,10 @@
-"""Migration runner for Codepy Framework.
+"""Migration runner for Craft Framework.
 
 Discovers migration files in `database/migrations`, tracks applied migrations in
 a `migrations` table with batch numbers, and supports run / rollback / reset /
 refresh / fresh / status — mirroring the framework's migrator semantics.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -291,7 +291,7 @@ def down():
 def down():
     Schema.drop_column("{table}", "new_column")
 '''
-    return f'"""Migration: {name}."""\n\nfrom codepy.migrations import Migration, Schema\n\n\n{body}'
+    return f'"""Migration: {name}."""\n\nfrom craft.migrations import Migration, Schema\n\n\n{body}'
 
 
 def migration_filename(name: str, when: Optional[datetime] = None) -> str:

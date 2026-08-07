@@ -1,5 +1,5 @@
-"""Permission Model for Codepy Framework RBAC."""
-# Codepy Framework
+"""Permission Model for Craft Framework RBAC."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

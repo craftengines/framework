@@ -1,9 +1,9 @@
 """NotifySubscribers listener."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.facades import Log
+from craft.facades import Log
 
 
 class NotifySubscribers:

@@ -1,9 +1,9 @@
-"""Soft deletes for the Codepyquent ORM.
+"""Soft deletes for the Craft ORM.
 
 Mix `SoftDeletes` into a model whose table has a `deleted_at` column. Queries
 exclude trashed rows by default; `with_trashed()` / `only_trashed()` opt back in.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

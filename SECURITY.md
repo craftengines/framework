@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Codepy is at `0.x`. Only the latest release receives security fixes.
+Craft is at `0.x`. Only the latest release receives security fixes.
 
 | Version | Supported |
 |---------|-----------|
@@ -53,7 +53,7 @@ only when it is on. Keep it off in production.
 
 ## Before deploying
 
-- Run `python craft.py key:generate`. Without `APP_KEY`, session signing falls
+- Run `python dev.py key:generate`. Without `APP_KEY`, session signing falls
   back to a per-process random key: sessions do not survive a restart and are
   not shared between workers.
 - Set `APP_DEBUG=false`.

@@ -1,11 +1,11 @@
 """Auth controller — login, register, logout under Auth directory."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.http.controller import Controller
-from codepy.http.response import redirect
-from codepy.facades import Auth, Captcha
+from craft.http.controller import Controller
+from craft.http.response import redirect
+from craft.facades import Auth, Captcha
 from app.Models.User import User
 
 

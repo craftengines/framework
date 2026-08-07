@@ -1,6 +1,6 @@
 @extends("layouts.app")
 
-@section("title", "Register Profile — Codepy Enterprise")
+@section("title", "Register Profile — Craft Enterprise")
 
 @section("content")
 <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col md:flex-row">

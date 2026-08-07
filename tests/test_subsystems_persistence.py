@@ -4,13 +4,13 @@ Both managers fall back to in-memory state when a query fails, so the existing
 subsystem test passed entirely on the memory path — the persistence it claims to
 provide was never exercised. These tests read the tables back directly.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 
-from codepy.facades import DB, Module, Setting
+from craft.facades import DB, Module, Setting
 from services.modules.manager import ModuleManager
 from services.support.settings import SettingManager
 
@@ -40,17 +40,17 @@ def clean_tables(migrated_database):
 
 class TestSettingPersistence:
     def test_set_writes_a_row(self):
-        Setting.set("site_title", "Codepy")
+        Setting.set("site_title", "Craft")
         row = DB.statement(
             "SELECT value FROM settings WHERE key = ?", ["site_title"], read=True
         ).fetchone()
         assert row is not None
-        assert row["value"] == "Codepy"
+        assert row["value"] == "Craft"
 
     def test_value_survives_losing_the_memory_cache(self):
-        Setting.set("site_title", "Codepy")
+        Setting.set("site_title", "Craft")
         SettingManager._memory_settings = {}
-        assert Setting.get("site_title") == "Codepy"
+        assert Setting.get("site_title") == "Craft"
 
     def test_setting_the_same_key_twice_updates_it(self):
         Setting.set("site_title", "First")

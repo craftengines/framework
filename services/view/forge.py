@@ -1,9 +1,9 @@
-"""Forge View Engine for Codepy Framework.
+"""Forge View Engine for Craft Framework.
 
 Jinja2 with Forge directives. Templates are preprocessed before Jinja
 compiles them, so `@csrf`, `@auth` and friends work in `.forge.py` files.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -151,8 +151,8 @@ def route_url(name: str, **params) -> str:
 def asset(path: str, version: Any = None) -> str:
     """URL for a file under `public/`, with a cache-busting query string.
 
-        {{ asset('assets/css/codepy-theme.css') }}
-        -> /assets/css/codepy-theme.css?ver=0.1.0
+        {{ asset('assets/css/craft-theme.css') }}
+        -> /assets/css/craft-theme.css?ver=0.1.0
 
     The version defaults to the application version, so a release invalidates
     every cached asset at once. In debug the file's modification time is used

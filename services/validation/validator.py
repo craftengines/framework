@@ -1,4 +1,4 @@
-"""Validator for Codepy Framework.
+"""Validator for Craft Framework.
 
 Rules are given per field as a list or a pipe-delimited string::
 
@@ -9,7 +9,7 @@ Rules are given per field as a list or a pipe-delimited string::
         "password": ["required", "min:8", "confirmed"],
     })
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

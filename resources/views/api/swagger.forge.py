@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>SoftPax API Docs — Codepy Framework</title>
+    <title>SoftPax API Docs — Craft Framework</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css">
 </head>
 <body>

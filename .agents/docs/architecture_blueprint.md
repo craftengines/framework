@@ -1,6 +1,6 @@
-# Codepy Core Framework Architecture Blueprint
+# Craft Core Framework Architecture Blueprint
 
-This document explains the structural flow and runtime conventions of the Codepy framework.
+This document explains the structural flow and runtime conventions of the Craft framework.
 
 ---
 
@@ -47,7 +47,7 @@ HTTP Request
 
 ## 2. Bootstrapping Flow
 
-The application is bootstrapped from [bootstrap/app.py](file:///d:/data/www/codepy/bootstrap/app.py):
+The application is bootstrapped from [bootstrap/app.py](file:///d:/data/www/craft/bootstrap/app.py):
 
 1. **`create_app()`** instantiates the `Application` class.
 2. **`register_config()`** scans the `config/` directory and registers configuration files in the `config` repository binding.
@@ -60,7 +60,7 @@ The application is bootstrapped from [bootstrap/app.py](file:///d:/data/www/code
 
 ## 3. Database Connection Mapping
 
-Codepy relies on two database connections depending on the context:
+Craft relies on two database connections depending on the context:
 
 * **HTTP Requests (Async context):** Resolves connections using `asyncpg` via SQLAlchemy's AsyncEngine.
 * **CLI commands, migrations, and seeders (Sync context):** Resolves connections synchronously using `psycopg3` via SQLAlchemy's standard Engine to guarantee linear script execution.

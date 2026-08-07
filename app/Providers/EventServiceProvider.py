@@ -1,10 +1,10 @@
 """Event service provider — register event listeners."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.providers import ServiceProvider
-from codepy.facades import Event
+from craft.providers import ServiceProvider
+from craft.facades import Event
 
 
 class EventServiceProvider(ServiceProvider):

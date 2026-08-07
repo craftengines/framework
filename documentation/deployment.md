@@ -4,7 +4,7 @@
 
 Work through this before the first production request.
 
-- [ ] `python craft.py key:generate` — without `APP_KEY`, session signing falls
+- [ ] `python dev.py key:generate` — without `APP_KEY`, session signing falls
       back to a random per-process key. Sessions break on restart and are not
       shared between workers.
 - [ ] `APP_DEBUG=false` — with it on, stack traces reach the client.
@@ -12,8 +12,8 @@ Work through this before the first production request.
 - [ ] `SESSION_SECURE_COOKIE=true` — the cookie becomes HTTPS-only.
 - [ ] Serve `public/` as the web root. `storage/`, `.env`, `app/` and `config/`
       must not be reachable over HTTP.
-- [ ] `python craft.py migrate` — never `migrate:fresh`, which drops everything.
-- [ ] Confirm `python craft.py db ping` succeeds as the deploy user.
+- [ ] `python dev.py migrate` — never `migrate:fresh`, which drops everything.
+- [ ] Confirm `python dev.py db ping` succeeds as the deploy user.
 - [ ] Set up a queue worker if you dispatch jobs.
 
 ## The ASGI entry point
@@ -37,12 +37,12 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker public.index:application \
 uvicorn public.index:application --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-`craft serve` is for development. It enables reload and binds to localhost.
+`dev serve` is for development. It enables reload and binds to localhost.
 
 ## Docker
 
 `Dockerfile.prod` is a multi-stage build that installs runtime dependencies
-only, drops privileges to a non-root `codepy` user, and serves through Gunicorn.
+only, drops privileges to a non-root `dev` user, and serves through Gunicorn.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -79,7 +79,7 @@ With `SESSION_DRIVER=file`, every worker needs the same
 ## Queue workers
 
 ```bash
-python craft.py queue work --queue default
+python dev.py queue work --queue default
 ```
 
 Run it under a supervisor that restarts it — systemd, supervisord, or a separate
@@ -89,15 +89,15 @@ the request wait.
 ## Migrations on deploy
 
 ```bash
-python craft.py migrate
+python dev.py migrate
 ```
 
 It is idempotent: already-applied migrations are skipped. Check first with
 `migrate:status`, and rehearse a rollback:
 
 ```bash
-python craft.py migrate:status
-python craft.py migrate:rollback --step 1
+python dev.py migrate:status
+python dev.py migrate:rollback --step 1
 ```
 
 ## Multi-tenancy

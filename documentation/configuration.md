@@ -10,7 +10,7 @@ readable through dot notation, and secrets come from the environment.
 in production you can set them directly and ship no `.env` at all.
 
 ```ini
-APP_NAME=Codepy
+APP_NAME=Craft
 APP_ENV=local
 APP_DEBUG=true
 APP_KEY=base64:...
@@ -32,9 +32,9 @@ Each file in `config/` becomes a namespace:
 
 ```python
 # config/app.py
-from codepy.config import env
+from craft.config import env
 
-APP_NAME = env("APP_NAME", "Codepy")
+APP_NAME = env("APP_NAME", "Craft")
 APP_DEBUG = env("APP_DEBUG", True)
 APP_LOCALE = env("APP_LOCALE", "en")
 APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
@@ -43,7 +43,7 @@ APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
 Read them by file name and key:
 
 ```python
-from codepy.facades import Config
+from craft.facades import Config
 
 Config.get("app.APP_NAME")
 Config.get("database.connections.pgsql.host")
@@ -108,7 +108,7 @@ Split reads from writes by nesting `read` and `write`:
 "pgsql": {
     "driver": "postgresql",
     "host": "127.0.0.1",
-    "username": "codepy",
+    "username": "craft",
     "password": "secret",
     "write": {"host": "primary.db.internal"},
     "read": {"host": "replica.db.internal"},
@@ -123,7 +123,7 @@ Keys outside `read`/`write` apply to both.
 # config/session.py
 driver = env("SESSION_DRIVER", "cookie")     # cookie | file
 lifetime = env("SESSION_LIFETIME", 7200)
-cookie = env("SESSION_COOKIE", "codepy_session")
+cookie = env("SESSION_COOKIE", "craft_session")
 secure = env("SESSION_SECURE_COOKIE", False)
 same_site = env("SESSION_SAME_SITE", "lax")
 csrf = env("SESSION_CSRF", True)
@@ -137,7 +137,7 @@ Drop a file in `config/`:
 
 ```python
 # config/services.py
-from codepy.config import env
+from craft.config import env
 
 stripe = {
     "key": env("STRIPE_KEY", ""),
@@ -152,6 +152,6 @@ Config.get("services.stripe.key")
 ## Inspecting configuration
 
 ```bash
-python craft.py about     # environment, debug, database, cache, queue
-python craft.py db show   # the active connection
+python dev.py about     # environment, debug, database, cache, queue
+python dev.py db show   # the active connection
 ```

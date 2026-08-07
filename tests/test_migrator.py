@@ -1,5 +1,5 @@
 """Migrator: discovery, batches, rollback, status."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -13,7 +13,7 @@ from services.migrations.migrator import Migrator, migration_filename
 from services.orm.db import DatabaseManager
 
 MIGRATION_A = '''
-from codepy.migrations import Schema
+from craft.migrations import Schema
 
 def up():
     Schema.create_table("alpha", lambda t: (t.id(), t.string("name")))
@@ -23,7 +23,7 @@ def down():
 '''
 
 MIGRATION_B = '''
-from codepy.migrations import Schema
+from craft.migrations import Schema
 
 def up():
     Schema.create_table("beta", lambda t: (t.id(), t.string("label")))

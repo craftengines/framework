@@ -1,4 +1,4 @@
-# Codepy Documentation
+# Craft Documentation
 
 A batteries-included Python web framework built on Starlette.
 
@@ -6,10 +6,10 @@ A batteries-included Python web framework built on Starlette.
 
 | Guide | What it covers |
 |---|---|
-| [Introduction](introduction.md) | What Codepy is and how the pieces fit together |
+| [Introduction](introduction.md) | What Craft is and how the pieces fit together |
 | [Installation](installation.md) | Requirements, setup, Docker, first run |
 | [Configuration](configuration.md) | `config/`, `.env`, and the `env()` helper |
-| [The craft CLI](cli.md) | Every command, and the generators |
+| [The dev CLI](cli.md) | Every command, and the generators |
 
 ## The essentials
 

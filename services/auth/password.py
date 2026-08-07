@@ -1,9 +1,9 @@
-"""Password hashing for Codepy Framework.
+"""Password hashing for Craft Framework.
 
 Uses bcrypt via passlib when available and falls back to PBKDF2-HMAC-SHA256
 from the standard library, so a fresh install never silently stores plaintext.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -40,8 +40,8 @@ def _passlib_context():
     passlib_logger.setLevel(logging.CRITICAL)
     try:
         context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        probe = context.hash("codepy-backend-probe")
-        if not context.verify("codepy-backend-probe", probe):
+        probe = context.hash("craft-backend-probe")
+        if not context.verify("craft-backend-probe", probe):
             return None
         return context
     except Exception:

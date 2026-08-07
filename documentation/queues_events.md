@@ -1,6 +1,6 @@
 # Events & Queues
 
-Codepy features a synchronous Event Dispatcher to decouple logic within request lifecycles, and an asynchronous Queue System to execute heavy tasks in background processes.
+Craft features a synchronous Event Dispatcher to decouple logic within request lifecycles, and an asynchronous Queue System to execute heavy tasks in background processes.
 
 ---
 
@@ -22,7 +22,7 @@ Listeners define a `handle(event)` method:
 
 ```python
 from app.Models.Post import Post
-from codepy.facades import Log
+from craft.facades import Log
 
 class SendPostNotifications:
     async def handle(self, event: PostPublished):
@@ -34,7 +34,7 @@ class SendPostNotifications:
 Map your events to listeners inside your `EventServiceProvider` boot method:
 
 ```python
-from codepy.facades import Event
+from craft.facades import Event
 
 # Mapping
 Event.listen(PostPublished, [SendPostNotifications])
@@ -50,18 +50,18 @@ Event.dispatch(PostPublished(post_id="post-uuid"))
 Queue processing shifts time-consuming tasks (like email delivery or file parsing) to a background worker.
 
 ### Defining Jobs
-Jobs inherit from the base class `codepy.queue.Job`. They must define a `handle()` method.
+Jobs inherit from the base class `craft.queue.Job`. They must define a `handle()` method.
 
 > [!CAUTION]
 > **Strict JSON Serialization Requirement**:
-> To prevent security vulnerabilities, Codepy processes job payloads using JSON serialization rather than Python's `pickle` library.
+> To prevent security vulnerabilities, Craft processes job payloads using JSON serialization rather than Python's `pickle` library.
 > Do **NOT** pass complex object instances (such as database Model instances or connection objects) to Job constructor parameters.
 > Instead, pass scalar attributes (such as database primary keys, strings, or numbers) and query the corresponding model instance from the database inside the job's `handle()` method.
 
 ```python
-from codepy.queue import Job
+from craft.queue import Job
 from app.Models.User import User
-from codepy.facades import Log
+from craft.facades import Log
 
 class SendWelcomeEmail(Job):
     def __init__(self, user_id: str):
@@ -79,7 +79,7 @@ class SendWelcomeEmail(Job):
 Push jobs to the queue using the `Queue` facade:
 
 ```python
-from codepy.facades import Queue
+from craft.facades import Queue
 
 # Push the job into background processing
 Queue.push(SendWelcomeEmail(user_id="user-uuid"))
@@ -89,6 +89,6 @@ Queue.push(SendWelcomeEmail(user_id="user-uuid"))
 Background tasks are processed using the background queue worker command:
 
 ```bash
-python craft.py queue:work
+python dev.py queue:work
 ```
 This starts a persistent loop polling the database/queue for jobs and executing them.

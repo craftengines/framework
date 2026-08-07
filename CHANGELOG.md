@@ -27,7 +27,7 @@ em SQLite, PostgreSQL real e Python 3.11.
   e índices compostos. Estilos fluente e keyword são intercambiáveis:
   `t.string("cpf").nullable()` == `t.string("cpf", nullable=True)`.
 
-**CLI `craft`**
+**CLI `dev`**
 
 - `migrate:*`, `db seed/show/tables/ping/wipe`, `route list`, `queue work`,
   `serve`, `tinker`, `key:generate` e 12 geradores `make:*`.
@@ -84,8 +84,8 @@ em SQLite, PostgreSQL real e Python 3.11.
 
 - O pacote não importava: o core estava em `framework/` enquanto os 83 imports
   internos diziam `services.*`.
-- `import codepy` resolvia para um pacote CUDA de terceiros do site-packages.
-  Substituído por um `MetaPathFinder` que mapeia `codepy.* → services.*`.
+- `import craft` resolvia para um pacote CUDA de terceiros do site-packages.
+  Substituído por um `MetaPathFinder` que mapeia `craft.* → services.*`.
 - `.env` nunca era lido — `env()` só via variáveis reais do SO.
 
 **Segurança**
@@ -165,7 +165,7 @@ em SQLite, PostgreSQL real e Python 3.11.
 - Arquivos mortos: `app/main.py` (uma app FastAPI paralela), `home_controller.py`,
   `BaseModel.py` (models SQLAlchemy), `services/coreengine/` e 4 arquivos vazios
   sem nenhuma referência.
-- Landing page `codepy-showcase` (vite) da raiz.
+- Landing page `craft-showcase` (vite) da raiz.
 - `.agents/.agents/` e `.ai/.agents/`, diretórios aninhados recursivamente.
   O `changelog.md` que vivia no aninhamento foi perdido nessa limpeza; este
   arquivo recomeça a partir do histórico do Git.
@@ -181,7 +181,7 @@ em SQLite, PostgreSQL real e Python 3.11.
 - Documentação completa em `documentation/`: 17 guias com índice, cobrindo
   instalação, configuração, container, rotas, controllers, views, validação,
   migrations, ORM, segurança, sessões, cache, filas, resources, i18n, testes,
-  deploy e a referência do `craft`. As 130 APIs citadas foram verificadas
+  deploy e a referência do `dev`. As 130 APIs citadas foram verificadas
   contra o código.
 
 ### Notas de compatibilidade

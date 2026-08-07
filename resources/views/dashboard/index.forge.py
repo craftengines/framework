@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Painel — SoftPax (Codepy Framework)</title>
+    <title>Painel — SoftPax (Craft Framework)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/app-assets/grid.css">
     <link rel="stylesheet" href="/css/console.css">
@@ -46,7 +46,7 @@
             <span class="text-slate-400">—</span>
             <span class="text-slate-600 text-xs">Gestão Funerária & Cemitério</span>
             <div class="win-winctrls">
-                <span class="text-xs text-slate-500 px-2">Codepy Framework (Python)</span>
+                <span class="text-xs text-slate-500 px-2">Craft Framework (Python)</span>
             </div>
         </header>
 

@@ -1,6 +1,6 @@
 # Authentication & Security
 
-Codepy contains modular authentication and authorization components mapped to clean, static facade accessors. It also features modern security layers, such as Post-Quantum Cryptography (PQC) session signatures and CAPTCHA integrations.
+Craft contains modular authentication and authorization components mapped to clean, static facade accessors. It also features modern security layers, such as Post-Quantum Cryptography (PQC) session signatures and CAPTCHA integrations.
 
 ---
 
@@ -9,10 +9,10 @@ Codepy contains modular authentication and authorization components mapped to cl
 Use the `Auth` facade to authenticate user credentials and query the current session state:
 
 ```python
-from codepy.facades import Auth
+from craft.facades import Auth
 
 # Attempt authentication using login attributes
-if Auth.attempt({"email": "user@codepy.io", "password": "securepassword"}):
+if Auth.attempt({"email": "user@craft.io", "password": "securepassword"}):
     # Retrieve current authenticated User model instance
     user = Auth.user()
     print(f"Authenticated as {user.name}")
@@ -27,7 +27,7 @@ if Auth.check():
 
 ## User Roles & Types
 
-Codepy supports three user roles/types out-of-the-box:
+Craft supports three user roles/types out-of-the-box:
 1. **User (`user`)**: A standard user account.
 2. **Admin (`admin`)**: A system administrator account with full administrative credentials.
 3. **Tenant (`tenant`)**: A tenant account representing an isolated workspace/SaaS client.
@@ -61,7 +61,7 @@ Authorization checks allow or deny requests based on user permissions.
 Gates are closure callbacks mapped to action permissions (typically declared inside `AppServiceProvider` or a dedicated provider):
 
 ```python
-from codepy.facades import Gate
+from craft.facades import Gate
 
 # Define a gate rule
 Gate.define("publish-posts", lambda user: user.role == "editor" or user.is_admin)
@@ -127,11 +127,11 @@ CSRF is verified on POST/PUT/PATCH/DELETE, via the `_token` field or the
 
 ## Post-Quantum Cryptography (PQC)
 
-Codepy ships a hybrid Winternitz (WOTS) signature utility for signing tokens
+Craft ships a hybrid Winternitz (WOTS) signature utility for signing tokens
 where post-quantum resistance matters:
 
 ```python
-from codepy.facades import PQC
+from craft.facades import PQC
 
 token = PQC.sign_token(payload, secret_key, seed)
 PQC.verify_token(token, secret_key, public_key)
@@ -148,7 +148,7 @@ A short alphanumeric challenge held in the session. Both calls take the request 
 the code lives in the session, not in a token you pass around.
 
 ```python
-from codepy.facades import Captcha
+from craft.facades import Captcha
 
 # In the GET handler: generate and render the challenge
 code = Captcha.generate(request)

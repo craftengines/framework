@@ -1,4 +1,4 @@
-# Codepy Developer Agent
+# Craft Developer Agent
 
 The **Developer** is responsible for writing application code under `app/` and routes under `routes/`.
 

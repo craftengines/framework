@@ -1,17 +1,17 @@
 # Developer Experience (DX) & AI Agent Learning Curve Analysis
 
-This document records the architecture and Developer Experience goals of **Codepy**, and outlines strategies to optimize the learning curve for both **human developers** and **AI agents**.
+This document records the architecture and Developer Experience goals of **Craft**, and outlines strategies to optimize the learning curve for both **human developers** and **AI agents**.
 
 ---
 
 ## 1. Architectural & DX Comparison Matrix
 
-| Feature | Codepy (Python) |
+| Feature | Craft (Python) |
 |---|---|---|---|---|
 | **Structure** | Convention-based (Highly rigid) | Module-based (Decorator heavy) | No default (Freeform) | expressive folders (Deterministic) |
 | **Boilerplate** | Low | High (Decorators & Modules) | Low | Low (ActiveRecord, Facades) |
 | **Typing & Validation** | Dynamic (FormRequest validation) | TS Types & Class-validator | Strict Pydantic annotations | Strict Pydantic FormRequest |
-| **Scaffolding Tool** | The craft CLI (Rich) | Nest CLI (Schematics) | None | `craft.py` CLI (Modular) |
+| **Scaffolding Tool** | The dev CLI (Rich) | Nest CLI (Schematics) | None | `dev.py` CLI (Modular) |
 | **AI Ergonomics** | Moderate (Conventions help AI) | Hard (Too many files to connect) | Hard (No standard conventions) | **Excellent** (Convention + `.ai` memory) |
 
 ---
@@ -32,25 +32,25 @@ This document records the architecture and Developer Experience goals of **Codep
 
 ---
 
-## 3. How Codepy Solves the AI & Developer Learning Curve
+## 3. How Craft Solves the AI & Developer Learning Curve
 
-**Codepy** is designed to achieve the best of both worlds:
+**Craft** is designed to achieve the best of both worlds:
 
 ### 1. Zero-Cognitive-Load Onboarding (For Humans)
-Since Codepy mirrors a conventional MVC directory structure (`app/Http/Controllers`, `app/Models`, `routes/web.py`), any developer with PHP, Symfony, or Rails experience instantly knows where everything belongs. There is no new architecture paradigm to learn.
+Since Craft mirrors a conventional MVC directory structure (`app/Http/Controllers`, `app/Models`, `routes/web.py`), any developer with PHP, Symfony, or Rails experience instantly knows where everything belongs. There is no new architecture paradigm to learn.
 
 ### 2. High-Density Context (For AI Agents)
 By using a dedicated `.ai/` directory containing **Skills**, **Blueprints**, and **Plans**, AI agents do not need to read the entire codebase to understand conventions. 
-* The AI simply reads `.ai/skills/framework/codepy-development/SKILL.md` to acquire the framework rules in a single turn.
+* The AI simply reads `.ai/skills/framework/craft-development/SKILL.md` to acquire the framework rules in a single turn.
 
 ### 3. CLI Scaffolding for AI Agents
-Writing code from scratch is error-prone for AIs. By expanding `craft.py` with commands like:
-* `python craft.py make:crud <Model>`
+Writing code from scratch is error-prone for AIs. By expanding `dev.py` with commands like:
+* `python dev.py make:crud <Model>`
 The AI agent can simply issue a CLI terminal call to generate the database migration, model, request validation, controller, and routes, and then focus 100% on implementing the core business logic.
 
 ---
 
-## 4. Actionable Improvements for Codepy's DX
+## 4. Actionable Improvements for Craft's DX
 
 To make the learning curve even better, we propose implementing:
 
@@ -59,4 +59,4 @@ To make the learning curve even better, we propose implementing:
 2. **Dynamic OpenAPI/Swagger Docs:**
    Use FastAPI's auto-generated Swagger UI (`/docs`) to allow developers to visually inspect and test all routes dynamically.
 3. **Interactive Tinker REPL:**
-   Expand `craft.py tinker` to start an interactive IPython shell pre-loaded with all models, facades, and container services, letting developers run queries and debug ORM relations in real-time.
+   Expand `dev.py tinker` to start an interactive IPython shell pre-loaded with all models, facades, and container services, letting developers run queries and debug ORM relations in real-time.

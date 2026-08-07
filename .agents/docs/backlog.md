@@ -1,4 +1,4 @@
-# Backlog — Codepy Framework (base para novas aplicações)
+# Backlog — Craft Framework (base para novas aplicações)
 
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
@@ -15,9 +15,9 @@
 python -m pytest -q
 
 # PostgreSQL real (container framework-db, porta 5499)
-docker exec framework-db psql -U codepy -d codepy_db -p 5499 -c "CREATE DATABASE codepy_validation;"
-$env:CODEPY_TEST_DB="pgsql"; $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
-$env:DB_DATABASE="codepy_validation"; $env:DB_USERNAME="codepy"; $env:DB_PASSWORD="secretpassword"
+docker exec framework-db psql -U craft -d craft_db -p 5499 -c "CREATE DATABASE craft_validation;"
+$env:CRAFT_TEST_DB="pgsql"; $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
+$env:DB_DATABASE="craft_validation"; $env:DB_USERNAME="craft"; $env:DB_PASSWORD="secretpassword"
 python -m pytest -q
 
 # Docker (app em http://localhost:8300)
@@ -25,7 +25,7 @@ docker compose up -d --build
 docker exec framework python -m pytest -q   # valida no Python 3.11, o mínimo suportado
 
 # CLI
-python craft.py migrate | migrate:status | migrate:rollback | db seed | route list | make model X -m
+python dev.py migrate | migrate:status | migrate:rollback | db seed | route list | make model X -m
 ```
 
 ---
@@ -36,9 +36,9 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
 
 - **Pacote não importava.** O core estava em `framework/` mas os 83 imports internos
   diziam `services.*`. Diretório renomeado de volta para `services/`.
-- **`import codepy` resolvia para um pacote CUDA de terceiros** do site-packages.
+- **`import craft` resolvia para um pacote CUDA de terceiros** do site-packages.
   Substituído por um `MetaPathFinder` em `services/__init__.py` que mapeia
-  `codepy.* → services.*` (a lista manual de ~40 aliases foi removida).
+  `craft.* → services.*` (a lista manual de ~40 aliases foi removida).
 - **`.env` nunca era lido** — `env()` só via variáveis reais do SO. Loader criado com
   interpolação `${VAR}`, chamado em `Application.register_config()`.
 
@@ -49,7 +49,7 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
 | `services/orm/connection.py` (novo) | Drivers SQLite/PostgreSQL/MySQL, tradução `?`/`:nome` → `%s`, `Row` com acesso por atributo/chave/índice, transações, `search_path` |
 | `services/migrations/schema.py` | `Blueprint` fluente + `Grammar` por dialeto, FKs, índices compostos, estilos fluente e kwargs |
 | `services/migrations/migrator.py` | Descoberta, tabela `migrations`, batches, `run/rollback/reset/refresh/fresh/status`, `--step`, `--pretend` |
-| `services/cli/app.py` + `generators.py` | `craft`: `migrate:*`, `db seed/show/tables/ping/wipe`, 12 geradores `make:*`, `route list`, `queue work`, `serve`, `tinker`, `key:generate` |
+| `services/cli/app.py` + `generators.py` | `dev`: `migrate:*`, `db seed/show/tables/ping/wipe`, 12 geradores `make:*`, `route list`, `queue work`, `serve`, `tinker`, `key:generate` |
 | `services/cache/manager.py` | Stores array/file/redis com TTL, `remember`, `increment`, degradação para array se o Redis cair |
 | `services/auth/password.py` | `Hash` com bcrypt (passlib) e fallback PBKDF2-SHA256 |
 | `services/auth/manager.py` | `attempt/validate/once/login/logout`, sessão persistente, comparação de tempo constante |
@@ -128,8 +128,8 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
   `permission_role` era dropada no `down()` mas nunca criada no `up()`.
 - Migration `jobs`: `available_at`/`created_at` como INTEGER recebendo string ISO.
 - Senha era gravada em texto puro pelo seeder. `User.create` agora hasheia.
-- Docker: o container montava `D:\data\www\codepy`, o nome da pasta antes de virar
-  "codepy framework". `/app` subia vazio e o app ficava em loop de restart.
+- Docker: o container montava `D:\data\www\craft`, o nome da pasta antes de virar
+  "craft framework". `/app` subia vazio e o app ficava em loop de restart.
 - `Dockerfile` tinha `COPY src/` (pasta inexistente) e um CMD com comandos que não
   existem na CLI (`key-generate`, `migrate-fresh`, `db:seed`).
 
@@ -140,7 +140,7 @@ python craft.py migrate | migrate:status | migrate:rollback | db seed | route li
 - Removidos arquivos mortos: `app/main.py` (FastAPI paralelo), `home_controller.py`,
   `BaseModel.py` (models SQLAlchemy do SoftPax), `coreengine/`, e 4 arquivos vazios
   sem nenhuma referência.
-- Removida a landing page `codepy-showcase` (vite) da raiz do esqueleto.
+- Removida a landing page `craft-showcase` (vite) da raiz do esqueleto.
 - Dependências enxugadas: saíram `sqlalchemy`, `alembic`, `pydantic`,
   `pydantic-settings` e `click` — nenhuma era usada, e o `alembic` competia
   conceitualmente com o migrator próprio. `pytest`/`httpx` viraram extra `[dev]`.
@@ -225,5 +225,5 @@ identidade ou remover por honestidade é uma decisão sua.
 
 ### 6. Documentação
 
-`CODEPY_DESIGN.md` (74 KB) ainda descreve o desenho antigo. O `README.md` e
+`CRAFT_DESIGN.md` (74 KB) ainda descreve o desenho antigo. O `README.md` e
 `documentation/*.md` foram atualizados.

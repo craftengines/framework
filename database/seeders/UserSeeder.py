@@ -1,9 +1,9 @@
 """User seeder."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.seeding import Seeder
+from craft.seeding import Seeder
 from app.Models.User import User
 
 
@@ -11,22 +11,22 @@ class UserSeeder(Seeder):
     def run(self):
         User.create({
             "name": "Standard User",
-            "email": "user@codepy.local",
-            "password": "codepy",
+            "email": "user@craft.local",
+            "password": "craft",
             "type": "user",
             "is_admin": False,
         })
         User.create({
             "name": "Tenant User",
-            "email": "tenant@codepy.local",
-            "password": "codepy",
+            "email": "tenant@craft.local",
+            "password": "craft",
             "type": "tenant",
             "is_admin": False,
         })
         User.create({
             "name": "Admin User",
-            "email": "admin@codepy.local",
-            "password": "codepy",
+            "email": "admin@craft.local",
+            "password": "craft",
             "type": "admin",
             "is_admin": True,
         })

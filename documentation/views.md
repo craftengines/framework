@@ -6,7 +6,7 @@ directives. Templates live in `.forge.py` files.
 ## Rendering
 
 ```python
-from codepy.http.controller import Controller
+from craft.http.controller import Controller
 
 
 class PostController(Controller):

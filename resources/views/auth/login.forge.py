@@ -1,6 +1,6 @@
 @extends("layouts.app")
 
-@section("title", "Sign In & Onboard — Codepy Enterprise")
+@section("title", "Sign In & Onboard — Craft Enterprise")
 
 @section("content")
 <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col md:flex-row">
@@ -13,7 +13,7 @@
                 System Access
             </span>
             <h2 class="text-2xl md:text-3xl font-black tracking-tight text-white mb-4">
-                Welcome to your <br><span class="text-orange-500">Codepy Control Center</span>.
+                Welcome to your <br><span class="text-orange-500">Craft Control Center</span>.
             </h2>
             <p class="text-slate-300 text-sm leading-relaxed mb-6">
                 Connect and manage your dynamic business modules, real-time translations, and role-based permissions from a single interface.

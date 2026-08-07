@@ -1,4 +1,4 @@
-# Codepy Framework — Architectural Design Blueprint
+# Craft Framework — Architectural Design Blueprint
 
 > A expressive backend framework built in pure Python on FastAPI, with PostgreSQL as the native database.
 
@@ -12,7 +12,7 @@
 4. [Service Container & Service Providers](#4-service-container--service-providers)
 5. [Middleware Pipeline Architecture](#5-middleware-pipeline-architecture)
 6. [Routing System](#6-routing-system)
-7. [ORM Design (Codepyquent)](#7-orm-design-codepyquent)
+7. [ORM Design (Craft ORM)](#7-orm-design-craftquent)
 8. [Migration System](#8-migration-system)
 9. [Validation Layer](#9-validation-layer)
 10. [Authentication & Authorization](#10-authentication--authorization)
@@ -30,7 +30,7 @@
 
 ## 1. High-Level Architecture Overview
 
-Codepy is a full-stack backend framework that wraps FastAPI's ASGI runtime with the framework's architectural patterns. The framework is organized into layers, each with a single responsibility, communicating through a central inversion-of-control container.
+Craft is a full-stack backend framework that wraps FastAPI's ASGI runtime with the framework's architectural patterns. The framework is organized into layers, each with a single responsibility, communicating through a central inversion-of-control container.
 
 ### Layered Architecture Diagram
 
@@ -55,7 +55,7 @@ Codepy is a full-stack backend framework that wraps FastAPI's ASGI runtime with 
 │         ▼                                                           │
 │  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌────────┐  ┌──────────┐  │
 │  │  ORM     │  │  Auth    │  │ Events  │  │ Queue  │  │  Config  │  │
-│  │(Codepyquent)│  │ Guards  │  │Dispatch │  │Manager │  │Repository│  │
+│  │(Craft ORM)│  │ Guards  │  │Dispatch │  │Manager │  │Repository│  │
 │  └──────────┘  └──────────┘  └─────────┘  └────────┘  └──────────┘  │
 │       │                                                         │   │
 │       ▼                                                         ▼   │
@@ -84,7 +84,7 @@ HTTP Request
          ▼
 ┌──────────────────┐
 │  HTTP Kernel     │  Bootstraps app, starts scoped container,
-│                  │  wraps Starlette Request in Codepy Request
+│                  │  wraps Starlette Request in Craft Request
 └────────┬─────────┘
          │
          ▼
@@ -116,7 +116,7 @@ HTTP Request
          │
          ▼
 ┌──────────────────┐
-│  Response        │  Converts CodepyResponse → Starlette Response
+│  Response        │  Converts CraftResponse → Starlette Response
 │  Renderer        │  Applies after-middleware (onion unwinding)
 └────────┬─────────┘
          │
@@ -250,11 +250,11 @@ project/
 │   ├── Feature/                        # Feature tests (HTTP endpoints)
 │   └── Unit/                           # Unit tests (models, services)
 │
-├── services/                           # Framework core engine (mapped to `codepy.*`)
+├── services/                           # Framework core engine (mapped to `craft.*`)
 │   ├── container/                      # DI container (bind, singleton, make)
 │   ├── config/                         # Config repository & env()
 │   ├── http/                           # HTTP kernel, router, middleware, response
-│   ├── orm/                            # Codepyquent ORM & QueryBuilder
+│   ├── orm/                            # Craft ORM & QueryBuilder
 │   ├── validation/                     # Validator, FormRequest, Rule
 │   ├── auth/                           # Guards, gates, policies
 │   ├── events/                         # Event dispatcher
@@ -280,7 +280,7 @@ project/
 │   ├── notification/                  # Notification channels
 │   └── support/                        # Helper functions
 │
-├── craft.py                          # CLI entry point (python craft.py)
+├── dev.py                          # CLI entry point (python dev.py)
 ├── bootstrap.py                        # Bootstrap helper
 ├── pyproject.toml                      # Package metadata + dependencies
 ├── .env                                # Environment variables
@@ -293,15 +293,15 @@ project/
 
 ### Conceptual Mapping
 
-| Concept | Codepy (Python) | Notes |
+| Concept | Craft (Python) | Notes |
 |---|---|---|
-| Controller class | Controller class extending `codepy.http.Controller` | Methods receive a `Request` and return a `Response` |
-| Model | Codepyquent Model extending `codepy.orm.Model` | Active record with metaclass for table auto-discovery |
+| Controller class | Controller class extending `craft.http.Controller` | Methods receive a `Request` and return a `Response` |
+| Model | Craft ORM Model extending `craft.orm.Model` | Active record with metaclass for table auto-discovery |
 | Template view | Forge template (`.forge.py`) | Jinja2 preprocessed with Forge directives |
 | Route file | `routes/web.py`, `routes/api.py` | Same file-based route registration |
-| FormRequest | FormRequest extending `codepy.validation.FormRequest` | Validates and authorizes before controller |
-| Middleware | Middleware extending `codepy.http.Middleware` | Onion-order pipeline |
-| Service Provider | ServiceProvider extending `codepy.providers.ServiceProvider` | register() + boot() lifecycle |
+| FormRequest | FormRequest extending `craft.validation.FormRequest` | Validates and authorizes before controller |
+| Middleware | Middleware extending `craft.http.Middleware` | Onion-order pipeline |
+| Service Provider | ServiceProvider extending `craft.providers.ServiceProvider` | register() + boot() lifecycle |
 
 ### Controller Design
 
@@ -561,11 +561,11 @@ In production, routes are compiled into a single dispatch table (regex → route
 
 ---
 
-## 7. ORM Design (Codepyquent)
+## 7. ORM Design (Craft ORM)
 
 ### Design Philosophy
 
-Codepyquent is an active-record ORM that issues SQL through the driver directly and connection management. It provides Codepyquent's developer experience — chainable query builder, relationship methods, casts, accessors/mutators, scopes — while delegating to SQLAlchemy for database abstraction.
+Craft ORM is an active-record ORM that issues SQL through the driver directly and connection management. It provides Craft ORM's developer experience — chainable query builder, relationship methods, casts, accessors/mutators, scopes — while delegating to SQLAlchemy for database abstraction.
 
 ### PostgreSQL as Native Database
 
@@ -848,8 +848,8 @@ Guards are the authentication mechanism. Each guard has a driver and a user prov
 
 | Guard | Driver | Provider | Use Case |
 |---|---|---|---|
-| `web` | session | users (Codepyquent) | Browser sessions, HTML routes |
-| `api` | token | users (Codepyquent) | API tokens, JSON routes |
+| `web` | session | users (Craft ORM) | Browser sessions, HTML routes |
+| `api` | token | users (Craft ORM) | API tokens, JSON routes |
 
 **Session guard flow**:
 1. Check session for `auth_id` → if present, load user from provider
@@ -869,7 +869,7 @@ Providers retrieve users from a data source:
 
 | Provider | Source |
 |---|---|
-| `codepyquent` | Codepyquent model (configured in `config/auth.py` as `providers.users.model`) |
+| `craftquent` | Craft ORM model (configured in `config/auth.py` as `providers.users.model`) |
 | `database` | Raw DB table query (no model) |
 
 ### Gates
@@ -1022,7 +1022,7 @@ The scheduler provides a cron-like declaration syntax for recurring tasks. Tasks
 
 ```python
 # routes/console.py
-from codepy.facades import Schedule
+from craft.facades import Schedule
 
 Schedule.command("emails:send").hourly()
 Schedule.command("reports:daily").daily_at("02:00")
@@ -1058,7 +1058,7 @@ Schedule.command("telescope:prune").weekly()->sundays()->at("03:00")
 A single cron entry runs the scheduler every minute:
 
 ```
-* * * * * cd /app && python craft.py schedule:run >> /dev/null 2>&1
+* * * * * cd /app && python dev.py schedule:run >> /dev/null 2>&1
 ```
 
 `schedule:run` evaluates all scheduled tasks and dispatches those due in the current minute. Overlapping prevention is available via `->without_overlapping()` which uses an advisory lock to prevent concurrent execution.
@@ -1076,7 +1076,7 @@ A single cron entry runs the scheduler every minute:
 
 ### Overview
 
-The CLI is a Typer-based application invoked via `python craft.py <command>`. It provides scaffolding, database management, server control, and utility commands.
+The CLI is a Typer-based application invoked via `python dev.py <command>`. It provides scaffolding, database management, server control, and utility commands.
 
 ### Command Categories
 
@@ -1162,7 +1162,7 @@ The CLI is a Typer-based application invoked via `python craft.py <command>`. It
 
 ### Custom Commands
 
-Custom commands live in `app/Console/Commands/` and extend `codepy.cli.Command`. They define a `signature` (command name + arguments) and a `handle()` method. They are auto-discovered by the CLI application.
+Custom commands live in `app/Console/Commands/` and extend `craft.cli.Command`. They define a `signature` (command name + arguments) and a `handle()` method. They are auto-discovered by the CLI application.
 
 ### Command Registration
 
@@ -1200,9 +1200,9 @@ Each config file uses the `env(key, default)` helper to read environment variabl
 
 ```python
 # config/app.py
-from codepy.config import env
+from craft.config import env
 
-APP_NAME = env("APP_NAME", "Codepy")
+APP_NAME = env("APP_NAME", "Craft")
 APP_ENV = env("APP_ENV", "local")
 APP_DEBUG = env("APP_DEBUG", True)  # String "true" → boolean True
 APP_KEY = env("APP_KEY", "")
@@ -1219,7 +1219,7 @@ Config.set("app.timezone", "UTC")
 Config.has("app.key")              # → True
 
 # Via helper
-from codepy.support import config
+from craft.support import config
 config("app.debug")                 # → True
 ```
 
@@ -1251,7 +1251,7 @@ All exceptions flow through a central `Handler`. The handler has two responsibil
 ### Exception Hierarchy
 
 ```
-CodepyException (base)
+CraftException (base)
 ├── HttpException
 │   ├── NotFoundHttpException (404)
 │   ├── MethodNotAllowedHttpException (405)
@@ -1423,7 +1423,7 @@ The framework supports a modular package system where self-contained features ca
 
 ### Package Structure
 
-A Codepy package is a Python package with a specific structure:
+A Craft package is a Python package with a specific structure:
 
 ```
 my_package/
@@ -1467,7 +1467,7 @@ Application code in `app/` is auto-discovered:
 
 ### Expressive Syntax
 
-Codepy prioritizes readability and expressiveness over brevity. Code should read like natural language:
+Craft prioritizes readability and expressiveness over brevity. Code should read like natural language:
 
 | Principle | Example |
 |---|---|
@@ -1495,7 +1495,7 @@ Codepy prioritizes readability and expressiveness over brevity. Code should read
 
 ### Hot Reload
 
-During development, `codepy serve` runs uvicorn with `--reload`, which watches for file changes and restarts the server automatically. The framework also supports:
+During development, `dev serve` runs uvicorn with `--reload`, which watches for file changes and restarts the server automatically. The framework also supports:
 - Template auto-recompilation (Forge checks file mtime)
 - Config reload on change (in debug mode)
 - Migration auto-run on server start (optional, via `--migrate` flag)
@@ -1520,7 +1520,7 @@ The framework provides test helpers:
 
 ### REPL (Tinker)
 
-`codepy tinker` launches an interactive Python REPL with the application context loaded. All facades, models, and container services are available for inspection and experimentation.
+`dev tinker` launches an interactive Python REPL with the application context loaded. All facades, models, and container services are available for inspection and experimentation.
 
 ---
 
@@ -1572,7 +1572,7 @@ Mail manager with multiple drivers:
 
 ```python
 class WelcomeEmail(Mailable):
-    def envelope(self): return Envelope(subject="Welcome to Codepy")
+    def envelope(self): return Envelope(subject="Welcome to Craft")
     def content(self): return Content(view="emails.welcome", with_={"user": self.user})
     def attachments(self): return [Attachment.from_path("/path/to/file.pdf")]
 ```

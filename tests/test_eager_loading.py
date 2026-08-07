@@ -3,13 +3,13 @@
 These tests count the SQL actually issued. Asserting on results alone would pass
 just as happily with lazy loading, which is the bug being prevented.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 
-from codepy.facades import DB
+from craft.facades import DB
 from services.orm.exceptions import RelationNotFoundError
 from services.orm.model import Model
 

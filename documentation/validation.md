@@ -3,7 +3,7 @@
 ## Validator
 
 ```python
-from codepy.validation import Validator
+from craft.validation import Validator
 
 validator = Validator(request.all(), {
     "name":     ["required", "string", "max:255"],
@@ -110,7 +110,7 @@ Move rules and authorization next to the endpoint:
 
 ```python
 # app/Http/Requests/StorePostRequest.py
-from codepy.validation import FormRequest
+from craft.validation import FormRequest
 
 
 class StorePostRequest(FormRequest):
@@ -162,7 +162,7 @@ if form.fails():
 Rule messages are English by default. Translate them through the catalog:
 
 ```python
-from codepy.support import __
+from craft.support import __
 
 {"email": __("validation.email")}
 ```

@@ -1,4 +1,4 @@
-# CodePY — Naming Guidelines for Laravel-Inspired Components
+# Craft — Naming Guidelines
 
 Versão: 2026-08
 Autor: Antonio Santos
@@ -26,16 +26,16 @@ Esses nomes **não devem ser usados**.
 
 ## 3. Termos Permitidos (Seguros)
 
-| Conceito | Laravel | CodePY | Onde vive |
+| Conceito | Laravel | Craft | Onde vive |
 |---|---|---|---|
-| CLI / Console | Artisan | `craft.py` | `services/cli` |
-| ORM | Eloquent | Codepyquent | `codepy.orm` |
-| Template engine | Blade | Forge | `codepy.view` |
-| Container / IoC | `Illuminate\Container` | — | `codepy.container` |
-| Facades | Facades | — | `codepy.facades` |
-| Validação | FormRequest | — | `codepy.validation` |
-| Autorização | Gate / Policies | — | `codepy.auth` |
-| Migrations / Schema | Migrations | — | `codepy.migrations` |
+| CLI / Console | Artisan | `dev.py` | `services/cli` |
+| ORM | Eloquent | Craft ORM | `craft.orm` |
+| Template engine | Blade | Forge | `craft.view` |
+| Container / IoC | `Illuminate\Container` | — | `craft.container` |
+| Facades | Facades | — | `craft.facades` |
+| Validação | FormRequest | — | `craft.validation` |
+| Autorização | Gate / Policies | — | `craft.auth` |
+| Migrations / Schema | Migrations | — | `craft.migrations` |
 
 "Facade", "FormRequest", "Gate", "Policy", "Migration" e "Schema" são termos
 correntes da engenharia de software, não marcas.
@@ -61,7 +61,7 @@ Evitar também variações confundíveis: Artisane, Eloquente, Blader, Illuminat
 código, nem na documentação, nem na landing page, e nem como uso nominativo em
 tabelas de comparação.
 
-O uso nominativo é juridicamente defensável, mas amarra a identidade do CodePY à
+O uso nominativo é juridicamente defensável, mas amarra a identidade do Craft à
 marca de outro. O framework se descreve pelo que faz:
 
 > "A batteries-included Python web framework built on Starlette"
@@ -70,7 +70,7 @@ e não pelo que se parece.
 
 Removido em 2026-08:
 
-- Seção "Laravel ↔ Codepy Equivalence" da landing page.
+- Seção "Laravel ↔ Craft Equivalence" da landing page.
 - Tabela "Equivalências com o Laravel" do `README.md`.
 - Tabela "Coming from Laravel" de `documentation/README.md`.
 - Toda menção em docstrings, comentários, descrição do pacote e keywords.
@@ -94,7 +94,7 @@ Aplicado em 2026-08:
 - Extensão dos templates: `.blade.py` → **`.forge.py`** (14 arquivos).
 - `BladeLoader` → **`DirectiveLoader`**.
 - "Blade directives" → **"Forge directives"** em código, docstrings e docs.
-- `CODEPY_DESIGN.md`, notas em `.agents/` e a documentação foram varridos.
+- `CRAFT_DESIGN.md`, notas em `.agents/` e a documentação foram varridos.
 
 Verificação:
 
@@ -115,7 +115,7 @@ servidores. A lista da seção 4 não o inclui, mas o documento interno
 evitar e propunha **Loom** no lugar.
 
 Os dois documentos divergem nesse ponto e a decisão está em aberto. O contexto
-de uso é diferente — Laravel Forge é infraestrutura, Codepy Forge é motor de
+de uso é diferente — Laravel Forge é infraestrutura, Craft Forge é motor de
 template — o que reduz o risco de confusão, mas não o elimina.
 
 Isto não é aconselhamento jurídico. Se a decisão for trocar, o custo hoje é

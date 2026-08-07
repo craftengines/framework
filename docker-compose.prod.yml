@@ -5,14 +5,14 @@ services:
     image: postgres:15-alpine
     container_name: framework-prod-db
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-codepy}
+      POSTGRES_USER: ${DB_USERNAME:-craft}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secretpassword}
-      POSTGRES_DB: ${DB_DATABASE:-codepy_prod}
+      POSTGRES_DB: ${DB_DATABASE:-craft_prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-codepy} -d ${DB_DATABASE:-codepy_prod}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-craft} -d ${DB_DATABASE:-craft_prod}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,8 +30,8 @@ services:
       - DB_CONNECTION=pgsql
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_DATABASE=${DB_DATABASE:-codepy_prod}
-      - DB_USERNAME=${DB_USERNAME:-codepy}
+      - DB_DATABASE=${DB_DATABASE:-craft_prod}
+      - DB_USERNAME=${DB_USERNAME:-craft}
       - DB_PASSWORD=${DB_PASSWORD:-secretpassword}
     depends_on:
       db:

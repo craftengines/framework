@@ -1,5 +1,5 @@
 """Forge view engine: Forge directives, helpers and error propagation."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -135,11 +135,11 @@ class TestRendering:
     def test_share_exposes_a_global(self, forge):
         import os
 
-        forge.share("site_name", "Codepy")
+        forge.share("site_name", "Craft")
         with open(os.path.join(forge.views_dir, "shared.forge.py"), "w", encoding="utf-8") as handle:
             handle.write("{{ site_name }}")
 
-        assert forge.render("shared") == "Codepy"
+        assert forge.render("shared") == "Craft"
 
 
 class TestHelpers:

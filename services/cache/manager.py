@@ -1,9 +1,9 @@
-"""Cache manager for Codepy Framework.
+"""Cache manager for Craft Framework.
 
 Supports `array` (in-process), `file` and `redis` stores behind a single
 expressive API. TTLs are honoured by every store.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

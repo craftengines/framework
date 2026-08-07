@@ -1,10 +1,10 @@
 """Framework tables seeder — populates translations, modules, roles, and permissions."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from codepy.seeding import Seeder
-from codepy.facades import DB
+from craft.seeding import Seeder
+from craft.facades import DB
 from database.seeders.TranslationSeeder import TranslationSeeder
 from app.Models.Module import Module
 from app.Models.Role import Role
@@ -63,8 +63,8 @@ class FrameworkSeeder(Seeder):
 
         # 7. Associate Users to Roles (role_user)
         from app.Models.User import User
-        admin_user = User.query().where("email", "admin@codepy.local").first()
-        jane_user = User.query().where("email", "user@codepy.local").first()
+        admin_user = User.query().where("email", "admin@craft.local").first()
+        jane_user = User.query().where("email", "user@craft.local").first()
 
         if admin_user:
             DB.statement(

@@ -1,5 +1,5 @@
 """UUID as the framework's public identifier, alongside the integer key."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -8,7 +8,7 @@ import uuid as uuid_module
 
 import pytest
 
-from codepy.facades import DB
+from craft.facades import DB
 from services.orm.exceptions import ModelNotFoundError
 from services.orm.model import Model
 
@@ -240,8 +240,8 @@ class TestFrameworkTables:
     def test_a_new_user_gets_one(self, migrated_database):
         from app.Models.User import User
 
-        DB.statement("DELETE FROM users WHERE email = 'uuid@codepy.local'")
+        DB.statement("DELETE FROM users WHERE email = 'uuid@craft.local'")
         user = User.create(
-            {"name": "UUID", "email": "uuid@codepy.local", "password": "secret"}
+            {"name": "UUID", "email": "uuid@craft.local", "password": "secret"}
         )
         assert UUID_RE.match(user.get_attribute("uuid"))

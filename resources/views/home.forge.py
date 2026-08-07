@@ -1,6 +1,6 @@
 @extends("layouts.app")
 
-@section("title", "Codepy — The Python Framework for Expressive Web Applications")
+@section("title", "Craft — The Python Framework for Expressive Web Applications")
 
 @section("content")
     <!-- Hero Section -->
@@ -12,14 +12,14 @@
                 <span>Open Source · MIT License</span>
             </div>
             <h1 class="hero-title">
-                Codepy <sup class="hero-version">{{ config('app.version') }}</sup>
+                Craft <sup class="hero-version">{{ config('app.version') }}</sup>
             </h1>
             <p class="hero-subtitle">
                 The Python Framework for Expressive Web Applications
             </p>
             <p class="hero-description">
                 Build powerful web applications in Python with conventions that stay out of your way.
-                Codepyquent ORM, Forge templates, migrations and auth — batteries included.
+                Craft ORM, Forge templates, migrations and auth — batteries included.
             </p>
             <div class="hero-actions">
                 <a href="/docs/installation" class="btn-primary" id="hero-learn-more">
@@ -64,8 +64,8 @@
                 </div>
                 <span class="code-filename">app/Http/Controllers/PostController.py</span>
             </div>
-            <pre class="code-block"><code><span class="code-keyword">from</span> <span class="code-module">codepy.facades</span> <span class="code-keyword">import</span> Route, Auth
-<span class="code-keyword">from</span> <span class="code-module">codepy.orm.model</span> <span class="code-keyword">import</span> Model
+            <pre class="code-block"><code><span class="code-keyword">from</span> <span class="code-module">craft.facades</span> <span class="code-keyword">import</span> Route, Auth
+<span class="code-keyword">from</span> <span class="code-module">craft.orm.model</span> <span class="code-keyword">import</span> Model
 
 <span class="code-keyword">class</span> <span class="code-class">Post</span>(Model):
     __table__ = <span class="code-string">"posts"</span>
@@ -98,7 +98,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                         <h3>Install & Configure</h3>
                         <div class="step-code">
                             <code>cp .env.example .env</code>
-                            <code>python craft.py key:generate</code>
+                            <code>python dev.py key:generate</code>
                         </div>
                     </div>
                 </div>
@@ -107,7 +107,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                     <div class="step-content">
                         <h3>Migrate & Seed</h3>
                         <div class="step-code">
-                            <code>python craft.py migrate --seed</code>
+                            <code>python dev.py migrate --seed</code>
                         </div>
                     </div>
                 </div>
@@ -116,7 +116,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                     <div class="step-content">
                         <h3>Serve</h3>
                         <div class="step-code">
-                            <code>python craft.py serve</code>
+                            <code>python dev.py serve</code>
                         </div>
                     </div>
                 </div>
@@ -136,11 +136,11 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
         </div>
     </section>
 
-    <!-- Why Codepy Feature Grid -->
+    <!-- Why Craft Feature Grid -->
     <section class="section-features" id="features">
         <div class="section-container">
             <div class="section-header">
-                <span class="section-tag">Why Codepy?</span>
+                <span class="section-tag">Why Craft?</span>
                 <h2 class="section-title">Everything You Need, Nothing You Don't</h2>
                 <p class="section-description">
                     A full-featured framework that respects your time. familiar MVC conventions adapted for Python developers who demand clarity and power.
@@ -152,7 +152,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                     <div class="feature-icon feature-icon-orange">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                     </div>
-                    <h3>Codepyquent ORM</h3>
+                    <h3>Craft ORM</h3>
                     <p>Active Record with eager loading, relationships, soft deletes and a fluent query builder — expressive, and Pythonic.</p>
                 </div>
                 <!-- Feature 2 -->
@@ -193,7 +193,7 @@ Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span 
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     </div>
                     <h3>Craft CLI</h3>
-                    <p>12 generators, migrate, seed, tinker, serve, queue work — a complete console for Python. craft.py does it all.</p>
+                    <p>12 generators, migrate, seed, tinker, serve, queue work — a complete console for Python. dev.py does it all.</p>
                 </div>
             </div>
         </div>

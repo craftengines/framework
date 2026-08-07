@@ -7,7 +7,7 @@ is the boundary between your database columns and your public API.
 
 ```python
 # app/Http/Resources/PostResource.py
-from codepy.resources import Resource
+from craft.resources import Resource
 
 
 class PostResource(Resource):
@@ -22,7 +22,7 @@ class PostResource(Resource):
 ```
 
 ```bash
-python craft.py make resource Post
+python dev.py make resource Post
 ```
 
 ## Using one

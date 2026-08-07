@@ -1,5 +1,5 @@
 """Code generators backing the `craft make:*` commands."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -38,7 +38,7 @@ def table_for(model: str) -> str:
 def model_stub(name: str) -> str:
     return f'''"""{name} model."""
 
-from codepy.orm.model import Model
+from craft.orm.model import Model
 
 
 class {name}(Model):
@@ -53,7 +53,7 @@ def controller_stub(name: str, resource: bool = False) -> str:
     if not resource:
         return f'''"""{name}."""
 
-from codepy.http.controller import Controller
+from craft.http.controller import Controller
 
 
 class {name}(Controller):
@@ -63,7 +63,7 @@ class {name}(Controller):
 
     return f'''"""{name} — resource controller."""
 
-from codepy.http.controller import Controller
+from craft.http.controller import Controller
 
 
 class {name}(Controller):
@@ -103,7 +103,7 @@ class {name}:
 def request_stub(name: str) -> str:
     return f'''"""{name} form request."""
 
-from codepy.validation.form_request import FormRequest
+from craft.validation.form_request import FormRequest
 
 
 class {name}(FormRequest):
@@ -120,7 +120,7 @@ class {name}(FormRequest):
 def resource_stub(name: str) -> str:
     return f'''"""{name} API resource."""
 
-from codepy.resources import Resource
+from craft.resources import Resource
 
 
 class {name}(Resource):
@@ -134,7 +134,7 @@ class {name}(Resource):
 def job_stub(name: str) -> str:
     return f'''"""{name} queued job."""
 
-from codepy.queue import Job
+from craft.queue import Job
 
 
 class {name}(Job):
@@ -149,7 +149,7 @@ class {name}(Job):
 def event_stub(name: str) -> str:
     return f'''"""{name} event."""
 
-from codepy.events.event import Event
+from craft.events.event import Event
 
 
 class {name}(Event):
@@ -193,7 +193,7 @@ class {name}:
 def seeder_stub(name: str) -> str:
     return f'''"""{name}."""
 
-from codepy.seeding import Seeder
+from craft.seeding import Seeder
 
 
 class {name}(Seeder):
@@ -206,7 +206,7 @@ def factory_stub(name: str) -> str:
     model = name[:-7] if name.endswith("Factory") else name
     return f'''"""{name}."""
 
-from codepy.factories import Factory
+from craft.factories import Factory
 from faker import Faker
 
 

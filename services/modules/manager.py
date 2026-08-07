@@ -4,14 +4,14 @@ Category: Subsystem (Core Framework).
 Relations:
   - Interacts with app.Models.Module.Module model / DB facade for modules table.
 References:
-  - Skill: `codepy-development` ([SKILL.md](file:///d:/data/www/codepy/.agents/skills/codepy-development/SKILL.md))
+  - Skill: `craft-development` ([SKILL.md](file:///d:/data/www/craft/.agents/skills/craft-development/SKILL.md))
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 from typing import Dict, List, Optional
-from codepy.facades import DB
+from craft.facades import DB
 
 
 class ModuleManager:

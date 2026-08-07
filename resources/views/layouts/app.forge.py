@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield("title", "Codepy Framework")</title>
+    <title>@yield("title", "Craft Framework")</title>
 
     {#
         Self-hosted assets. Nothing is fetched from a CDN, so the application
@@ -11,11 +11,11 @@
         `asset()` appends ?ver= from the app version — bump the version and
         every cached file is invalidated at once.
     #}
-    <link rel="stylesheet" href="{{ asset('assets/css/codepy-theme.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/codepy-utilities.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/codepy-responsive.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/codepy-animate.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/codepy-components.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/craft-theme.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/craft-utilities.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/craft-responsive.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/craft-animate.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/craft-components.css') }}">
 </head>
 <body class="min-h-full font-sans antialiased bg-slate-50/50 flex flex-col">
     {% if not show_sidebar %}
@@ -29,7 +29,7 @@
                         <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                         <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    <span class="text-xl font-bold tracking-tight text-orange-600 font-sans">Codepy</span>
+                    <span class="text-xl font-bold tracking-tight text-orange-600 font-sans">Craft</span>
                 </a>
             </div>
             
@@ -75,7 +75,7 @@
         <div class="flex items-center h-16 px-4.5 border-b border-slate-900 overflow-hidden whitespace-nowrap">
             <a href="/" class="flex items-center space-x-2">
                 <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">C</span>
-                <span class="text-xl font-extrabold tracking-tight text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">Codepy</span>
+                <span class="text-xl font-extrabold tracking-tight text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">Craft</span>
                 <span class="text-[9px] font-bold uppercase bg-orange-500/10 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75 whitespace-nowrap">{{ config('app.version') }} {{ config('app.release') }}</span>
             </a>
         </div>
@@ -132,7 +132,7 @@
     <!-- Mobile Top Navigation Bar -->
     <header class="md:hidden flex items-center justify-between h-16 px-6 bg-slate-950 text-white border-b border-slate-900 w-full z-20">
         <a href="/" class="flex items-center space-x-2">
-            <span class="text-xl font-extrabold tracking-tight text-white">Codepy</span>
+            <span class="text-xl font-extrabold tracking-tight text-white">Craft</span>
         </a>
         <div class="flex items-center space-x-4">
             <a href="/" class="text-sm font-semibold text-slate-300 hover:text-white">Dashboard</a>
@@ -172,9 +172,9 @@
 
         <!-- Footer -->
         <footer class="bg-white border-t border-slate-200/60 py-6 text-center text-xs text-slate-400 mt-auto">
-            <p>Codepy Framework {{ config('app.version') }} ({{ config('app.release') }}) &copy; 2026. All rights reserved.</p>
+            <p>Craft Framework {{ config('app.version') }} ({{ config('app.release') }}) &copy; 2026. All rights reserved.</p>
         </footer>
     </div>
-    <script src="{{ asset('assets/js/codepy.js') }}" defer></script>
+    <script src="{{ asset('assets/js/craft.js') }}" defer></script>
 </body>
 </html>

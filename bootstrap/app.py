@@ -1,5 +1,5 @@
-"""Application bootstrap — creates and boots the Codepy application."""
-# Codepy Framework
+"""Application bootstrap — creates and boots the Craft application."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -9,19 +9,19 @@ import os
 import services
 
 
-from codepy.container.application import Application
-from codepy.facades.base import Facade
+from craft.container.application import Application
+from craft.facades.base import Facade
 
 
 def create_app() -> Application:
-    """Create and bootstrap the Codepy application."""
+    """Create and bootstrap the Craft application."""
     app = Application(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     # Load config
     app.register_config()
 
     # Register framework service providers
-    from codepy.providers.service_providers import (
+    from craft.providers.service_providers import (
         DatabaseServiceProvider,
         RouterServiceProvider,
         ViewServiceProvider,
@@ -75,11 +75,11 @@ def create_app() -> Application:
 app = create_app()
 
 # Build the ASGI application
-from codepy.http.kernel import Kernel
+from craft.http.kernel import Kernel
 from app.Http.Middleware.DatabaseLoggingMiddleware import DatabaseLoggingMiddleware
 from app.Http.Middleware.TenantMiddleware import TenantMiddleware
 
-from codepy.http.middleware import Authenticate, SetLocale, StartSession, VerifyCsrfToken
+from craft.http.middleware import Authenticate, SetLocale, StartSession, VerifyCsrfToken
 
 kernel = Kernel(app)
 

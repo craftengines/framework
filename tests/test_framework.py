@@ -1,14 +1,14 @@
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import pytest
 from starlette.testclient import TestClient
 from bootstrap.app import app, asgi_app
-from codepy.facades import Route, DB, Config, Queue
+from craft.facades import Route, DB, Config, Queue
 from app.Models.User import User
 from app.Models.Post import Post
-from codepy.queue import Job
+from craft.queue import Job
 
 # Global variable to test job execution
 JOB_EXECUTED_VAL = None
@@ -29,10 +29,10 @@ def test_container_singleton():
 
 def test_config_repository():
     config = app.make("config")
-    assert config.get("app.name", "Codepy") == "Codepy"
+    assert config.get("app.name", "Craft") == "Craft"
 
 def test_validation():
-    from codepy.validation.validator import Validator
+    from craft.validation.validator import Validator
     
     rules = {
         "name": ["required", "string"],
@@ -167,8 +167,8 @@ def test_queue_json_serialization():
 
 
 def test_ai_native_subsystems():
-    from codepy.support import __
-    from codepy.facades import Config, DB, Route
+    from craft.support import __
+    from craft.facades import Config, DB, Route
 
     # Drop existing tables to avoid test contamination from global seeders
     DB.statement("DROP TABLE IF EXISTS translations")
@@ -188,11 +188,11 @@ def test_ai_native_subsystems():
 
     # Create dummy translations table
     DB.statement("CREATE TABLE translations (key text, locale text, value text)")
-    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'en', 'Welcome to Codepy')")
-    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'es', 'Bienvenido a Codepy')")
+    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'en', 'Welcome to Craft')")
+    DB.statement("INSERT INTO translations (key, locale, value) VALUES ('welcome', 'es', 'Bienvenido a Craft')")
 
-    assert __("welcome", "en") == "Welcome to Codepy"
-    assert __("welcome", "es") == "Bienvenido a Codepy"
+    assert __("welcome", "en") == "Welcome to Craft"
+    assert __("welcome", "es") == "Bienvenido a Craft"
 
     # 2. Test Dynamic Start/Stop Modules Routing
     # Register a new route dynamically under a module
@@ -235,7 +235,7 @@ def test_rbac_relationships_and_permissions():
     from app.Models.User import User
     from app.Models.Role import Role
     from app.Models.Permission import Permission
-    from codepy.facades import DB
+    from craft.facades import DB
 
     # Clean tables
     DB.statement("DELETE FROM permission_role")
@@ -291,8 +291,8 @@ def test_rbac_relationships_and_permissions():
 
 
 def test_post_quantum_security():
-    from codepy.facades import PQC
-    from codepy.security.pqc import WOTS
+    from craft.facades import PQC
+    from craft.security.pqc import WOTS
     import secrets
 
     # 1. Test WOTS post-quantum signature verification
@@ -334,8 +334,8 @@ def test_post_quantum_security():
 
 
 def test_captcha_security():
-    from codepy.facades import Captcha
-    from codepy.security.captcha import Captcha as CaptchaClass
+    from craft.facades import Captcha
+    from craft.security.captcha import Captcha as CaptchaClass
 
     # Mock Session and Request to test generation and validation isolation
     class MockSession(dict):
@@ -374,7 +374,7 @@ def test_captcha_security():
 
 
 def test_admin_dashboard_access():
-    from codepy.facades import Auth
+    from craft.facades import Auth
     Auth.logout()
     
     client = TestClient(asgi_app)
@@ -416,7 +416,7 @@ def test_database_logging_middleware():
 
 def test_query_splitting_read_write_replicas():
     import os
-    from codepy.orm.db import DatabaseManager
+    from craft.orm.db import DatabaseManager
     from app.Models.User import User
 
     # 1. Setup temporary sqlite files
@@ -531,7 +531,7 @@ def test_query_splitting_read_write_replicas():
 
 
 def test_framework_subsystems_modules_plugins_settings():
-    from codepy.facades import Module, Plugin, Setting
+    from craft.facades import Module, Plugin, Setting
 
     # 1. Test ModuleManager
     Module.register("billing", "Billing Module", "Manages payments and invoices", "2.0.0")
@@ -550,8 +550,8 @@ def test_framework_subsystems_modules_plugins_settings():
     assert hook_triggered == [150.00]
 
     # 3. Test SettingManager
-    assert Setting.get("FRAMEWORK_NAME", "Codepy") == "Codepy"
-    Setting.set("site_title", "My Codepy Application")
-    assert Setting.get("site_title") == "My Codepy Application"
+    assert Setting.get("FRAMEWORK_NAME", "Craft") == "Craft"
+    Setting.set("site_title", "My Craft Application")
+    assert Setting.get("site_title") == "My Craft Application"
 
 

@@ -1,4 +1,4 @@
-// Codepy Framework — Landing Page Interactions
+// Craft Framework — Landing Page Interactions
 // Intersection Observer for scroll-reveal animations
 
 document.addEventListener("DOMContentLoaded", function () {

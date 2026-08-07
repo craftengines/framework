@@ -1,5 +1,5 @@
-"""Base Facade class for Codepy Framework with FacadeMeta metaclass."""
-# Codepy Framework
+"""Base Facade class for Craft Framework with FacadeMeta metaclass."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

@@ -1,13 +1,13 @@
-# Codepy
+# Craft
 
 Um framework web Python completo, construído sobre **Starlette**. Este repositório é o **esqueleto base** para criar novas
 aplicações — o o esqueleto que se copia para iniciar uma app.
 
-O core vive em `services/` e é exposto publicamente como `codepy.*`.
+O core vive em `services/` e é exposto publicamente como `craft.*`.
 
 ```python
-from codepy.facades import Route, DB, Auth
-from codepy.orm.model import Model
+from craft.facades import Route, DB, Auth
+from craft.orm.model import Model
 ```
 
 **394 testes**, validados em SQLite, PostgreSQL e Python 3.11.
@@ -18,9 +18,9 @@ from codepy.orm.model import Model
 
 ```bash
 cp .env.example .env
-python craft.py key:generate        # assina os cookies de sessão
-python craft.py migrate --seed
-python craft.py serve
+python dev.py key:generate        # assina os cookies de sessão
+python dev.py migrate --seed
+python dev.py serve
 ```
 
 Ou com Docker (app em `http://localhost:8300`):
@@ -31,20 +31,20 @@ docker compose up -d --build
 
 ---
 
-## O CLI `craft`
+## O CLI `dev`
 
 ```bash
-python craft.py migrate                 # aplica migrations pendentes
-python craft.py migrate:status          # o que rodou e em qual batch
-python craft.py migrate:rollback        # reverte o último batch
-python craft.py migrate:fresh --seed    # dropa tudo, recria e popula
-python craft.py db seed                 # roda o DatabaseSeeder
-python craft.py db show|tables|ping     # inspeciona a conexão
-python craft.py route list              # todas as rotas registradas
-python craft.py make model Product -m   # model + migration
-python craft.py make controller Product -r
-python craft.py queue work              # processa a fila
-python craft.py tinker                  # shell com a app carregada
+python dev.py migrate                 # aplica migrations pendentes
+python dev.py migrate:status          # o que rodou e em qual batch
+python dev.py migrate:rollback        # reverte o último batch
+python dev.py migrate:fresh --seed    # dropa tudo, recria e popula
+python dev.py db seed                 # roda o DatabaseSeeder
+python dev.py db show|tables|ping     # inspeciona a conexão
+python dev.py route list              # todas as rotas registradas
+python dev.py make model Product -m   # model + migration
+python dev.py make controller Product -r
+python dev.py queue work              # processa a fila
+python dev.py tinker                  # shell com a app carregada
 ```
 
 Aceita as duas formas: `migrate:status` e `migrate status`.
@@ -59,7 +59,7 @@ app/                     Código da aplicação
   Http/Middleware/       Middleware
   Http/Requests/         FormRequests (autorização + validação)
   Http/Resources/        Transformers JSON
-  Models/                Models Codepyquent (Active Record)
+  Models/                Models Craft ORM (Active Record)
   Policies/ Events/ Listeners/ Jobs/ Providers/ Services/
 bootstrap/app.py         Cria o container, registra providers, monta o kernel
 config/                  app, auth, cache, database, logging, queue, session
@@ -67,10 +67,10 @@ database/                migrations/ seeders/ factories/
 public/index.py          Front controller (`application = asgi_app`)
 resources/views/         Templates Forge
 routes/                  web.py, api.py, console.py
-services/                O framework (exposto como codepy.*)
+services/                O framework (exposto como craft.*)
 storage/                 logs, cache e sessões
 tests/                   Suíte pytest
-craft.py                 CLI
+dev.py                 CLI
 ```
 
 ---
@@ -83,7 +83,7 @@ schema builder gera DDL por dialeto.
 
 ```python
 # database/migrations/2026_01_01_000001_create_products_table.py
-from codepy.migrations import Schema
+from craft.migrations import Schema
 
 def up():
     Schema.create_table("products", lambda t: (
@@ -110,7 +110,7 @@ DB.set_tenant_schema("tenant_42")
 
 ---
 
-## ORM (Codepyquent)
+## ORM (Craft ORM)
 
 ```python
 class Post(Model):
@@ -276,10 +276,10 @@ processo consegue reconstruí-los. Retry com backoff e `available_at` inclusos.
 python -m pytest                       # SQLite em memória (padrão)
 
 # PostgreSQL real
-$env:CODEPY_TEST_DB="pgsql"
+$env:CRAFT_TEST_DB="pgsql"
 $env:DB_HOST="127.0.0.1"; $env:DB_PORT="5499"
-$env:DB_DATABASE="codepy_validation"
-$env:DB_USERNAME="codepy"; $env:DB_PASSWORD="secretpassword"
+$env:DB_DATABASE="craft_validation"
+$env:DB_USERNAME="craft"; $env:DB_PASSWORD="secretpassword"
 python -m pytest
 
 docker exec framework python -m pytest  # Python 3.11, a versão mínima
@@ -295,7 +295,7 @@ são exercitadas a cada rodada em vez de dependerem de fixtures paralelas.
 A documentação completa está em [`documentation/`](documentation/README.md):
 instalação, configuração, container, rotas, controllers, views, validação,
 migrations, ORM, segurança, sessões, cache, filas, resources, i18n, testes,
-deploy e a referência do `craft`.
+deploy e a referência do `dev`.
 
 - [`CHANGELOG.md`](CHANGELOG.md) — o que mudou, em formato Keep a Changelog.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — como contribuir.

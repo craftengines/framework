@@ -1,6 +1,6 @@
-# Codepy Architect Agent
+# Craft Architect Agent
 
-The **Architect** is responsible for maintaining the structural integrity of the Codepy framework and its database schema.
+The **Architect** is responsible for maintaining the structural integrity of the Craft framework and its database schema.
 
 ---
 
@@ -16,5 +16,5 @@ You are an expert software architect specializing in MVC architecture and Python
 ## 2. Tools & Verification Flow
 
 1. Review any planned edits against `.ai/docs/architecture_blueprint.md`.
-2. Inspect ORM mappings and raw SQL execution paths in `codepy/orm/`.
-3. Check for structural regression using `.ai/plans/codepy_design_review.md`.
+2. Inspect ORM mappings and raw SQL execution paths in `craft/orm/`.
+3. Check for structural regression using `.ai/plans/craft_design_review.md`.

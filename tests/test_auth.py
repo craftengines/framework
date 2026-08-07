@@ -1,5 +1,5 @@
 """Password hashing, authentication and the authorization gate."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -51,13 +51,13 @@ class TestAuthManager:
     def user(self):
         from app.Models.User import User
 
-        from codepy.facades import DB
+        from craft.facades import DB
 
-        DB.statement("DELETE FROM users WHERE email = 'auth-test@codepy.local'")
+        DB.statement("DELETE FROM users WHERE email = 'auth-test@craft.local'")
         return User.create(
             {
                 "name": "Auth Test",
-                "email": "auth-test@codepy.local",
+                "email": "auth-test@craft.local",
                 "password": "correct-horse",
                 "is_admin": False,
             }
@@ -74,25 +74,25 @@ class TestAuthManager:
 
     def test_attempt_succeeds_with_valid_credentials(self, auth, user):
         assert auth.attempt(
-            {"email": "auth-test@codepy.local", "password": "correct-horse"}
+            {"email": "auth-test@craft.local", "password": "correct-horse"}
         ) is True
         assert auth.check() is True
-        assert auth.user().get_attribute("email") == "auth-test@codepy.local"
+        assert auth.user().get_attribute("email") == "auth-test@craft.local"
 
     def test_attempt_fails_with_a_wrong_password(self, auth, user):
         assert auth.attempt(
-            {"email": "auth-test@codepy.local", "password": "nope"}
+            {"email": "auth-test@craft.local", "password": "nope"}
         ) is False
         assert auth.guest() is True
 
     def test_attempt_fails_for_an_unknown_user(self, auth, user):
-        assert auth.attempt({"email": "ghost@codepy.local", "password": "x"}) is False
+        assert auth.attempt({"email": "ghost@craft.local", "password": "x"}) is False
 
     def test_attempt_without_a_password_fails(self, auth, user):
-        assert auth.attempt({"email": "auth-test@codepy.local"}) is False
+        assert auth.attempt({"email": "auth-test@craft.local"}) is False
 
     def test_logout_clears_the_user(self, auth, user):
-        auth.attempt({"email": "auth-test@codepy.local", "password": "correct-horse"})
+        auth.attempt({"email": "auth-test@craft.local", "password": "correct-horse"})
         auth.logout()
         assert auth.check() is False
 
@@ -102,7 +102,7 @@ class TestAuthManager:
 
     def test_once_authenticates_without_persisting(self, auth, user):
         assert auth.once(
-            {"email": "auth-test@codepy.local", "password": "correct-horse"}
+            {"email": "auth-test@craft.local", "password": "correct-horse"}
         ) is True
         assert auth.guest() is True
 

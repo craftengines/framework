@@ -6,14 +6,14 @@ how many records exist or lets someone walk the table by incrementing a number.
 
 Models fill it in automatically; see `Model.uses_uuid`.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import uuid as uuid_module
 
-from codepy.facades import DB
-from codepy.migrations import Migration, Schema
+from craft.facades import DB
+from craft.migrations import Migration, Schema
 
 TABLES = ["users", "posts", "roles", "permissions", "modules"]
 

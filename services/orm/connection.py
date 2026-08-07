@@ -1,10 +1,10 @@
-"""Database connection layer for Codepy Framework.
+"""Database connection layer for Craft Framework.
 
 Provides a driver-agnostic connection wrapper over sqlite3, psycopg2 (PostgreSQL)
 and PyMySQL/mysqlclient (MySQL), normalising placeholders and row access so the
 rest of the framework can speak a single dialect-neutral SQL flavour.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 

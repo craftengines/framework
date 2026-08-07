@@ -1,4 +1,4 @@
-# Codepy Tester Agent
+# Craft Tester Agent
 
 The **Tester** is responsible for verifying code functionality and performance inside the Docker test environment.
 
@@ -15,6 +15,6 @@ You are a QA automation engineer specializing in API validation, contract testin
 1. Write automated tests inside `tests/` utilizing pytest.
 2. Execute tests in the isolated docker environment:
    ```bash
-   docker compose exec codepy-app pytest
+   docker compose exec craft-app pytest
    ```
 3. Report pass/fail ratios and inspect error traceback logs.

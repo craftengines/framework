@@ -1,5 +1,5 @@
 """Session, CSRF and authentication across real HTTP requests."""
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -7,7 +7,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from bootstrap.app import app, asgi_app
-from codepy.facades import DB, Route
+from craft.facades import DB, Route
 from services.http.middleware import Authenticate
 
 
@@ -70,9 +70,9 @@ def client():
 def user(migrated_database):
     from app.Models.User import User
 
-    DB.statement("DELETE FROM users WHERE email = 'mw@codepy.local'")
+    DB.statement("DELETE FROM users WHERE email = 'mw@craft.local'")
     return User.create(
-        {"name": "MW", "email": "mw@codepy.local", "password": "s3cret", "is_admin": False}
+        {"name": "MW", "email": "mw@craft.local", "password": "s3cret", "is_admin": False}
     )
 
 
@@ -83,7 +83,7 @@ def csrf_for(client) -> str:
 class TestSessionAcrossRequests:
     def test_a_session_cookie_is_issued(self, client):
         response = client.get("/t/counter")
-        assert "codepy_session" in response.cookies
+        assert "craft_session" in response.cookies
 
     def test_values_persist_between_requests(self, client):
         assert client.get("/t/counter").json()["count"] == 1
@@ -170,17 +170,17 @@ class TestAuthenticationAcrossRequests:
         token = csrf_for(client)
         assert client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "s3cret", "_token": token},
+            data={"email": "mw@craft.local", "password": "s3cret", "_token": token},
         ).json()["ok"] is True
 
         # The real proof: a *separate* request still knows who we are.
-        assert client.get("/t/whoami").json()["user"] == "mw@codepy.local"
+        assert client.get("/t/whoami").json()["user"] == "mw@craft.local"
 
     def test_wrong_password_does_not_authenticate(self, client, user):
         token = csrf_for(client)
         client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "wrong", "_token": token},
+            data={"email": "mw@craft.local", "password": "wrong", "_token": token},
         )
         assert client.get("/t/whoami").json()["user"] is None
 
@@ -188,9 +188,9 @@ class TestAuthenticationAcrossRequests:
         token = csrf_for(client)
         client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "s3cret", "_token": token},
+            data={"email": "mw@craft.local", "password": "s3cret", "_token": token},
         )
-        assert client.get("/t/whoami").json()["user"] == "mw@codepy.local"
+        assert client.get("/t/whoami").json()["user"] == "mw@craft.local"
 
         client.post("/t/logout", data={"_token": csrf_for(client)})
         assert client.get("/t/whoami").json()["user"] is None
@@ -199,7 +199,7 @@ class TestAuthenticationAcrossRequests:
         token = csrf_for(client)
         client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "s3cret", "_token": token},
+            data={"email": "mw@craft.local", "password": "s3cret", "_token": token},
         )
         stranger = TestClient(asgi_app)
         assert stranger.get("/t/whoami").json()["user"] is None
@@ -208,21 +208,21 @@ class TestAuthenticationAcrossRequests:
         token = csrf_for(client)
         client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "s3cret", "_token": token},
+            data={"email": "mw@craft.local", "password": "s3cret", "_token": token},
         )
-        DB.statement("DELETE FROM users WHERE email = 'mw@codepy.local'")
+        DB.statement("DELETE FROM users WHERE email = 'mw@craft.local'")
         assert client.get("/t/whoami").json()["user"] is None
 
     def test_login_rotates_the_session_id(self, client, user):
         before = client.get("/t/token")
-        cookie_before = before.cookies.get("codepy_session")
+        cookie_before = before.cookies.get("craft_session")
 
         token = csrf_for(client)
         after = client.post(
             "/t/login",
-            data={"email": "mw@codepy.local", "password": "s3cret", "_token": token},
+            data={"email": "mw@craft.local", "password": "s3cret", "_token": token},
         )
-        assert after.cookies.get("codepy_session") != cookie_before
+        assert after.cookies.get("craft_session") != cookie_before
 
 
 class TestAuthMiddlewareUnits:

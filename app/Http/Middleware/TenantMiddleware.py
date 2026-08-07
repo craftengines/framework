@@ -5,16 +5,16 @@ Relations:
   - Interacts with Auth and DB facades to bound schemas dynamically per request context.
   - Automatically migrates and sets up schema dependencies on first connection.
 References:
-  - Documentation: [documentation/orm.md](file:///d:/data/www/codepy/documentation/orm.md)
-  - Skill: `codepy-development` ([SKILL.md](file:///d:/data/www/codepy/.agents/skills/codepy-development/SKILL.md))
+  - Documentation: [documentation/orm.md](file:///d:/data/www/craft/documentation/orm.md)
+  - Skill: `craft-development` ([SKILL.md](file:///d:/data/www/craft/.agents/skills/craft-development/SKILL.md))
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import re
-from codepy.http.middleware import Middleware
-from codepy.facades import Auth, DB
+from craft.http.middleware import Middleware
+from craft.facades import Auth, DB
 
 class TenantMiddleware(Middleware):
     def handle(self, request, next):

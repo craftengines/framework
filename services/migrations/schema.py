@@ -1,9 +1,9 @@
-"""Schema builder for Codepy Framework migrations.
+"""Schema builder for Craft Framework migrations.
 
 Provides a fluent `Blueprint` that compiles to dialect-specific
 DDL for SQLite, PostgreSQL and MySQL.
 """
-# Codepy Framework
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -483,5 +483,5 @@ class SchemaBuilder:
         return [row["column_name"] for row in rows]
 
 
-# Module-level facade used by migration files: `from codepy.migrations import Schema`
+# Module-level facade used by migration files: `from craft.migrations import Schema`
 Schema = SchemaBuilder()

@@ -1,5 +1,5 @@
-"""Collection and Helper utilities for Codepy Framework."""
-# Codepy Framework
+"""Collection and Helper utilities for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -60,5 +60,5 @@ class Collection:
 
 
 # The translation helper lives in `services.support.translation`; re-exported
-# here so `from codepy.support.collection import __` keeps working.
+# here so `from craft.support.collection import __` keeps working.
 from services.support.translation import __, translate  # noqa: E402,F401

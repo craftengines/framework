@@ -1,5 +1,5 @@
-"""Captcha security implementation for Codepy Framework."""
-# Codepy Framework
+"""Captcha security implementation for Craft Framework."""
+# Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
@@ -34,7 +34,7 @@ class Captcha:
                 f"transform:rotate({rotation}deg) translateY({offset}px);"
                 f'padding:0 2px">{character}</span>'
             )
-        return f'<span class="codepy-captcha">{"".join(spans)}</span>'
+        return f'<span class="craft-captcha">{"".join(spans)}</span>'
 
     @staticmethod
     def validate(request: Any, code: str) -> bool:

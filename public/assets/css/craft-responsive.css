@@ -1,6 +1,6 @@
 /*!
- * codepy-responsive.css — breakpoint variants (md:, lg:).
- * Codepy Framework · Copyright (c) 2026 Antonio Santos · MIT
+ * craft-responsive.css — breakpoint variants (md:, lg:).
+ * Craft Framework · Copyright (c) 2026 Antonio Santos · MIT
  */
 
 @media (min-width: 768px) {
@@ -18,7 +18,7 @@
     .md\:p-10 { padding: 2.5rem; }
     .md\:p-12 { padding: 3rem; }
     .md\:px-12 { padding-inline: 3rem; }
-    .md\:text-3xl { font-size: var(--codepy-text-3xl); }
+    .md\:text-3xl { font-size: var(--craft-text-3xl); }
     .md\:w-1\/2 { width: 50%; }
 }
 

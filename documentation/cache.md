@@ -1,7 +1,7 @@
 # Cache
 
 ```python
-from codepy.facades import Cache
+from craft.facades import Cache
 
 Cache.put("stats", value, ttl=300)
 Cache.get("stats", default=None)
@@ -82,7 +82,7 @@ booleans and `None`. Model instances are not; cache `model.to_dict()` instead.
 ## Clearing
 
 ```bash
-python craft.py cache clear
+python dev.py cache clear
 ```
 
 ## In tests

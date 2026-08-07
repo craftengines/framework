@@ -6,7 +6,7 @@ autowires constructors from type annotations.
 ## Binding
 
 ```python
-from codepy.facades import App   # or the `app` from bootstrap
+from craft.facades import App   # or the `app` from bootstrap
 
 app.bind("mailer", lambda c: Mailer(c.make("config")))   # new instance each time
 app.singleton("mailer", lambda c: Mailer())              # built once, reused
@@ -54,7 +54,7 @@ Facades, models and helpers reach the container through
 `Container.getInstance()`. The booted application claims that slot.
 
 ```python
-from codepy.container.application import Application, Container
+from craft.container.application import Application, Container
 
 app = Application(base_path)             # claims the global if no app holds it
 Application(base_path, bind_as_global=False)   # never claims it
@@ -106,7 +106,7 @@ provider first, so `boot()` can rely on anything being bound.
 
 ```python
 # app/Providers/AppServiceProvider.py
-from codepy.providers import ServiceProvider
+from craft.providers import ServiceProvider
 
 
 class AppServiceProvider(ServiceProvider):
@@ -130,7 +130,7 @@ A provider registered after `app.boot()` boots immediately.
 Facades are a static front for a container binding:
 
 ```python
-from codepy.facades import DB, Auth, Cache, Config, Route, View
+from craft.facades import DB, Auth, Cache, Config, Route, View
 
 DB.statement("SELECT 1")
 Auth.check()
@@ -148,7 +148,7 @@ those names, and answering them resolved the container before the app booted.
 Write your own by naming the binding:
 
 ```python
-from codepy.facades.base import Facade
+from craft.facades.base import Facade
 
 
 class Mail(Facade):
