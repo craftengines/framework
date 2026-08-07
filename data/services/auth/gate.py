@@ -39,6 +39,16 @@ class GateManager:
                 if callable(method):
                     return bool(method(user, *args))
 
+        # Fall back to the RBAC permission system: a permission slug works as
+        # a Gate ability without anyone having to manually register a closure.
+        has_permission = getattr(user, "has_permission", None)
+        if callable(has_permission):
+            try:
+                if has_permission(ability):
+                    return True
+            except Exception:
+                pass
+
         # Deny by default: an unknown ability must never grant access.
         return False
 

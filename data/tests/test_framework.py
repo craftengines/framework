@@ -193,6 +193,37 @@ def test_queue_pop_reserves_the_job():
         config.set("queue.connections.default.driver", original_driver)
 
 
+def _restore_translations_and_modules_schema(app):
+    """Rebuild `translations`/`modules` to the real migrated shape.
+
+    `test_ai_native_subsystems` replaces both tables with ad-hoc, reduced
+    schemas to exercise DB-driven behavior in isolation. The shared in-memory
+    database is session-scoped, so leaving them reduced broke every later
+    test expecting the real schema — `test_subsystems_persistence.py` worked
+    around this for its own `modules` usage with an identical rebuild, but
+    anything running between this test and that one (alphabetically) still
+    saw the reduced table. Fix at the source instead of adding another
+    downstream workaround.
+    """
+    schema = app.make("schema")
+    for table in ("translations", "modules"):
+        DB.statement(f"DROP TABLE IF EXISTS {table}")
+    schema.create_table("translations", lambda t: (
+        t.id(),
+        t.string("key"),
+        t.string("locale"),
+        t.text("value"),
+        t.timestamps(),
+    ))
+    schema.create_table("modules", lambda t: (
+        t.id(),
+        t.string("name"),
+        t.string("slug").unique(),
+        t.boolean("enabled").default(True),
+        t.timestamps(),
+    ))
+
+
 def test_ai_native_subsystems():
     from craft.support import __
     from craft.facades import Config, DB, Route
@@ -201,6 +232,13 @@ def test_ai_native_subsystems():
     DB.statement("DROP TABLE IF EXISTS translations")
     DB.statement("DROP TABLE IF EXISTS modules")
 
+    try:
+        _test_ai_native_subsystems_body(__, Config, DB, Route)
+    finally:
+        _restore_translations_and_modules_schema(app)
+
+
+def _test_ai_native_subsystems_body(__, Config, DB, Route):
     # 1. Test Bilingual dynamic DB and config translations
     assert __("greeting") == "greeting"
 

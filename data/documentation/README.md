@@ -34,6 +34,7 @@ A batteries-included Python web framework built on Starlette.
 | Guide | What it covers |
 |---|---|
 | [Security](security.md) | Authentication, authorization, sessions, CSRF |
+| [Authorization (RBAC)](authorization.md) | Roles, permissions, the Gate fallback, `role:`/`permission:` middleware |
 | [Sessions](sessions.md) | Drivers, flash data, CSRF tokens |
 | [Cache](cache.md) | Stores, TTL, `remember` |
 | [Queues and events](queues_events.md) | Jobs, workers, listeners |

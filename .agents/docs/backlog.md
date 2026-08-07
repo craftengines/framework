@@ -62,6 +62,30 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
   arquivos e rotas distintos, confirmado por teste). Validado ao vivo: gerado
   `Product`, migrado, gate de auth confirmado (302 sem login). 641/641 testes
   (+8 novos). Limpo depois — nenhum resíduo de `Product` ficou no repo.
+- ✅ **RBAC funcional (2026-08-07)**: `has_role()`, fallback de permissão no
+  `Gate.allows()`, middleware `role:<slug>`/`permission:<slug>` (alias
+  parametrizado novo no kernel), CLI (`role:*`, `permission:*`,
+  `user:assign-role`), UI admin em `/admin/roles`/`/admin/permissions`.
+  Os 3 logins demo (`user@craft.local`, `tenant@craft.local`,
+  `admin@craft.local`, senha `craft` para todos) agora são oficialmente
+  documentados no `README.md` como credenciais padrão do framework — o
+  usuário `tenant` que não tinha nenhum papel atribuído ganhou o papel novo
+  `tenant-manager`, fechando a escada de 3 níveis. Dois bugs reais
+  encontrados e corrigidos durante a validação (não pelo agente que
+  implementou — só apareceram ao rodar a suíte completa):
+  1. Alias parametrizado usado sem parâmetro (`"role"` em vez de
+     `"role:admin"`) estourava `TypeError` cru em vez de `KeyError`
+     acionável.
+  2. **Poluição de teste entre arquivos**: `test_framework.py` substituía
+     `modules`/`translations` por schema reduzido e nunca restaurava —
+     como o banco de teste é compartilhado (session-scoped), todo arquivo
+     que rodasse depois (em ordem alfabética, antes do workaround não
+     relacionado do `test_subsystems_persistence.py`) via o schema quebrado.
+     `test_rbac.py` só falhava como parte da suíte completa, nunca isolado
+     — exatamente o tipo de bug que o `CONTRIBUTING.md` pede para nunca
+     acontecer. Corrigido na origem.
+  658/658 testes. Validado ao vivo: CLI `role:list`/`permission:list`
+  mostrando a escada de 3 níveis, `/admin/roles` redirecionando sem login.
 - CRUD builder ainda sem reordenar linhas de campo (só adicionar/remover).
 - Sem validação client-side no formulário do CRUD builder antes do submit.
 

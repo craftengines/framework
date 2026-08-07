@@ -400,3 +400,17 @@ class Model:
             read=True
         )
         return len(res.fetchall()) > 0
+
+    def has_role(self, slug: str) -> bool:
+        from services.container.application import Container
+        db = Container.getInstance().make("db")
+        res = db.statement(
+            """
+            SELECT r.slug FROM roles r
+            JOIN role_user ru ON r.id = ru.role_id
+            WHERE ru.user_id = ? AND r.slug = ?
+            """,
+            [self.get_attribute("id"), slug],
+            read=True
+        )
+        return len(res.fetchall()) > 0

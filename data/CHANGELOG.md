@@ -22,6 +22,51 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **Functional RBAC**, not just a data model. `roles`/`permissions` tables
+  existed before but had no enforcement layer — now: `Model.has_role(slug)`
+  (mirroring the existing `has_permission`), a third fallback tier on
+  `GateManager.allows()` (ability closure → policy → `user.has_permission()`
+  → deny by default), `RequireRole`/`RequirePermission` middleware with
+  parameterized route-middleware aliases (`role:admin`, `permission:manage-
+  users` — `resolve_route_middleware` now splits `alias:param` and injects
+  the parameter into the middleware's constructor), CLI (`role:list/create/
+  grant`, `permission:list/create`, `user:assign-role`), and a minimal admin
+  UI at `/admin/roles`/`/admin/permissions` (behind `role:admin` — the first
+  real usage of the new middleware). Documented in new
+  `documentation/authorization.md`.
+- **The 3 seeded demo accounts are now the framework's official demo
+  credentials**, documented in `README.md`: `user@craft.local` (role
+  `user`), `tenant@craft.local` (role `tenant-manager`, new — was
+  previously seeded with **zero roles**, a real gap; also drives
+  `TenantMiddleware`'s per-schema isolation), `admin@craft.local` (role
+  `admin`, `is_admin=True`). All three password `craft`. The 3-tier ladder
+  (`user` → `tenant-manager` → `admin`) is intentional — the middle tier now
+  demonstrates elevated-but-not-full-admin access via `manage-users`.
+
+### Fixed
+
+- `Kernel.resolve_route_middleware`: a bare parameterized alias used
+  without its parameter (e.g. `"role"` instead of `"role:admin"`) raised a
+  raw `TypeError` from the middleware's constructor instead of the
+  intended, actionable `KeyError` — now caught and re-raised with a message
+  telling the caller to use `alias:value`.
+- **Cross-file test pollution**: `test_ai_native_subsystems`
+  (`tests/test_framework.py`) replaced the shared `modules`/`translations`
+  tables with reduced ad-hoc schemas to test DB-driven behavior, and never
+  restored them — since the test database is session-scoped, every test
+  file running after it (alphabetically, before `test_subsystems_
+  persistence.py`'s own unrelated workaround kicked in) saw the broken
+  schema. Surfaced by the new `test_rbac.py` failing only as part of the
+  full suite, never in isolation — exactly the class of bug `CONTRIBUTING.md`
+  asks every test file to be immune to. Fixed at the source: the test now
+  restores both tables to their real migrated shape in a `finally` block.
+- `app/Http/Middleware/TenantMiddleware.py`'s docstring had a broken,
+  machine-specific `file:///d:/data/www/craft/...` doc link — fixed to a
+  normal relative reference, matching every other file's `References:`
+  style.
+
+### Added
+
 - **CRUD builder now generates a real admin UI by default**, not just a JSON
   API — closing the gap flagged in `.agents/docs/benchmark-2026-08-07.md` §5
   ("Django gives a free admin list+edit UI from a model; Craft only gave

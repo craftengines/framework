@@ -324,6 +324,76 @@ class RequireAuth(Middleware):
         return RedirectResponse(self.redirect_to, status_code=302)
 
 
+class RequireRole(Middleware):
+    """Terminate the request unless the authenticated user has the role.
+
+    Resolved from the `role:<slug>` route middleware alias — see
+    `Kernel.resolve_route_middleware`.
+    """
+
+    def __init__(self, role: str, app: Any = None, redirect_to: str = "/login"):
+        self.role = role
+        self.app = app
+        self.redirect_to = redirect_to
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        user = _container(self.app).make("auth").user()
+
+        if user is not None and getattr(user, "has_role", None) and user.has_role(self.role):
+            return next_callable(request)
+
+        if getattr(request, "expects_json", lambda: False)():
+            from services.exceptions.handler import AuthorizationException
+
+            raise AuthorizationException(f"Missing role: {self.role}")
+
+        if user is None:
+            from starlette.responses import RedirectResponse
+
+            return RedirectResponse(self.redirect_to, status_code=302)
+
+        from services.exceptions.handler import AuthorizationException
+
+        raise AuthorizationException(f"Missing role: {self.role}")
+
+
+class RequirePermission(Middleware):
+    """Terminate the request unless the authenticated user has the permission.
+
+    Resolved from the `permission:<slug>` route middleware alias — see
+    `Kernel.resolve_route_middleware`.
+    """
+
+    def __init__(self, permission: str, app: Any = None, redirect_to: str = "/login"):
+        self.permission = permission
+        self.app = app
+        self.redirect_to = redirect_to
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        user = _container(self.app).make("auth").user()
+
+        if (
+            user is not None
+            and getattr(user, "has_permission", None)
+            and user.has_permission(self.permission)
+        ):
+            return next_callable(request)
+
+        if getattr(request, "expects_json", lambda: False)():
+            from services.exceptions.handler import AuthorizationException
+
+            raise AuthorizationException(f"Missing permission: {self.permission}")
+
+        if user is None:
+            from starlette.responses import RedirectResponse
+
+            return RedirectResponse(self.redirect_to, status_code=302)
+
+        from services.exceptions.handler import AuthorizationException
+
+        raise AuthorizationException(f"Missing permission: {self.permission}")
+
+
 class AuthenticateApiToken(Middleware):
     """Authenticate via `Authorization: Bearer <token>` for the api guard."""
 
@@ -420,6 +490,8 @@ __all__ = [
     "VerifyCsrfToken",
     "Authenticate",
     "RequireAuth",
+    "RequireRole",
+    "RequirePermission",
     "AuthenticateApiToken",
     "SecurityHeaders",
     "ThrottleRequests",

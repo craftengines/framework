@@ -37,6 +37,9 @@ queue_app = typer.Typer(name="queue", help="Queue workers.", no_args_is_help=Tru
 route_app = typer.Typer(name="route", help="Routing utilities.", no_args_is_help=True)
 cache_app = typer.Typer(name="cache", help="Cache utilities.", no_args_is_help=True)
 plugin_app = typer.Typer(name="plugin", help="Plugin discovery and lifecycle.", no_args_is_help=True)
+role_app = typer.Typer(name="role", help="RBAC role management.", no_args_is_help=True)
+permission_app = typer.Typer(name="permission", help="RBAC permission management.", no_args_is_help=True)
+user_app = typer.Typer(name="user", help="User management.", no_args_is_help=True)
 
 cli.add_typer(make_app)
 cli.add_typer(migrate_app)
@@ -45,6 +48,9 @@ cli.add_typer(queue_app)
 cli.add_typer(route_app)
 cli.add_typer(cache_app)
 cli.add_typer(plugin_app)
+cli.add_typer(role_app)
+cli.add_typer(permission_app)
+cli.add_typer(user_app)
 
 
 # -- application bootstrap ------------------------------------------------------
@@ -444,6 +450,122 @@ def plugin_sync() -> None:
         echo(f"Registered {len(newly_registered)} new plugin(s): {', '.join(newly_registered)}", "green")
     else:
         echo("No new plugins found.", "yellow")
+
+
+# -- role / permission (RBAC) ----------------------------------------------------
+
+@role_app.command("list")
+def role_list() -> None:
+    """List every role and the permissions granted to it."""
+    get_app()
+    from app.Models.Role import Role
+
+    roles = Role.query().get()
+    echo(f"{'SLUG':<20} {'NAME':<24} PERMISSIONS")
+    echo("-" * 96)
+    for role in roles:
+        perms = ", ".join(p.get_attribute("slug") for p in role.permissions().get()) or "-"
+        echo(f"{role.get_attribute('slug'):<20} {role.get_attribute('name'):<24} {perms}")
+
+
+@role_app.command("create")
+def role_create(name: str, slug: str) -> None:
+    """Create a role."""
+    from app.Models.Role import Role
+
+    get_app()
+    Role.create({"name": name, "slug": slug})
+    echo(f"Role created: {slug}", "green")
+
+
+@role_app.command("grant")
+def role_grant(role_slug: str, permission_slug: str) -> None:
+    """Attach a permission to a role."""
+    get_app()
+    from app.Models.Role import Role
+    from app.Models.Permission import Permission
+
+    role = Role.query().where("slug", role_slug).first()
+    if role is None:
+        echo(f"No such role: {role_slug}", "red")
+        raise typer.Exit(code=1)
+
+    permission = Permission.query().where("slug", permission_slug).first()
+    if permission is None:
+        echo(f"No such permission: {permission_slug}", "red")
+        raise typer.Exit(code=1)
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM permission_role WHERE role_id = ? AND permission_id = ?",
+        [role.get_attribute("id"), permission.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"Role [{role_slug}] already has permission [{permission_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO permission_role (role_id, permission_id) VALUES (?, ?)",
+        [role.get_attribute("id"), permission.get_attribute("id")],
+    )
+    echo(f"Granted [{permission_slug}] to role [{role_slug}].", "green")
+
+
+@permission_app.command("list")
+def permission_list() -> None:
+    """List every permission."""
+    get_app()
+    from app.Models.Permission import Permission
+
+    echo(f"{'SLUG':<24} NAME")
+    echo("-" * 60)
+    for permission in Permission.query().get():
+        echo(f"{permission.get_attribute('slug'):<24} {permission.get_attribute('name')}")
+
+
+@permission_app.command("create")
+def permission_create(name: str, slug: str) -> None:
+    """Create a permission."""
+    from app.Models.Permission import Permission
+
+    get_app()
+    Permission.create({"name": name, "slug": slug})
+    echo(f"Permission created: {slug}", "green")
+
+
+@user_app.command("assign-role")
+def user_assign_role(email: str, role_slug: str) -> None:
+    """Assign a role to a user by email."""
+    get_app()
+    from app.Models.User import User
+    from app.Models.Role import Role
+
+    user = User.query().where("email", email).first()
+    if user is None:
+        echo(f"No such user: {email}", "red")
+        raise typer.Exit(code=1)
+
+    role = Role.query().where("slug", role_slug).first()
+    if role is None:
+        echo(f"No such role: {role_slug}", "red")
+        raise typer.Exit(code=1)
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM role_user WHERE user_id = ? AND role_id = ?",
+        [user.get_attribute("id"), role.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"User [{email}] already has role [{role_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO role_user (user_id, role_id) VALUES (?, ?)",
+        [user.get_attribute("id"), role.get_attribute("id")],
+    )
+    echo(f"Assigned role [{role_slug}] to [{email}].", "green")
 
 
 # -- top-level commands ---------------------------------------------------------

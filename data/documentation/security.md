@@ -73,6 +73,14 @@ if not Gate.allows("publish-posts", Auth.user()):
 `Gate.denies(...)` is its negation, and `Gate.authorize(...)` raises an
 `AuthorizationException` (403) instead of returning `False`.
 
+`Gate.allows` checks, in order: (1) a registered ability closure, (2) a policy
+on the target model, (3) the RBAC permission system — `user.has_permission(ability)`,
+if the user carries that method — before denying by default. That third tier
+means a permission slug like `"manage-users"` works as a Gate ability without
+anyone having to register a closure for it. See [Authorization
+(RBAC)](authorization.md) for roles, permissions, and the `role:`/`permission:`
+route middleware built on top of it.
+
 ---
 
 ## Authorization Policies

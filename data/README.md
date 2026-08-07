@@ -36,6 +36,24 @@ docker compose up -d --build
 
 ---
 
+## Demo accounts
+
+`migrate --seed` seeds **3 standard demo accounts** — the framework's
+official demo credentials. Any skeleton spun up from this repository gets the
+same 3 accounts, so docs, screenshots, and admin-UI work can reference them
+by name without re-explaining who they are.
+
+| Email | Password | Role | Demonstrates |
+|---|---|---|---|
+| `user@craft.local` | `craft` | `user` | A plain authenticated account — the `user` role, basic permissions. |
+| `tenant@craft.local` | `craft` | `tenant-manager` | `type = "tenant"`, so `TenantMiddleware` routes it to an isolated per-schema PostgreSQL tenant; the `tenant-manager` role adds `manage-users` on top of the basic set — elevated, short of full admin. |
+| `admin@craft.local` | `craft` | `admin` | `is_admin = True` and the `admin` role — full access, every seeded permission. |
+
+All 3 passwords are `craft`. See [`documentation/authorization.md`](documentation/authorization.md)
+for the RBAC system these roles are built on.
+
+---
+
 ## The `dev` CLI
 
 ```bash

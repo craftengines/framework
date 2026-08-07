@@ -28,8 +28,12 @@ class FrameworkSeeder(Seeder):
         Module.create({"name": "Billing Services", "slug": "billing", "enabled": True})
 
         # 4. Seed Roles
+        # A 3-tier ladder matches the 3 seeded demo users: `user` (basic) ->
+        # `tenant-manager` (elevated, can manage users but isn't a full admin)
+        # -> `admin` (full access).
         admin_role = Role.create({"name": "Administrator", "slug": "admin"})
         user_role = Role.create({"name": "User", "slug": "user"})
+        tenant_manager_role = Role.create({"name": "Tenant Manager", "slug": "tenant-manager"})
 
         # 5. Seed Permissions
         create_post = Permission.create({"name": "Create Posts", "slug": "create-post"})
@@ -61,10 +65,26 @@ class FrameworkSeeder(Seeder):
             {"role": user_role.get_attribute("id"), "perm": delete_post.get_attribute("id")}
         )
 
+        # tenant-manager gets everything user has, plus manage-users — elevated
+        # but short of full admin.
+        DB.statement(
+            "INSERT INTO permission_role (role_id, permission_id) VALUES (:role, :perm)",
+            {"role": tenant_manager_role.get_attribute("id"), "perm": create_post.get_attribute("id")}
+        )
+        DB.statement(
+            "INSERT INTO permission_role (role_id, permission_id) VALUES (:role, :perm)",
+            {"role": tenant_manager_role.get_attribute("id"), "perm": delete_post.get_attribute("id")}
+        )
+        DB.statement(
+            "INSERT INTO permission_role (role_id, permission_id) VALUES (:role, :perm)",
+            {"role": tenant_manager_role.get_attribute("id"), "perm": manage_users.get_attribute("id")}
+        )
+
         # 7. Associate Users to Roles (role_user)
         from app.Models.User import User
         admin_user = User.query().where("email", "admin@craft.local").first()
         jane_user = User.query().where("email", "user@craft.local").first()
+        tenant_user = User.query().where("email", "tenant@craft.local").first()
 
         if admin_user:
             DB.statement(
@@ -75,4 +95,9 @@ class FrameworkSeeder(Seeder):
             DB.statement(
                 "INSERT INTO role_user (user_id, role_id) VALUES (:user, :role)",
                 {"user": jane_user.get_attribute("id"), "role": user_role.get_attribute("id")}
+            )
+        if tenant_user:
+            DB.statement(
+                "INSERT INTO role_user (user_id, role_id) VALUES (:user, :role)",
+                {"user": tenant_user.get_attribute("id"), "role": tenant_manager_role.get_attribute("id")}
             )

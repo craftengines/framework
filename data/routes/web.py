@@ -6,6 +6,7 @@
 from craft.facades import Route
 from app.Http.Controllers.Admin.HomeController import HomeController
 from app.Http.Controllers.Admin.CrudBuilderController import CrudBuilderController
+from app.Http.Controllers.Admin.RoleController import RoleController, PermissionController
 from app.Http.Controllers.Auth.AuthController import AuthController
 from app.Http.Controllers.Blog.PostController import PostController
 from app.Http.Controllers.Blog.DocsController import DocsController
@@ -28,6 +29,11 @@ Route.post("/logout", [AuthController, "logout"]).name("logout")
 Route.get("/admin", [HomeController, "admin"]).middleware("auth").name("admin.dashboard")
 Route.get("/admin/crud-builder", [CrudBuilderController, "index"]).middleware("auth").name("admin.crud_builder.index")
 Route.post("/admin/crud-builder", [CrudBuilderController, "store"]).middleware("auth").name("admin.crud_builder.store")
+
+# RBAC admin UI — the first real usage of the `role:<slug>` route middleware.
+Route.get("/admin/roles", [RoleController, "index"]).middleware("auth", "role:admin").name("admin.roles.index")
+Route.post("/admin/roles/grant", [RoleController, "grant"]).middleware("auth", "role:admin").name("admin.roles.grant")
+Route.get("/admin/permissions", [PermissionController, "index"]).middleware("auth", "role:admin").name("admin.permissions.index")
 
 # Resource & Web Content Routes
 # Reads stay public; create/update/delete require a logged-in session (the

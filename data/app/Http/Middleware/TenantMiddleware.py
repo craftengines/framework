@@ -5,7 +5,7 @@ Relations:
   - Interacts with Auth and DB facades to bound schemas dynamically per request context.
   - Automatically migrates and sets up schema dependencies on first connection.
 References:
-  - Documentation: [documentation/orm.md](file:///d:/data/www/craft/documentation/orm.md)
+  - Guide: `documentation/orm.md`
   - Skill: `craft-development` (`.agents/skills/framework/craft-development/SKILL.md`,
     workspace root, outside this repository)
 """

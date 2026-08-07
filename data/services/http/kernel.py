@@ -100,6 +100,8 @@ class Kernel:
             "session": mw.StartSession,
             "csrf": mw.VerifyCsrfToken,
             "throttle": mw.ThrottleRequests,
+            "role": mw.RequireRole,
+            "permission": mw.RequirePermission,
         }
 
     def alias_middleware(self, name: str, middleware_class: Any) -> "Kernel":
@@ -110,20 +112,39 @@ class Kernel:
     def resolve_route_middleware(self, entries: List[Any]) -> List[Any]:
         """Turn a route's middleware list into instances.
 
-        Accepts alias strings and classes. Unknown aliases raise rather than
-        being skipped — a route that declares protection which silently does
-        nothing is worse than one that fails loudly at boot.
+        Accepts alias strings and classes. Aliases may carry a parameter after
+        a colon — `"role:admin"` / `"permission:manage-users"` — which is
+        passed as the first positional argument to the resolved middleware
+        class (e.g. `RequireRole(role="admin")`). Unknown aliases raise rather
+        than being skipped — a route that declares protection which silently
+        does nothing is worse than one that fails loudly at boot.
         """
         aliases = {**self.route_middleware_aliases(), **self._aliases}
         resolved = []
         for entry in entries or []:
             if isinstance(entry, str):
-                if entry not in aliases:
-                    raise KeyError(
-                        f"Unknown route middleware [{entry}]. Register it with "
-                        f"kernel.alias_middleware('{entry}', SomeMiddleware)."
-                    )
-                resolved.append(self._instantiate(aliases[entry]))
+                if entry in aliases:
+                    # Some aliases (`role`, `permission`) are only meaningful
+                    # with a `:param` — a bare use is a caller mistake, not a
+                    # silently-do-nothing middleware, so it must still raise.
+                    try:
+                        resolved.append(self._instantiate(aliases[entry]))
+                        continue
+                    except TypeError:
+                        raise KeyError(
+                            f"Route middleware [{entry}] requires a parameter — "
+                            f"use '{entry}:<value>' (e.g. '{entry}:admin')."
+                        ) from None
+
+                base_alias, _, param = entry.partition(":")
+                if param and base_alias in aliases:
+                    resolved.append(self._instantiate(aliases[base_alias], param))
+                    continue
+
+                raise KeyError(
+                    f"Unknown route middleware [{entry}]. Register it with "
+                    f"kernel.alias_middleware('{entry}', SomeMiddleware)."
+                )
             elif isinstance(entry, type):
                 resolved.append(self._instantiate(entry))
             else:
@@ -157,15 +178,29 @@ class Kernel:
     def get_starlette_app(self) -> DynamicStarletteApp:
         return DynamicStarletteApp(self)
 
-    def _instantiate(self, mw_cls: Any) -> Any:
-        """Build a middleware, passing the app when it accepts one."""
+    def _instantiate(self, mw_cls: Any, param: Optional[str] = None) -> Any:
+        """Build a middleware, passing the app and an alias parameter when accepted."""
         try:
             signature = inspect.signature(mw_cls.__init__)
         except (TypeError, ValueError):
             return mw_cls()
+
+        kwargs = {}
         if "app" in signature.parameters:
-            return mw_cls(self.app)
-        return mw_cls()
+            kwargs["app"] = self.app
+
+        if param is not None:
+            # First declared parameter after `self`/`app` receives the value
+            # from the `alias:param` route middleware string.
+            positional = [
+                name
+                for name in signature.parameters
+                if name not in ("self", "app")
+            ]
+            if positional:
+                kwargs[positional[0]] = param
+
+        return mw_cls(**kwargs)
 
     def _create_endpoint(
         self,
