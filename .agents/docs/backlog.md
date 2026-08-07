@@ -3,10 +3,33 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
-> Estado: **503/503 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
+> Estado: **627/627 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
 > container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
 > App real validado em `http://localhost:8300`, incluindo o fluxo de login com
 > CSRF e captcha.
+
+## 🔬 Benchmark e stress test (2026-08-07)
+
+Relatório completo em [`benchmark-2026-08-07.md`](benchmark-2026-08-07.md):
+teste de carga real (RPS plano em ~30 independente da concorrência 1→100 —
+assinatura de processamento totalmente serializado; `/docs` quebrou com
+74% de erro em concorrência 100) + 4 auditorias especializadas (segurança,
+performance/escalabilidade, CI/CD/DX, UI/UX) contra código real, comparadas
+com Laravel/Django/Rails/FastAPI. 26 achados no total; top-10 consolidado no
+fim do relatório. Achados críticos mais urgentes:
+
+1. `/admin` não renderiza o template que já existe (`HomeController.admin()`
+   devolve `<h1>` hardcoded) — 1 linha, maior alavancagem do relatório inteiro.
+2. Rotas de escrita geradas pelo CRUD builder não têm autenticação nem
+   autorização — API pública de leitura/escrita/exclusão por padrão.
+3. Fluxo de validação do blog (única CRUD de verdade no framework) quebra
+   visivelmente em input ruim — `old()` existe mas nada popula `_old_input`.
+4. Dispatch síncrono bloqueia o único event loop — sem `run_in_threadpool`,
+   sem pool de conexão, processo único — teto medido de ~30 req/s constante.
+
+Nenhum código foi alterado para produzir o relatório — é auditoria, não
+correção. Cada achado deve virar fatia própria neste backlog antes de ser
+mexido.
 
 ## Como rodar
 
