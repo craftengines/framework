@@ -79,6 +79,24 @@ needs the keys where it genuinely differs from its base language.
 Add entries to `database/seeders/TranslationSeeder.py`. The richer,
 semantically-keyed catalog lives in `resources/lang/catalog.json`.
 
+## Versioning and releases
+
+Version is `MAJOR.MINOR.PATCH` plus a release counter (`rNNNNN`), both tracked
+in two places that must stay in sync: `pyproject.toml` (`[project].version`)
+and `services/__init__.py` (`__version__`, `__release__`).
+
+**The release counter always increments by exactly 1 on every cut release —
+never reset, never skipped, regardless of what `MAJOR.MINOR.PATCH` does.**
+`v3.11.0-r00001` was the first cut; the next one, even if it only bumps the
+patch version, is `r00002`.
+
+To cut a release:
+
+1. Update `CHANGELOG.md`: fold `### Validation pass` / any uncommitted work
+   at the top into a new `## [X.Y.Z] rNNNNN — YYYY-MM-DD` heading.
+2. Bump `pyproject.toml` and `services/__init__.py` to match.
+3. Commit, then tag: `git tag -a vX.Y.Z-rNNNNN -m "..."`.
+
 ## Building a release
 
 ```bash
@@ -97,7 +115,7 @@ importable, or you end up testing `services/` on disk rather than the wheel:
 unset PYTHONPATH            # a venv does not override it
 python -m venv /tmp/clean
 cd /tmp
-/tmp/clean/bin/pip install /path/to/dist/craft-0.1.0-py3-none-any.whl
+/tmp/clean/bin/pip install /path/to/dist/craft-3.11.0-py3-none-any.whl
 /tmp/clean/bin/python -c 'import services; print(services.__file__)'
 /tmp/clean/bin/craft --help
 ```
@@ -121,7 +139,8 @@ For security issues, see [SECURITY.md](SECURITY.md).
 1. Branch from `master`.
 2. Make the change, with tests.
 3. Run the suite on all three targets.
-4. Update `CHANGELOG.md` under "Não lançado".
+4. Add an entry to `CHANGELOG.md` under the current release heading (see
+   "Versioning and releases" above for cutting a new one).
 5. Merge, with a commit message describing what changed and why.
 
 ## Licence
