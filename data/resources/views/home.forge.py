@@ -6,6 +6,7 @@
     <!-- Hero Section -->
     <div class="hero-section">
         <div class="hero-glow"></div>
+        <div class="hero-inner">
         <div class="hero-content">
             <div class="hero-badge">
                 <span class="badge-dot"></span>
@@ -78,6 +79,7 @@
 Route.resource(<span class="code-string">"posts"</span>, PostController)
 Route.get(<span class="code-string">"/dashboard"</span>, [HomeController, <span class="code-string">"index"</span>])
     .middleware(<span class="code-string">"auth"</span>)</code></pre>
+        </div>
         </div>
     </div>
 

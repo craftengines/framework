@@ -116,6 +116,20 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
   single-theme, não meio-termo quebrado). Suspeita: é isso que o usuário
   viu, se o sistema dele está em dark mode — outra hipótese é cache do
   navegador não invalidando o CSS antigo (versão do app não mudou).
+- ✅ **Hero ainda não era largura total, de verdade (2026-08-08)**: usuário
+  mandou screenshot mostrando o hero em duas colunas mas preso numa caixa
+  estreita, vazio grande nos dois lados. Causa: `layouts/app.forge.py`
+  já embrulha tudo em `max-w-7xl` (1280px), e o `.hero-section` tinha
+  outro `max-width:1120px` por dentro disso — duas caixas aninhadas.
+  Corrigido separando em duas camadas (mesmo padrão que o resto da página
+  já usa): `.hero-section` agora fura a restrição do ancestral com a
+  técnica padrão de full-bleed (`margin-inline: calc(50% - 50vw)`), fundo
+  ocupa a largura real da tela; o grid de conteúdo foi para um `.hero-inner`
+  novo, continua limitado a 1120px e centralizado. Efeito colateral
+  conhecido da técnica (unidade `vw` inclui a barra de rolagem, gerava uns
+  pixels de overflow horizontal) resolvido com `overflow-x:hidden` no
+  `body` — correção padrão, não gambiarra. Validado em 1920px, 1440px e
+  390px com navegador de verdade.
 
 ## Como rodar
 

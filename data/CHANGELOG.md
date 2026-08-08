@@ -22,6 +22,25 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Fixed
 
+- **Hero background was boxed inside a box, still not full width.**
+  `layouts/app.forge.py` wraps every public page's content in `max-w-7xl
+  mx-auto` (1280px); `.hero-section` then had its own nested `max-width:
+  1120px` on top of that, so the hero's gradient background never reached
+  the real viewport edges — visibly boxed with large empty gutters on wide
+  screens, which is what the previous "two columns" fix alone didn't
+  address. Split the hero into two layers, matching the pattern every
+  other section on the page already uses (a full-width band +
+  `.section-container` inside it): `.hero-section` now breaks out of its
+  ancestor's max-width with the standard full-bleed technique
+  (`margin-inline: calc(50% - 50vw)`) so its background spans the true
+  viewport width; the actual two-column content grid moved to a new
+  `.hero-inner` (`resources/views/home.forge.py`), capped at a readable
+  1120px and centered, same as before. The full-bleed technique's known
+  side effect — `vw` units include the scrollbar's width on most browsers,
+  which produced a few pixels of horizontal overflow — is clamped with
+  `overflow-x: hidden` on `body` (the standard fix, not a workaround).
+  Verified live at 1920px (background reaches both edges, content stays
+  readable), 1440px, and 390px (unchanged mobile stack).
 - **Hero section on the landing page was never actually two columns.**
   `.hero-section` was `flex-direction: column` unconditionally — copy and
   the code preview always stacked, centered, at every viewport width, which

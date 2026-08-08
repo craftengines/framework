@@ -91,31 +91,59 @@ body {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* `.hero-section`'s full-bleed trick (`margin-inline: calc(50% - 50vw)`)
+       uses the `vw` unit, which on most browsers includes the scrollbar's
+       own width — a few pixels wider than the actual visible viewport
+       (`document.documentElement.clientWidth`). That mismatch is a known,
+       standard side effect of any full-bleed-breakout technique, not a
+       layout bug; clamping it here is the standard fix. */
+    overflow-x: hidden;
 }
 
 /* ---------- Hero Section ----------
-   Grid, not flex-column: below 1024px it's a single stacked column (the
-   original behavior); at 1024px+ it becomes two real columns — copy on the
-   left, the code preview on the right — instead of staying a narrow
-   centered stack that leaves the sides of a wide viewport empty. */
+   `layouts/app.forge.py` wraps every public page's content in a
+   `max-w-7xl mx-auto` box — fine for text-heavy sections, but it means a
+   naively-styled hero can never actually reach the viewport edges; it's
+   boxed inside a box. `.hero-section` breaks out of that ancestor
+   constraint with the standard full-bleed trick (`margin-inline: calc(50%
+   - 50vw)`) so its background spans the true viewport width, the same way
+   a hero on a real marketing site does. `.hero-inner` is the actual content
+   grid — single column below 1024px (unchanged mobile behavior), two real
+   columns (copy left, code preview right) at 1024px+ — capped at a
+   readable max-width and centered, same pattern every other section on
+   this page already uses via `.section-container`. */
 .hero-section {
     position: relative;
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: center;
-    max-width: 1120px;
-    margin: 0 auto;
+    /* No explicit `width: 100vw` — on most browsers `100vw` includes the
+       scrollbar's own width, which this negative-margin trick doesn't need
+       and which was producing a few extra pixels of horizontal overflow.
+       `width: auto` (the block-level default) plus the margin pull is
+       enough to reach both edges. */
+    margin-inline: calc(50% - 50vw);
     padding: 5rem 2rem 4rem;
     overflow: hidden;
     background: linear-gradient(180deg, #fffbf5 0%, var(--bg-body) 100%);
 }
 
+.hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
 @media (min-width: 1024px) {
-    .hero-section {
+    .hero-inner {
         grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
         gap: 4rem;
-        padding: 6rem 2rem 5rem;
         text-align: left;
+    }
+
+    .hero-section {
+        padding: 6rem 2rem 5rem;
     }
 
     .hero-content {
