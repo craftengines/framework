@@ -49,9 +49,18 @@
     --pink-500:   #ec4899;
     --amber-500:  #f59e0b;
 
-    /* Surfaces */
-    --bg-body:    var(--craft-bg);
-    --bg-section: var(--craft-surface);
+    /* Surfaces — pinned to the literal light slate steps, NOT the semantic
+       `--craft-bg`/`--craft-surface` tokens, which flip dark under
+       `prefers-color-scheme: dark` in craft-theme.css. Every text color on
+       this page (`--slate-700/800/900` below) is a literal, never-swapping
+       step too, chosen assuming a light ground — following the background
+       token into dark mode without also re-deriving every text color would
+       have produced dark text on a dark background. This page commits to a
+       single light presentation on purpose (see the artifact-design
+       principle: a deliberate single-theme choice is fine as long as it's
+       explicit) rather than a half-finished dark mode with broken contrast. */
+    --bg-body:    var(--craft-slate-50);
+    --bg-section: #ffffff;
     --bg-glass:   rgba(255, 255, 255, 0.72);
     --border-subtle: rgba(0, 0, 0, 0.06);
 

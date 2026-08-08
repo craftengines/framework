@@ -29,7 +29,20 @@ full policy (categories to use, what counts as security-relevant, how
   real CSS grid: single column below 1024px (unchanged mobile behavior),
   two columns (copy left, code preview right) at 1024px+. Verified live
   with a headless browser at 1440px (two columns), 390px (stacked), and
-  with `prefers-color-scheme: dark` (unrelated finding, see below).
+  with `prefers-color-scheme: dark` (surfaced an unrelated bug, next entry).
+- **Landing page was unreadable on a system with dark mode on.**
+  `craft-components.css`'s `--bg-body`/`--bg-section` aliased to the
+  semantic `--craft-bg`/`--craft-surface` tokens, which correctly flip dark
+  under `prefers-color-scheme: dark` (that's how `craft-theme.css` is
+  designed to work) — but every text color on the landing page
+  (`--slate-700/800/900`) is a literal, never-swapping step chosen
+  assuming a light background. Background went dark, text didn't: several
+  sections rendered dark text on a near-black ground, unreadable. Pinned
+  `--bg-body`/`--bg-section` to the literal light slate steps instead — the
+  landing page now commits to a single light presentation on purpose,
+  rather than a half-finished dark mode with broken contrast. Verified live
+  with `prefers-color-scheme: dark` forced on: background now stays light
+  end to end.
 - **The earlier "unified CSS design tokens" fix (this file, same session,
   under "Changed") edited the wrong file.** `public/css/app.css` — which
   that fix touched — was never linked from any view; the landing page

@@ -105,6 +105,17 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
     (`layouts/app.forge.py`) não tem menu hambúrguer — os links (EN/PT/
     PT-BR/ES, Fórum, Aprender...) simplesmente quebram linha/cortam.
     Não corrigido — fora do pedido desta sessão.
+- ✅ **Bug de dark mode corrigido (2026-08-08)**: usuário reportou "totalmente
+  distorcida" comparando com codeigniter.com — investigando com
+  `prefers-color-scheme: dark` forçado no navegador, achei a causa real:
+  `--bg-body`/`--bg-section` usavam os tokens semânticos que trocam pra
+  escuro corretamente, mas todo o texto da landing page usa passos
+  literais de cinza que nunca trocam — fundo escurecia, texto continuava
+  escuro, várias seções ficavam ilegíveis. Fixado o fundo no claro
+  (a página nunca teve paleta escura própria — decisão explícita de
+  single-theme, não meio-termo quebrado). Suspeita: é isso que o usuário
+  viu, se o sistema dele está em dark mode — outra hipótese é cache do
+  navegador não invalidando o CSS antigo (versão do app não mudou).
 
 ## Como rodar
 
