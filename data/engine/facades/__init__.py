@@ -72,6 +72,18 @@ class Gate(Facade):
         return "gate"
 
 
+class Nav(Facade):
+    """The navigation registry — declare a menu, resolve it per visitor.
+
+    `Nav.for_user(user, path)` returns only the sections and items that user
+    may actually reach, so the menu never offers a link that ends in a 403.
+    """
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "nav"
+
+
 class Access(Facade):
     """Roles, groups and permissions — including a grant's attribute conditions.
 

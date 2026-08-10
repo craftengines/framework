@@ -22,6 +22,17 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Security
 
+- **The panel showed an ordinary account how access is configured.** Its first
+  revision gave every signed-in visitor a "My access" page listing permission
+  slugs, the path each grant arrives by (`role`, `group-role`, `group`) and the
+  raw ABAC conditions, plus role/group/permission counts on the dashboard and
+  the account's `type` and `is_admin` on the profile. That is the
+  installation's security configuration, not the visitor's personal data:
+  knowing which roles exist and which of them you hold is a map for probing the
+  system. The page is now the **access audit** at `role:admin`, the security
+  rows on the profile are administrator-only, and the dashboard shows an
+  ordinary account only what it wrote and when it joined. Reported from a
+  running installation — the same way the `/admin` hole was.
 - **`GET /admin` was readable by any authenticated user.** The dashboard lists
   every user, every administrator and every tenant in the installation, and it
   carried the `auth` alias alone — so the seeded `user@craft.local`, or any
@@ -210,6 +221,31 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **A control panel at `/panel`, for every signed-in account.** The skeleton
+  had an icon-only rail whose labels appeared on hover — over the page content,
+  which the expanded rail covered — and a menu hardcoded in the template with
+  no relation to the visitor. Hardcoding it made the navigation a second,
+  silent authorization system, which is how an ordinary account came to be
+  shown a Dashboard button that led straight to a 403.
+  - **`engine/support/navigation.py`** (new, bound as `nav`, `Nav` facade) is
+    the menu as data. Each item declares the same guard as the route it points
+    at — `permission`, `role`, `group`, `ability`, `module`, or a predicate —
+    and `Nav.for_user(user, path)` returns only what that visitor may reach.
+    Sections with no visible items disappear, so nobody stares at an empty
+    "System" heading. Any error while evaluating an item hides it: a menu is
+    not the place to be optimistic.
+  - The shell (`layouts/panel.forge.py`) has a labelled sidebar, offsets the
+    content by its width instead of covering it, and slides in as a drawer on
+    small screens with no JavaScript.
+  - Eight pages: dashboard, profile, posts, users, access audit, modules
+    (enable/disable, POST + CSRF), plugins, and an "about this install" read
+    from the running application rather than a config file.
+  - The panel is **not** an admin area — an ordinary account gets a real
+    workspace, an administrator sees the same shell with more sections in it.
+    Building two panels is how the two drift apart.
+  - Fixed while looking at the running page, not by a test: `/panel` lit up
+    alongside `/panel/access`, because per-item prefix matching cannot express
+    "closest wins". Exactly one item is active now, chosen across the whole menu.
 - **Groups and attribute-based access control (ABAC).** Authorization could
   previously say only *who you are*: a user held roles, and roles held
   permissions. Two things real systems need were missing.

@@ -11,7 +11,7 @@
 > declarar. Lição registrada: comparar declarações de rota no olho não é
 > controle.
 >
-> Estado: **823/823 testes passando** em SQLite e em PostgreSQL real, no Python
+> Estado: **868/868 testes passando** em SQLite e em PostgreSQL real, no Python
 > 3.11 do container, com `ruff check .` limpo. Cada arquivo de teste também
 > passa isolado — nenhum depende da ordem. App real validado em
 > `http://localhost:8300`, incluindo o fluxo de login com CSRF e captcha,

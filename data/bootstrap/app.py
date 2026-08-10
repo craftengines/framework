@@ -64,11 +64,16 @@ def create_app() -> Application:
     from app.Providers.AppServiceProvider import AppServiceProvider
     from app.Providers.AuthServiceProvider import AuthServiceProvider as AppAuthServiceProvider
     from app.Providers.EventServiceProvider import EventServiceProvider as AppEventServiceProvider
+    from app.Providers.PanelServiceProvider import PanelServiceProvider
     from app.Providers.RouteServiceProvider import RouteServiceProvider
 
     app.register_provider(AppServiceProvider)
     app.register_provider(AppAuthServiceProvider)
     app.register_provider(AppEventServiceProvider)
+    # Declares the control panel's menu. Registered after the auth provider
+    # because every menu item is guarded by the same roles, permissions and
+    # groups the routes are, resolved through the `access` binding.
+    app.register_provider(PanelServiceProvider)
     app.register_provider(RouteServiceProvider)
 
     # Wire facades to the app before booting providers

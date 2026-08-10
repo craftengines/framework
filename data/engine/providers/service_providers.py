@@ -47,6 +47,12 @@ class AuthServiceProvider(ServiceProvider):
         self.app.instance("gate", GateManager(self.app))
         self.app.instance("hash", Hash())
 
+        # The menu is data guarded by the same rules as the routes, so the
+        # navigation and the router cannot describe different realities.
+        from engine.support.navigation import Navigation
+
+        self.app.instance("nav", Navigation(self.app))
+
 
 class EventServiceProvider(ServiceProvider):
     def register(self):

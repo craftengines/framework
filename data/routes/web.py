@@ -11,6 +11,7 @@ from app.Http.Controllers.Admin.RoleController import RoleController, Permission
 from app.Http.Controllers.Auth.AuthController import AuthController
 from app.Http.Controllers.Blog.PostController import PostController
 from app.Http.Controllers.Blog.DocsController import DocsController
+from app.Http.Controllers.Panel.PanelController import PanelController
 
 # Home & Dashboard Routes
 Route.get("/", [HomeController, "index"]).name("home")
@@ -53,6 +54,26 @@ Route.post("/admin/groups", [GroupController, "store"]).middleware("auth", "role
 Route.post("/admin/groups/members", [GroupController, "add_member"]).middleware("auth", "role:admin").name("admin.groups.members")
 Route.post("/admin/groups/roles", [GroupController, "grant_role"]).middleware("auth", "role:admin").name("admin.groups.roles")
 Route.post("/admin/groups/permissions", [GroupController, "grant_permission"]).middleware("auth", "role:admin").name("admin.groups.permissions")
+
+# The control panel — a workspace for EVERY signed-in account, not an admin
+# area. `/panel` and the pages under it that only concern the visitor's own
+# data need `auth` alone; the pages that manage other people carry
+# `role:admin` as well. The sidebar is built from the `nav` registry and
+# filtered by the very same guards, so an account never sees a link into a 403.
+Route.get("/panel", [PanelController, "index"]).middleware("auth").name("panel.index")
+Route.get("/panel/profile", [PanelController, "profile"]).middleware("auth").name("panel.profile")
+Route.get("/panel/posts", [PanelController, "posts"]).middleware("auth").name("panel.posts")
+
+# The access audit exposes permission slugs, the path each grant arrives by and
+# the raw ABAC conditions — the installation's security configuration, not the
+# visitor's personal data. It shipped open to any signed-in account for one
+# revision; it is admin-only now.
+Route.get("/panel/access", [PanelController, "access"]).middleware("auth", "role:admin").name("panel.access")
+Route.get("/panel/users", [PanelController, "users"]).middleware("auth", "role:admin").name("panel.users")
+Route.get("/panel/modules", [PanelController, "modules"]).middleware("auth", "role:admin").name("panel.modules")
+Route.post("/panel/modules/toggle", [PanelController, "toggle_module"]).middleware("auth", "role:admin").name("panel.modules.toggle")
+Route.get("/panel/plugins", [PanelController, "plugins"]).middleware("auth", "role:admin").name("panel.plugins")
+Route.get("/panel/system", [PanelController, "system"]).middleware("auth", "role:admin").name("panel.system")
 
 # Resource & Web Content Routes
 # Reads stay public; create/update/delete require a logged-in session (the
