@@ -678,12 +678,39 @@ def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host."),
     port: int = typer.Option(8000, help="Bind port."),
     reload: bool = typer.Option(True, help="Reload on file changes."),
+    workers: int = typer.Option(
+        1, help="Worker processes. Ignored with --reload, which requires one."
+    ),
 ) -> None:
     """Start the development server."""
     import uvicorn
 
-    echo(f"Craft development server started on http://{host}:{port}", "green")
-    uvicorn.run("bootstrap.app:asgi_app", host=host, port=port, reload=reload)
+    if workers < 1:
+        echo("--workers must be at least 1.", "red")
+        raise typer.Exit(code=1)
+
+    # Uvicorn cannot reload and fork workers at the same time; saying so beats
+    # silently serving with one worker after being asked for eight.
+    if workers > 1 and reload:
+        echo(
+            f"--workers {workers} needs --no-reload (the reloader runs a single "
+            "process). Serving with 1 worker.",
+            "yellow",
+        )
+        workers = 1
+
+    echo(
+        f"Craft development server started on http://{host}:{port} "
+        f"({workers} worker{'s' if workers > 1 else ''})",
+        "green",
+    )
+    uvicorn.run(
+        "bootstrap.app:asgi_app",
+        host=host,
+        port=port,
+        reload=reload,
+        workers=workers,
+    )
 
 
 @cli.command("tinker")

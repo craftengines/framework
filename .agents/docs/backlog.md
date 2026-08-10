@@ -3,7 +3,7 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
-> Estado: **775/775 testes passando** em SQLite e em PostgreSQL real, no Python
+> Estado: **787/787 testes passando** em SQLite e em PostgreSQL real, no Python
 > 3.11 do container, com `ruff check .` limpo. Cada arquivo de teste também
 > passa isolado — nenhum depende da ordem. App real validado em
 > `http://localhost:8300`, incluindo o fluxo de login com CSRF e captcha,
@@ -48,7 +48,9 @@ com Laravel/Django/Rails/FastAPI. 26 achados no total.
 
 **Deliberadamente NÃO corrigido — precisa de fatia própria:**
 
-- 🔴 **O teto de concorrência medido (~30 req/s constante, independente de
+- ✅ **Teto de concorrência resolvido em 2026-08-10** (ver a seção própria mais
+  abaixo). O registro original dizia:
+  🔴 **O teto de concorrência medido (~30 req/s constante, independente de
   1 ou 100 clientes) continua lá.** Um agente tentou o pool de conexão e
   parou de propósito: `Connection` mistura a conexão bruta com estado
   mutável por-requisição (profundidade de transação, schema de tenant
@@ -408,9 +410,10 @@ integração de agentes. Referência, não código a copiar.
 - Propostas de evolução do motor de inferência, integrações e abstrações.
 - Melhorias de documentação.
 
-**Pré-requisito de ordem:** o teto de concorrência (~30 req/s, item vermelho
-acima) toca E3 diretamente — inferência é I/O-bound e vai empilhar requests
-longos. Pool de conexão antes de expor o AI Engine sob carga.
+**Pré-requisito de ordem: atendido.** O teto de concorrência tocava o E3
+diretamente — inferência é I/O-bound e empilha requests longos. O pool de
+conexão + threadpool + `--workers` foram entregues em 2026-08-10, então o AI
+Engine já pode ser exposto sob carga.
 
 ## 🔜 Próximas fatias
 
@@ -424,25 +427,48 @@ Leia isto primeiro; o detalhe de cada um está logo abaixo.
 
 | # | Item | Por quê |
 |---|---|---|
-| 🔴 1 | **Teto de concorrência** | O único que exige **arquitetura**, não correção. ~30 req/s constante de 1 a 100 clientes. Reconfirmado por grep em 2026-08-10: zero `run_in_threadpool`, zero pool, sem `--workers`. Ordem obrigatória: **pool → threadpool → workers**. |
+| ✅ 1 | ~~Teto de concorrência~~ | **Resolvido (2026-08-10)** — pool → threadpool → workers, nessa ordem. Medido: 27 req/s constante → ~115 req/s a partir de 10 clientes, p95 de 1.9s para 0.57s. |
 | 🟠 2 | **Storage/S3, SMTP/mail, API manager** | Os três da lista original do usuário que ainda **não existem**. A decisão do S3 já está tomada: `boto3` como extra opcional. |
 | ✅ 3 | ~~`engine/orm/__init__.py` vazio~~ | **Resolvido (2026-08-10)** — exporta `Model`, `QueryBuilder`, `SoftDeletes`, relações e exceções, com teste. |
 | 4–10 | Eager loading aninhado, remember-me/reset de senha, cifra de sessão, Redis na fila, decisão do FastAPI | Melhorias e dívida acumulada, nenhuma bloqueante. Lacunas de doc e dívidas menores: **fechadas em 2026-08-10**. |
 | 11 | **Auditar testes que fixam comportamento em vez de promessa** | A erradicação de placebos achou um teste que codificava o próprio bug. Provavelmente não é o único. |
 
-### 🔴 1. Teto de concorrência — o único item que exige arquitetura
+### ✅ 1. Teto de concorrência (resolvido em 2026-08-10)
 
-Detalhado no item vermelho do benchmark, acima. **~30 req/s constante de 1 a 100
-clientes** — a assinatura de um processo que atende uma requisição por vez.
-Confirmado por grep em 2026-08-10: zero `run_in_threadpool` em
-`engine/http/kernel.py`, zero pool em `engine/orm/{db,connection}.py`, nenhum
-`--workers` no CLI.
+Era **~27 req/s constante de 1 a 50 clientes** — a assinatura de um processo que
+atende uma requisição por vez. Agora **~115 req/s a partir de 10 clientes**,
+p95 de 1.9s → 0.57s, zero falhas. Medido com `tools/loadtest.py` (novo, só
+stdlib), antes e depois, alternando só o offload. A ordem obrigatória foi
+seguida à risca:
 
-Ordem obrigatória: **pool de conexão → offload de thread → `--workers`**. Nunca
-threading antes do pool (corrompe estado de cursor sob concorrência real).
+1. **Pool de conexão** (`engine/orm/connection.py`). O modelo é *checkout no
+   primeiro uso, devolução no fim do request* (`release()`, chamado pelo
+   kernel). `pool_size` (padrão 10) e `pool_timeout` (padrão 30s) por conexão;
+   esgotamento levanta erro nomeando a config em vez de travar.
+   - **Erro cometido e corrigido no caminho:** a primeira versão dava uma
+     conexão permanente por thread, sem devolução. Isso não é pool — acumula
+     uma conexão por thread até o PostgreSQL responder *"sorry, too many
+     clients already"*, que foi exatamente o que a suíte fez. Só apareceu no
+     PostgreSQL e só na suíte completa.
+2. **Estado por request saiu dos singletons.** Profundidade de transação e
+   `search_path` de tenant passaram a pertencer à conexão emprestada; usuário
+   e sessão do `AuthManager` viraram thread-local. Os dois eram globais de
+   processo — sob concorrência isso não é corrida, é falha de correção: um
+   tenant repontando o schema no meio da query de outro, e a identidade de um
+   visitante visível no request de outro. `release()` também limpa o tenant.
+3. **Offload no kernel** (`run_in_threadpool`), devolvendo a conexão dentro da
+   thread que a pegou emprestada.
+4. **`dev.py serve --workers N`**, que recusa fingir: `--workers` com
+   `--reload` é impossível no uvicorn, então avisa e serve com 1.
 
-É pré-requisito do E3 (AI Engine): inferência é I/O-bound e vai empilhar
-requisições longas.
+Provado por `tests/test_connection_concurrency.py` com threads de verdade:
+isolamento de sessão, de transação, de schema de tenant (em PostgreSQL real),
+de identidade, reuso do pool, crescimento limitado, esgotamento e rollback de
+transação abandonada na devolução. Sob 50 clientes, `pg_stat_activity` mostra
+11 conexões (10 do pool + 1 administrativa) — o limite é respeitado.
+
+Desbloqueia o E3 (AI Engine): inferência é I/O-bound e vai empilhar requisições
+longas.
 
 ### 🟠 2. Subsistemas que o `CRAFT_DESIGN.md` promete e não existem
 

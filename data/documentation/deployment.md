@@ -65,6 +65,25 @@ environment:
   - SESSION_SECURE_COOKIE=true
 ```
 
+## Concurrency
+
+One worker process already serves requests in parallel: the synchronous
+middleware and controller chain runs on a thread pool, and each thread borrows
+a pooled database connection for the request. Measured on the sample app, that
+is the difference between ~27 req/s regardless of how many clients are
+connected and ~115 req/s at 10+ clients.
+
+Scale further with processes, not threads — the GIL caps a single process:
+
+```bash
+python dev.py serve --host 0.0.0.0 --port 8000 --no-reload --workers 4
+```
+
+`--workers` needs `--no-reload` (the reloader runs a single process; asking for
+both tells you so instead of quietly serving with one). Each worker has its own
+connection pool, so plan `pool_size × workers` against the database's
+`max_connections`.
+
 ## Multiple workers
 
 Some defaults do not survive more than one process:

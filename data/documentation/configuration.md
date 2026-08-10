@@ -122,6 +122,30 @@ Split reads from writes by nesting `read` and `write`:
 
 Keys outside `read`/`write` apply to both.
 
+### Connection pool
+
+Requests are served on a thread pool, and each thread borrows a connection for
+the duration of the request and gives it back afterwards. Two keys size that
+pool, per connection:
+
+```python
+"pgsql": {
+    "driver": "postgresql",
+    # ...
+    "pool_size": 10,      # physical connections (default 10)
+    "pool_timeout": 30,   # seconds to wait for a free one (default 30)
+}
+```
+
+`pool_size` is a ceiling on connections to that database *per worker process*,
+so the total your server opens is `pool_size × workers` — keep that under the
+database's own `max_connections`. When every connection is checked out, a
+request waits up to `pool_timeout` and then fails with an error naming the
+setting, rather than hanging forever.
+
+SQLite `:memory:` is the one exception: an in-memory database lives inside the
+connection that created it, so all threads share a single connection there.
+
 ## Sessions
 
 ```python

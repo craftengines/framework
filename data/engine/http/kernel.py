@@ -16,6 +16,7 @@ import inspect
 import os
 from typing import Any, List, Optional
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse, HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Route as StarletteRoute, Mount
@@ -369,8 +370,28 @@ class Kernel:
                 prev_call = current_call
                 current_call = lambda req, inst=mw_inst, next_fn=prev_call: inst.handle(req, next_fn)
 
+            # The whole middleware + controller chain is synchronous and every
+            # ORM call blocks. Running it inline blocked the event loop for the
+            # duration of the request, so the process served exactly one at a
+            # time — the measured ~30 req/s ceiling, flat from 1 to 100 clients.
+            # Offloading to the thread pool is only safe because the connection
+            # layer now keeps one session per thread, and because the auth
+            # manager's per-request state is thread-local; without those, two
+            # requests would share a cursor and an identity.
+            def serve(req):
+                try:
+                    return current_call(req)
+                finally:
+                    # End of the request on this thread: give the pooled
+                    # connection back. Inside the worker thread, because that is
+                    # the thread that borrowed it.
+                    try:
+                        self.app.make("db").release()
+                    except Exception:
+                        pass
+
             try:
-                return current_call(request)
+                return await run_in_threadpool(serve, request)
             except Exception as exc:
                 return self._render_exception(request, exc)
 

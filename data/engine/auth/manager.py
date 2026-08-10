@@ -16,17 +16,43 @@ References:
 from __future__ import annotations
 
 import importlib
+import threading
 from typing import Any, Dict, Optional
 
 from engine.auth.password import Hash
 
 
 class AuthManager:
-    """Resolves, authenticates and remembers the current user."""
+    """Resolves, authenticates and remembers the current user.
+
+    The manager is a container singleton, but "the current user" and "the
+    current session" belong to the request being served. Once requests are
+    handled on a thread pool, two of them share this object — so that state is
+    kept per-thread. Storing it on the instance would mean one visitor's
+    request could observe, or overwrite, another visitor's identity.
+    """
 
     def __init__(self, app: Any = None):
         self.app = app
-        self._user: Optional[Any] = None
+        self._state = threading.local()
+
+    # -- per-request state -----------------------------------------------------
+
+    @property
+    def _user(self) -> Optional[Any]:
+        return getattr(self._state, "user", None)
+
+    @_user.setter
+    def _user(self, value: Optional[Any]) -> None:
+        self._state.user = value
+
+    @property
+    def _session(self) -> Any:
+        return getattr(self._state, "session", None)
+
+    @_session.setter
+    def _session(self, value: Any) -> None:
+        self._state.session = value
 
     # -- provider resolution ---------------------------------------------------
 
@@ -123,7 +149,7 @@ class AuthManager:
         self._session = session
 
     def _current_session(self) -> Any:
-        return getattr(self, "_session", None)
+        return self._session
 
     def _session_key(self) -> str:
         from engine.http.middleware import Authenticate

@@ -20,6 +20,7 @@ References:
 from __future__ import annotations
 
 import os
+import threading
 from typing import Any, Callable, Dict, List, Optional
 
 from engine.orm.connection import (
@@ -46,7 +47,11 @@ class DatabaseManager:
         self._write: Optional[Connection] = None
         self._read: Optional[Connection] = None
         self._explicit_config = config
-        self._tenant_schema: Optional[str] = None
+        #: The active tenant is per-thread, because it is per-request: a
+        #: process-wide value would let one tenant's request repoint the schema
+        #: while another tenant's request is still running.
+        self._tenant = threading.local()
+        self._boot_lock = threading.RLock()
         self._booted = False
         #: table -> set of columns, invalidated whenever the connection changes.
         self._column_cache: Dict[str, set] = {}
@@ -76,8 +81,20 @@ class DatabaseManager:
             return {"driver": "sqlite", "database": ":memory:"}
         return resolved
 
+    @property
+    def _tenant_schema(self) -> Optional[str]:
+        return getattr(self._tenant, "schema", None)
+
+    @_tenant_schema.setter
+    def _tenant_schema(self, value: Optional[str]) -> None:
+        self._tenant.schema = value
+
     def boot(self, name: Optional[str] = None) -> "DatabaseManager":
         """(Re)build the read/write connections from the current config."""
+        with self._boot_lock:
+            return self._boot(name)
+
+    def _boot(self, name: Optional[str] = None) -> "DatabaseManager":
         self.forget_schema_cache()
         conn_config = dict(self._resolve_config(name))
 
@@ -107,15 +124,22 @@ class DatabaseManager:
 
     @property
     def write_connection(self) -> Connection:
+        # Double-checked under the boot lock: two threads arriving together
+        # would otherwise each build a connection and one would be discarded
+        # while already in use.
         if self._write is None:
-            self.boot()
+            with self._boot_lock:
+                if self._write is None:
+                    self._boot()
         assert self._write is not None
         return self._write
 
     @property
     def read_connection(self) -> Connection:
         if not self._booted:
-            self.boot()
+            with self._boot_lock:
+                if not self._booted:
+                    self._boot()
         return self._read or self.write_connection
 
     @property
@@ -127,8 +151,26 @@ class DatabaseManager:
         if name is None:
             return self.write_connection
         if name not in self._connections:
-            self._connections[name] = Connection(self._resolve_config(name), self.base_path)
+            with self._boot_lock:
+                if name not in self._connections:
+                    self._connections[name] = Connection(
+                        self._resolve_config(name), self.base_path
+                    )
         return self._connections[name]
+
+    def release(self) -> None:
+        """Return this thread's pooled connections at the end of a request.
+
+        Called by the HTTP kernel once the response is built. Skipping it turns
+        the pool into one permanent connection per thread, which is how a
+        threaded server runs the database out of `max_connections`.
+        """
+        for connection in (self._write, self._read, *self._connections.values()):
+            if connection is not None:
+                connection.release()
+        # The tenant schema is per-request state; leaving it set would let the
+        # next request served by this thread inherit the previous tenant.
+        self._tenant_schema = None
 
     def purge(self) -> None:
         """Close every open connection."""

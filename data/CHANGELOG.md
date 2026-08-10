@@ -186,6 +186,40 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **The framework serves requests in parallel.** Throughput was ~27 req/s
+  whether 1 client or 50 were connected — the signature of a process handling
+  one request at a time — and p95 latency at 50 clients was 1.9s. It is now
+  ~115 req/s from 10 clients up, with p95 at 0.57s and no failed requests.
+  Measured on the sample app with `tools/loadtest.py` (new, standard library
+  only), before and after, by toggling only the offload. Three changes, in the
+  order the backlog required, because doing them in any other order corrupts
+  state under real load:
+  1. **A bounded connection pool** (`engine/orm/connection.py`). A `Connection`
+     held one raw DB-API handle plus mutable per-request state, so two threads
+     would have shared a cursor. A thread now checks a connection out on first
+     use and returns it at the end of the request; `pool_size` (default 10) and
+     `pool_timeout` (default 30s) are per-connection config. Exhaustion raises
+     an error naming the setting instead of hanging. Per-thread connections
+     *without* the release boundary were tried first and are not a pool — they
+     accumulate one per thread until PostgreSQL answers "too many clients
+     already", which is exactly what the suite did.
+  2. **Per-request state moved off the singletons.** Transaction depth and the
+     tenant `search_path` now belong to the borrowed connection, and
+     `AuthManager`'s current user/session are thread-local. Both were
+     process-wide, which under concurrency is not a race but a correctness
+     hole: one tenant's request could repoint the schema mid-query of another's,
+     and one visitor's identity could be read on another visitor's request.
+     `DatabaseManager.release()` also clears the tenant, so a recycled thread
+     never inherits the previous request's tenant.
+  3. **The kernel offloads to the thread pool** (`run_in_threadpool`), and
+     releases the connection inside the worker thread that borrowed it.
+  Covered by `tests/test_connection_concurrency.py` — real threads asserting
+  session isolation, transaction-depth isolation, tenant-schema isolation on
+  live PostgreSQL, identity isolation, pool reuse, bounded growth, exhaustion
+  and rollback of an abandoned transaction on release.
+- **`dev.py serve --workers N`** for multiple processes. It refuses to pretend:
+  `--workers` with `--reload` is impossible in uvicorn, so it says so and
+  serves with one instead of silently ignoring the flag.
 - **`ruff check .` now fails the build.** CI ran it as `ruff check . || true`,
   the same placebo pattern applied to the pipeline: the lint could never
   reprove anything. The nine findings it had been hiding are fixed (six

@@ -22,6 +22,8 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import threading
+import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 Bindings = Union[Sequence[Any], Dict[str, Any], None]
@@ -172,8 +174,56 @@ def normalize_placeholders(sql: str, bindings: Bindings, paramstyle: str):
     return _restore_strings(protected, literals), list(bindings or [])
 
 
+class _Session:
+    """The state that belongs to one physical database connection.
+
+    Transaction depth and the active tenant schema are properties *of a
+    connection*, not of the `Connection` object — which is shared by every
+    thread. Keeping them together here is what makes one session per thread
+    possible: two requests running concurrently get two raw connections, two
+    transaction counters and two `search_path`s, instead of trampling one.
+    """
+
+    __slots__ = ("pdo", "in_transaction", "requested_schema", "applied_schema")
+
+    def __init__(self) -> None:
+        self.pdo: Any = None
+        self.in_transaction: int = 0
+        #: Tenant schema this session was asked for, or None for the one in the
+        #: connection config. Per-session on purpose — see `Connection`.
+        self.requested_schema: Optional[str] = None
+        self.applied_schema: Optional[str] = None
+
+
 class Connection:
-    """A single database connection bound to a driver dialect."""
+    """A driver-dialect connection backed by a bounded pool.
+
+    A `Connection` used to hold one raw DB-API connection plus mutable
+    per-request state. That is safe only while the process handles exactly one
+    request at a time — which is precisely the ~30 req/s ceiling this design
+    removes. Two threads sharing a cursor corrupt each other's results, so the
+    connection layer had to come first, before any thread offloading.
+
+    The model is: **a thread checks a connection out on first use and gives it
+    back at the end of the request** (`release()`, called by the HTTP kernel).
+    Between those points the thread owns it outright, so transaction depth and
+    tenant `search_path` are unambiguous. Handing every thread its own
+    permanent connection instead — the obvious shortcut — is what exhausts
+    `max_connections` the moment the thread pool grows.
+
+    `pool_size` (per connection config, default 10) caps how many physical
+    connections exist. A thread that needs one while all are checked out waits
+    up to `pool_timeout` seconds and then raises, rather than blocking forever.
+
+    **Exception — SQLite `:memory:`**: an in-memory database exists only inside
+    the connection that created it, so pooling would hand each thread a
+    different empty database. In that one configuration (development and the
+    test-suite) every thread shares a single connection, which `sqlite3` allows
+    via `check_same_thread=False`.
+    """
+
+    DEFAULT_POOL_SIZE = 10
+    DEFAULT_POOL_TIMEOUT = 30.0
 
     def __init__(self, config: Dict[str, Any], base_path: Optional[str] = None):
         self.config = dict(config or {})
@@ -182,17 +232,151 @@ class Connection:
         if self.driver in ("pgsql", "postgres"):
             self.driver = "postgresql"
         self.paramstyle = "qmark" if self.driver == "sqlite" else "pyformat"
-        self._pdo: Any = None
-        self._in_transaction = 0
-        self._schema: Optional[str] = None
+
+        self._shares_one_session = self._is_memory_sqlite()
+        self._shared_session = _Session() if self._shares_one_session else None
+        self._thread_sessions = threading.local()
+        #: Guards the pool bookkeeping and wakes threads waiting for a slot.
+        self._cond = threading.Condition()
+        self._idle: List[Any] = []
+        self._open = 0
+        #: Every session handed out, so `close()` reaches sessions belonging to
+        #: threads that have since finished.
+        self._sessions: List[_Session] = []
+        if self._shared_session is not None:
+            self._sessions.append(self._shared_session)
+
+        self.pool_size = max(1, int(self.config.get("pool_size") or self.DEFAULT_POOL_SIZE))
+        self.pool_timeout = float(self.config.get("pool_timeout") or self.DEFAULT_POOL_TIMEOUT)
+
+    def _is_memory_sqlite(self) -> bool:
+        if self.driver != "sqlite":
+            return False
+        database = self.config.get("database") or ":memory:"
+        return database in (":memory:", "") or "mode=memory" in str(database)
+
+    # -- sessions --------------------------------------------------------------
+
+    def _session(self) -> _Session:
+        if self._shared_session is not None:
+            return self._shared_session
+        session = getattr(self._thread_sessions, "session", None)
+        if session is None:
+            session = _Session()
+            self._thread_sessions.session = session
+            with self._cond:
+                self._sessions.append(session)
+        return session
+
+    @property
+    def _in_transaction(self) -> int:
+        """Transaction depth of the calling thread's session."""
+        return self._session().in_transaction
+
+    @_in_transaction.setter
+    def _in_transaction(self, value: int) -> None:
+        self._session().in_transaction = value
+
+    @property
+    def open_sessions(self) -> int:
+        """Physical connections currently checked out by a thread."""
+        with self._cond:
+            return sum(1 for s in self._sessions if s.pdo is not None)
+
+    @property
+    def pool_stats(self) -> Dict[str, int]:
+        """`{"open": physical connections, "idle": waiting in the pool}`."""
+        with self._cond:
+            return {"open": self._open, "idle": len(self._idle)}
+
+    # -- pool ------------------------------------------------------------------
+
+    def _checkout(self) -> Any:
+        """Take a connection from the pool, opening one if the cap allows."""
+        deadline = time.monotonic() + self.pool_timeout
+        with self._cond:
+            while True:
+                if self._idle:
+                    return self._idle.pop()
+                if self._open < self.pool_size:
+                    self._open += 1
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not self._cond.wait(timeout=remaining):
+                    raise ConnectionError_(
+                        f"All {self.pool_size} pooled connections are in use and "
+                        f"none came free within {self.pool_timeout:g}s. Raise "
+                        f"`pool_size` for this connection, or look for a request "
+                        f"that never releases (an unclosed transaction)."
+                    )
+        try:
+            return self._connect()
+        except Exception:
+            with self._cond:
+                self._open -= 1
+                self._cond.notify()
+            raise
+
+    def release(self) -> None:
+        """Return this thread's connection to the pool.
+
+        Called at the end of each request by the HTTP kernel. Without it the
+        pool is not a pool: connections accumulate one per thread and the
+        server eventually gets "too many clients already" from the database.
+        A no-op for shared-session SQLite, and for a thread holding nothing.
+        """
+        if self._shared_session is not None:
+            return
+        session = getattr(self._thread_sessions, "session", None)
+        if session is None or session.pdo is None:
+            return
+
+        pdo, session.pdo = session.pdo, None
+        if session.in_transaction:
+            # A request that opened a transaction and never closed it would
+            # otherwise poison the next borrower with its uncommitted work.
+            session.in_transaction = 0
+            try:
+                pdo.rollback()
+            except Exception:
+                pass
+        if session.applied_schema is not None:
+            # Give it back on the default search_path, so the next borrower does
+            # not inherit a tenant's schema.
+            try:
+                self._reset_schema(pdo)
+            except Exception:
+                self._discard(pdo)
+                return
+        session.applied_schema = None
+
+        with self._cond:
+            self._idle.append(pdo)
+            self._cond.notify()
+
+    def _discard(self, pdo: Any) -> None:
+        """Drop a connection that cannot be trusted back into the pool."""
+        try:
+            pdo.close()
+        except Exception:
+            pass
+        with self._cond:
+            self._open -= 1
+            self._cond.notify()
 
     # -- lifecycle -------------------------------------------------------------
 
     @property
     def pdo(self) -> Any:
-        if self._pdo is None:
-            self._pdo = self._connect()
-        return self._pdo
+        session = self._session()
+        if session.pdo is None:
+            session.pdo = self._checkout()
+            session.applied_schema = None
+        if session.requested_schema != session.applied_schema:
+            # A borrowed connection arrives on the default search_path, so a
+            # session that asked for a tenant schema must (re)apply it.
+            self._apply_schema(session)
+        return session.pdo
 
     def _connect(self) -> Any:
         if self.driver == "sqlite":
@@ -265,12 +449,33 @@ class Connection:
         )
 
     def close(self) -> None:
-        if self._pdo is not None:
+        """Close the whole pool: checked-out connections and idle ones alike."""
+        with self._cond:
+            sessions = list(self._sessions)
+            idle, self._idle = self._idle, []
+            self._sessions = [s for s in (self._shared_session,) if s is not None]
+
+        for session in sessions:
+            if session.pdo is not None:
+                idle.append(session.pdo)
+                session.pdo = None
+            session.in_transaction = 0
+            session.applied_schema = None
+
+        for pdo in idle:
             try:
-                self._pdo.close()
+                pdo.close()
             except Exception:
                 pass
-            self._pdo = None
+
+        with self._cond:
+            self._open = 0
+            self._cond.notify_all()
+
+        # The calling thread's own session object may have been dropped from the
+        # registry; forget it so the next use checks out a fresh connection.
+        if self._shared_session is None:
+            self._thread_sessions = threading.local()
 
     # -- execution -------------------------------------------------------------
 
@@ -361,12 +566,65 @@ class Connection:
     # -- schema helpers --------------------------------------------------------
 
     def use_schema(self, schema: Optional[str]) -> None:
-        """Switch the active PostgreSQL schema (multi-tenancy)."""
-        self._schema = schema
-        if self.driver != "postgresql" or not schema:
+        """Switch the active PostgreSQL schema (multi-tenancy).
+
+        **Scoped to the calling thread.** The tenant is a property of the
+        request being served, so making it process-wide would mean one tenant's
+        request could repoint the search_path while another tenant's request is
+        mid-flight — a cross-tenant read, not merely a race. Every request sets
+        its own schema on its own session.
+        """
+        if schema:
+            assert_schema_identifier(schema)
+        session = self._session()
+        session.requested_schema = schema
+        if self.driver != "postgresql":
             return
-        assert_schema_identifier(schema)
-        self.statement(f'SET search_path TO "{schema}", public')
+        self._apply_schema(session)
+
+    @property
+    def schema(self) -> Optional[str]:
+        """Tenant schema active for the calling thread."""
+        return self._session().requested_schema
+
+    def _apply_schema(self, session: _Session) -> None:
+        """Point one session at the schema it asked for."""
+        if self.driver != "postgresql" or session.pdo is None:
+            return
+        schema = session.requested_schema
+        # Mark first: `statement()` goes back through `pdo`, and an unmarked
+        # session would recurse straight back into here.
+        previous, session.applied_schema = session.applied_schema, schema
+        try:
+            if schema:
+                self.statement(f'SET search_path TO "{schema}", public')
+            else:
+                self._reset_schema(session.pdo)
+        except Exception:
+            session.applied_schema = previous
+            raise
+
+    def _default_search_path(self) -> Optional[str]:
+        default = self.config.get("search_path") or self.config.get("schema")
+        if default:
+            assert_schema_identifier(default)
+        return default
+
+    def _reset_schema(self, pdo: Any) -> None:
+        """Put a connection back on the search_path its config asks for."""
+        if self.driver != "postgresql":
+            return
+        default = self._default_search_path()
+        sql = f'SET search_path TO "{default}", public' if default else "SET search_path TO public"
+        cursor = pdo.cursor()
+        try:
+            cursor.execute(sql)
+            pdo.commit()
+        finally:
+            try:
+                cursor.close()
+            except Exception:
+                pass
 
     def table_exists(self, table: str) -> bool:
         if self.driver == "sqlite":

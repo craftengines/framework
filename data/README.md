@@ -10,7 +10,7 @@ from craft.facades import Route, DB, Auth
 from craft.orm.model import Model
 ```
 
-**775 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
+**787 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
 
 ---
 
