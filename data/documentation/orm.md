@@ -327,7 +327,7 @@ class Event(Model):
 For multi-tenant SaaS environments, Craft ORM supports physical database schema-based isolation out-of-the-box in PostgreSQL.
 
 ### Architecture
-1. **Dynamic search_path Switch**: `DB.set_tenant_schema(name)` runs `SET search_path TO "{tenant_schema}", public;` on the connection. Craft talks to the driver directly (psycopg2) — there is no connection-pooling ORM layer in between.
+1. **Dynamic search_path Switch**: `DB.set_tenant_schema(name)` runs `SET search_path TO "{tenant_schema}", public;` on the connection the calling thread has borrowed. Craft talks to the driver directly (psycopg2) — there is no third-party ORM layer in between; the pool is Craft's own (see [Connection pool](configuration.md#connection-pool)).
 2. **On-the-Fly Schema Creation**: `DB.ensure_tenant_schema(name)` checks whether the schema exists; if not, it creates it and runs all migrations inside it. On drivers without schema support (SQLite) it is a no-op, so tenant-aware middleware still runs in development and tests.
 
 ### How it works
@@ -345,3 +345,13 @@ DB.ensure_tenant_schema("tenant_cc751989_2bc1_4bcb_ae17_bc46adc5d5f7", tenant_us
 # Clear/disable tenant isolation and fallback to public schema
 DB.set_tenant_schema(None)
 ```
+
+> **The active tenant is scoped to the current thread**, because it is scoped to
+> the request being served. Requests run in parallel on a thread pool, so a
+> process-wide setting would let one tenant's request repoint the `search_path`
+> while another tenant's query was still running — a cross-tenant read, not
+> merely a race. The kernel also clears the tenant when it returns the
+> connection to the pool, so a recycled thread never inherits the previous
+> request's tenant. Set it inside the request that needs it (which is what
+> `TenantMiddleware` does); setting it at boot will not reach the worker
+> threads.
