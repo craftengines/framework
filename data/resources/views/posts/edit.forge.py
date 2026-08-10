@@ -1,3 +1,19 @@
+{#
+    Blog — edit a post.
+
+    Rendered by `app/Http/Controllers/Blog/PostController.py::edit`, and
+    re-rendered by `update()` on validation failure. Requires a session, and the
+    controller authorizes ownership through `PostPolicy` — route middleware
+    alone cannot, since it does not know which record will be loaded.
+
+    The form spoofs `PUT` via `@method`, which the framework reads at the ASGI
+    layer before routing.
+
+    Context:
+      post          Post
+      errors        dict
+      show_sidebar  bool
+#}
 @extends("layouts.app")
 
 @section("title", "Edit Post")

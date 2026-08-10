@@ -72,6 +72,20 @@ class Gate(Facade):
         return "gate"
 
 
+class Access(Facade):
+    """Roles, groups and permissions — including a grant's attribute conditions.
+
+    `Gate` answers "may this user do X?" and consults `Access` on the way.
+    Reach for `Access` directly to *inspect* authorization: which roles or
+    groups a user has, every permission they can reach, and `explain()` for
+    why a particular permission reaches them.
+    """
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "access"
+
+
 class View(Facade):
     @classmethod
     def get_facade_accessor(cls) -> str:

@@ -180,6 +180,7 @@ class Kernel:
             "throttle": mw.ThrottleRequests,
             "role": mw.RequireRole,
             "permission": mw.RequirePermission,
+            "group": mw.RequireGroup,
         }
 
     def alias_middleware(self, name: str, middleware_class: Any) -> "Kernel":

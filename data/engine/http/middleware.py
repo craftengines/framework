@@ -357,11 +357,52 @@ class RequireRole(Middleware):
         raise AuthorizationException(f"Missing role: {self.role}")
 
 
+class RequireGroup(Middleware):
+    """Terminate the request unless the authenticated user is in the group.
+
+    Resolved from the `group:<slug>` route middleware alias — see
+    `Kernel.resolve_route_middleware`. Useful when a whole area belongs to a
+    team ("the support console"), where naming the team is more honest than
+    inventing a permission that means "is on the support team".
+    """
+
+    def __init__(self, group: str, app: Any = None, redirect_to: str = "/login"):
+        self.group = group
+        self.app = app
+        self.redirect_to = redirect_to
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        user = _container(self.app).make("auth").user()
+
+        if user is not None and callable(getattr(user, "in_group", None)) and user.in_group(self.group):
+            return next_callable(request)
+
+        if getattr(request, "expects_json", lambda: False)():
+            from engine.exceptions.handler import AuthorizationException
+
+            raise AuthorizationException(f"Missing group: {self.group}")
+
+        if user is None:
+            from starlette.responses import RedirectResponse
+
+            return RedirectResponse(self.redirect_to, status_code=302)
+
+        from engine.exceptions.handler import AuthorizationException
+
+        raise AuthorizationException(f"Missing group: {self.group}")
+
+
 class RequirePermission(Middleware):
     """Terminate the request unless the authenticated user has the permission.
 
     Resolved from the `permission:<slug>` route middleware alias — see
     `Kernel.resolve_route_middleware`.
+
+    Note that this asks for the permission with **no resource in hand**, so a
+    grant narrowed by attribute conditions ("only your own") does not satisfy
+    it — route middleware cannot know which record the controller will load.
+    Guard those in the controller with `Gate.authorize(ability, user, record)`
+    once the record exists.
     """
 
     def __init__(self, permission: str, app: Any = None, redirect_to: str = "/login"):
@@ -511,6 +552,7 @@ __all__ = [
     "RequireAuth",
     "RequireRole",
     "RequirePermission",
+    "RequireGroup",
     "AuthenticateApiToken",
     "SecurityHeaders",
     "ThrottleRequests",

@@ -33,12 +33,18 @@ class ViewServiceProvider(ServiceProvider):
 
 class AuthServiceProvider(ServiceProvider):
     def register(self):
+        from engine.auth.access import AccessResolver
         from engine.auth.gate import GateManager
         from engine.auth.manager import AuthManager
         from engine.auth.password import Hash
 
         self.app.instance("auth", AuthManager(self.app))
-        self.app.instance("gate", GateManager())
+        # `access` resolves roles, groups and permissions — including the
+        # attribute conditions on a grant. The Gate consults it, and the
+        # `role:`/`permission:`/`group:` middleware go through it too, so there
+        # is exactly one implementation of "can this user do this?".
+        self.app.instance("access", AccessResolver(self.app))
+        self.app.instance("gate", GateManager(self.app))
         self.app.instance("hash", Hash())
 
 

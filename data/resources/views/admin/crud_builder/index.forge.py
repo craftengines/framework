@@ -1,3 +1,19 @@
+{#
+    Admin — CRUD builder form.
+
+    Rendered by `app/Http/Controllers/Admin/CrudBuilderController.py::index` and
+    re-rendered by `store()` when validation fails, at `/admin/crud-builder`,
+    behind `auth` + `role:admin`. That guard is not decoration: the builder
+    writes real `.py` files into `app/` and `database/migrations/` and rewrites
+    `routes/`, so behind `auth` alone it would be remote code execution for any
+    registered user.
+
+    Context:
+      errors        dict   validation messages, keyed by field
+      old           dict   submitted values, so a failed submit is not retyped
+      field_rows    list   the entity's field definitions, preserved on failure
+      show_sidebar  bool
+#}
 @extends("layouts.app")
 
 @section("title", "CRUD Builder — Admin")

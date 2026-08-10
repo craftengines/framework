@@ -1,3 +1,17 @@
+{#
+    Admin — Roles.
+
+    Rendered by `app/Http/Controllers/Admin/RoleController.py::index` at
+    `GET /admin/roles`, behind `auth` + `role:admin`. The form posts to
+    `/admin/roles/grant`. Granting access is itself an authorized action, which
+    is why this screen is admin-only.
+
+    Context:
+      roles              list[Role]
+      role_permissions   {role_id: list[Permission]}
+      permissions        list[Permission]   options for the grant form
+      show_sidebar       bool
+#}
 @extends("layouts.app")
 
 @section("title", "Roles — Admin")

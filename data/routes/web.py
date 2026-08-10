@@ -6,6 +6,7 @@
 from craft.facades import Route
 from app.Http.Controllers.Admin.HomeController import HomeController
 from app.Http.Controllers.Admin.CrudBuilderController import CrudBuilderController
+from app.Http.Controllers.Admin.GroupController import GroupController
 from app.Http.Controllers.Admin.RoleController import RoleController, PermissionController
 from app.Http.Controllers.Auth.AuthController import AuthController
 from app.Http.Controllers.Blog.PostController import PostController
@@ -44,6 +45,14 @@ Route.post("/admin/crud-builder", [CrudBuilderController, "store"]).middleware("
 Route.get("/admin/roles", [RoleController, "index"]).middleware("auth", "role:admin").name("admin.roles.index")
 Route.post("/admin/roles/grant", [RoleController, "grant"]).middleware("auth", "role:admin").name("admin.roles.grant")
 Route.get("/admin/permissions", [PermissionController, "index"]).middleware("auth", "role:admin").name("admin.permissions.index")
+
+# Group admin UI — team-level access, plus the conditional (ABAC) grants.
+# Every one of these hands out access, so they are themselves admin-only.
+Route.get("/admin/groups", [GroupController, "index"]).middleware("auth", "role:admin").name("admin.groups.index")
+Route.post("/admin/groups", [GroupController, "store"]).middleware("auth", "role:admin").name("admin.groups.store")
+Route.post("/admin/groups/members", [GroupController, "add_member"]).middleware("auth", "role:admin").name("admin.groups.members")
+Route.post("/admin/groups/roles", [GroupController, "grant_role"]).middleware("auth", "role:admin").name("admin.groups.roles")
+Route.post("/admin/groups/permissions", [GroupController, "grant_permission"]).middleware("auth", "role:admin").name("admin.groups.permissions")
 
 # Resource & Web Content Routes
 # Reads stay public; create/update/delete require a logged-in session (the

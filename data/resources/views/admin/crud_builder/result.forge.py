@@ -1,3 +1,16 @@
+{#
+    Admin — CRUD builder result.
+
+    Rendered by `app/Http/Controllers/Admin/CrudBuilderController.py::store`
+    after a successful generation, behind `auth` + `role:admin`. Lists the files
+    that were written and the routes that were registered, because a generator
+    that reports only "done" leaves you guessing what changed.
+
+    Context:
+      entity        str    the generated entity name
+      created       list   paths written
+      show_sidebar  bool
+#}
 @extends("layouts.app")
 
 @section("title", "CRUD Builder — Generated")

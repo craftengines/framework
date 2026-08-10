@@ -1,3 +1,14 @@
+{#
+    Create an account.
+
+    Rendered by `app/Http/Controllers/Auth/AuthController.py::show_register`;
+    the form posts to `POST /register`, which is throttled per IP and route.
+
+    Registration assigns no roles, no groups and no `is_admin`: `type` and
+    `is_admin` are excluded from `User.fillable` precisely so request input can
+    never escalate privileges. Elevated access is granted deliberately,
+    afterwards, through the admin UI or the `dev.py role`/`group` commands.
+#}
 @extends("layouts.app")
 
 @section("title", "Register Profile — Craft Enterprise")

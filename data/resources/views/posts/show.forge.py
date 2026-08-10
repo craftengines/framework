@@ -1,3 +1,13 @@
+{#
+    Blog — a single post.
+
+    Rendered by `app/Http/Controllers/Blog/PostController.py::show` at
+    `GET /posts/{id}`. Public. A missing id returns 404 from the controller
+    rather than rendering an empty page.
+
+    Context:
+      post   Post
+#}
 @extends("layouts.app")
 
 @section("title", post.get_attribute('title'))

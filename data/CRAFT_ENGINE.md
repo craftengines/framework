@@ -31,7 +31,7 @@ other.
 | `http/` | Router, kernel, middleware pipeline, Request/Response, sessions, CSRF |
 | `orm/` | Active Record models, query builder, relations, eager loading, soft deletes, **connection pool** |
 | `migrations/` | Schema builder + migrator with batches, rollback, `fresh`, `status`, `--pretend` |
-| `auth/` | Login, bcrypt hashing, session fixation defence, Gate + Policies (deny by default) |
+| `auth/` | Login, bcrypt hashing, session fixation defence, Gate + Policies (deny by default), and full authorization: roles, groups, permissions and attribute conditions (ABAC) on any grant |
 | `validation/` | ~30 rules, `FormRequest` with authorization attached |
 | `view/` | Forge template engine — layouts, sections, directives |
 | `cache/` | array · file · redis, with `remember()` and TTL |
@@ -130,8 +130,14 @@ Seeded demo accounts (`user@`, `tenant@`, `admin@craft.local`, password
 Switch `DB_CONNECTION=pgsql` in `.env` — nothing in your code changes. Turn on
 what the traffic now justifies:
 
-- **RBAC** — roles and permissions, `role:<slug>` / `permission:<slug>` route
-  middleware, `Gate` + policies for ownership.
+- **Authorization** — roles, **groups** (access granted to a team, not one
+  person at a time), permissions, and **attribute conditions on any grant**:
+  `{"user_id": "@user.id"}` for *only your own*, `{"amount": {"lte": 10000}}`
+  for an approval ceiling. Enforced by the `role:` / `permission:` / `group:`
+  route middleware, and by `Gate.authorize(ability, user, record)` in the
+  controller when the decision depends on the record. `dev.py user access
+  <email>` prints why each permission reaches someone. See
+  [authorization](documentation/authorization.md).
 - **`SESSION_DRIVER=file`** when sessions must be invalidatable server-side.
 - **`CACHE_DRIVER=file`**, **`QUEUE_CONNECTION=database`** plus a worker
   process (`dev.py queue work`), and `dev.py schedule work` for cron-style jobs.

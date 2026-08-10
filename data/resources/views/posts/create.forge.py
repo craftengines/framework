@@ -1,3 +1,14 @@
+{#
+    Blog — new post form.
+
+    Rendered by `app/Http/Controllers/Blog/PostController.py::create`, and
+    re-rendered by `store()` when validation fails, so errors and the submitted
+    values survive. Requires a logged-in session.
+
+    Context:
+      errors        dict  validation messages, keyed by field ({} on first load)
+      show_sidebar  bool
+#}
 @extends("layouts.app")
 
 @section("title", "Create Post")

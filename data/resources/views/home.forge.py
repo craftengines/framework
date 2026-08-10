@@ -1,3 +1,17 @@
+{#
+    Public landing page.
+
+    Rendered by `app/Http/Controllers/Admin/HomeController.py::index`, mapped to
+    `/`, `/home` and `/dashboard` in `routes/web.py`. Open to everyone — no
+    middleware.
+
+    Context:
+      posts         list[Post]  the six most recent posts. The controller
+                                degrades this to an empty list (and logs) if the
+                                query fails, because the strip is decorative and
+                                the front door should not 500 for it.
+      show_sidebar  bool        False here: the landing page is full width.
+#}
 @extends("layouts.app")
 
 @section("title", "Craft Engine — The Python Framework for Expressive Web Applications")

@@ -1,3 +1,21 @@
+{#
+    Admin dashboard — the installation's user directory.
+
+    Rendered by `app/Http/Controllers/Admin/HomeController.py::admin` at
+    `GET /admin`, behind `auth` + `role:admin`, and the controller repeats the
+    check with `Gate.authorize("access-admin-dashboard")`. Two independent
+    controls on purpose: this page lists every account in the system, and it
+    once shipped behind `auth` alone, which let any user who could log in read
+    the whole directory.
+
+    Context:
+      administrators  list[User]  accounts with `is_admin`
+      users           list[User]  every account, newest first
+      tenants         list        active tenants, or [] where tenancy is not
+                                  provisioned (a legitimate empty, not a
+                                  swallowed failure)
+      show_sidebar    bool
+#}
 @extends("layouts.app")
 
 @section("title", "Admin Cockpit — Craft Cloud SaaS Management")

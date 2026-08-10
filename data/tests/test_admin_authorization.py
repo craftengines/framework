@@ -125,6 +125,25 @@ class TestAdministratorsStillGetIn:
         response = client.get("/admin", follow_redirects=False)
         assert response.status_code == 200
 
+    def test_every_admin_page_renders_for_an_administrator(self, client, accounts):
+        """Locking a page down and breaking it look identical from outside.
+
+        A 500 here means the template or the controller is broken — which the
+        authorization tests above would happily report as "not 200", i.e. as
+        success.
+        """
+        login(client, "admin-admintest@craft.local")
+
+        broken = []
+        for route in admin_routes():
+            if "GET" not in route.methods:
+                continue
+            response = client.get(route.uri, follow_redirects=False)
+            if response.status_code != 200:
+                broken.append((route.uri, response.status_code))
+
+        assert broken == [], f"admin pages not rendering for an administrator: {broken}"
+
 
 class TestEveryAdminRouteIsAuthorized:
     """The structural guard.

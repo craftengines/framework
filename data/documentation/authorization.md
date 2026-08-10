@@ -1,185 +1,277 @@
-# Authorization (RBAC)
+# Authorization — RBAC, groups and ABAC
 
-Craft ships a role-based access control (RBAC) system on top of the Gate/Policy
-authorization already described in [Security](security.md). Where Gates and
-Policies are hand-written per ability, RBAC lets you drive authorization from
-data: assign roles to users, permissions to roles, and check either from a
-controller, a Gate ability, or a route middleware.
+Craft ships a complete authorization system: **who** someone is (roles and
+groups), **what** they may do (permissions), and **under which circumstances**
+(attribute conditions on a grant). All three are data, so day-to-day access
+management needs no code change; Gates and Policies remain available for the
+decisions that genuinely belong in Python.
 
-## The 4 tables
+Two rules run through everything here:
 
-| Table | Columns | Purpose |
-|---|---|---|
-| `roles` | `id`, `name`, `slug` | A named role, e.g. `admin`, `tenant-manager` |
-| `permissions` | `id`, `name`, `slug` | A named permission, e.g. `manage-users` |
-| `role_user` | `user_id`, `role_id` | Pivot: which roles a user has |
-| `permission_role` | `role_id`, `permission_id` | Pivot: which permissions a role grants |
+- **Deny by default.** An ability nobody defined and no grant covers is a
+  refusal. A failed authorization query is a refusal too — it decided nothing,
+  and guessing "yes" is the one answer that cannot be corrected afterwards.
+- **Authentication is not authorization.** `auth` proves who the visitor is.
+  It never proves they may see the page. Every route under `/admin` must carry
+  an authorizing alias as well, and `tests/test_admin_authorization.py` fails
+  the build if one does not.
 
-A user's permissions are the union of the permissions of every role they hold
-— there is no direct user-to-permission assignment, by design: manage access
-through roles.
+---
 
-## Models
+## How a permission reaches a user
 
-`app/Models/Role.py` and `app/Models/Permission.py` are plain Craft ORM
-models (`fillable = ["name", "slug"]`). The relations and checks live on the
-base `Model` class (`engine/orm/model.py`), so every model — not just
-`User` — can carry roles and permissions if your app needs that:
+Four paths, all resolved together by one query:
 
-```python
-from craft.facades import Auth
-
-user = Auth.user()
-
-user.roles()                   # BelongsToMany -> Role, through role_user
-user.permissions()             # BelongsToMany -> Permission, through permission_role
-user.has_role("admin")         # bool — does the user hold this role?
-user.has_permission("manage-users")  # bool — does any of the user's roles grant this?
+```
+user → permission                  direct grant (permission_user)
+user → role → permission           role_user + permission_role
+user → group → role → permission   group_user + group_role + permission_role
+user → group → permission          group_user + permission_group
 ```
 
-`permissions()` on a `Role` instance returns the permissions granted to that
-role (through `permission_role`); `permissions()` on a `User` is not itself
-meaningful — check via `has_permission`, which follows `role_user` ->
-`permission_role` in a single query.
+**Grants add up; they never veto each other.** A user with a narrow grant and a
+broad grant for the same permission gets the broad one.
 
-## The Gate fallback tier
+### The tables
 
-`GateManager.allows(ability, user, *args)` (`engine/auth/gate.py`) resolves
-an ability in three steps:
+| Table | Purpose |
+|---|---|
+| `roles` | A named role: `admin`, `tenant-manager` |
+| `permissions` | A named permission: `manage-users`, `publish-post` |
+| `groups` | A named team: `content-team`, `support` |
+| `role_user` | Which roles a user holds |
+| `permission_role` | Which permissions a role grants |
+| `group_user` | Who belongs to a group |
+| `group_role` | Which roles a group grants to its members |
+| `permission_group` | Permissions granted straight to a group |
+| `permission_user` | A permission granted to one person |
 
-1. A registered ability closure (`Gate.define(...)`).
-2. A policy on the target model's class (`Gate.policy(...)`).
-3. **RBAC fallback** — if `user` has a `has_permission` method, `Gate.allows`
-   calls `user.has_permission(ability)`. If that returns `True`, access is
-   granted.
-4. Deny by default.
+Every grant table also has a nullable **`conditions`** column — that is the
+ABAC half, below. `NULL` means unconditional.
 
-This means a permission slug doubles as a Gate ability for free — grant
-`"manage-users"` to a role, assign the role to a user, and
-`Gate.allows("manage-users", user)` (or `Gate.authorize(...)`) just works,
-with no closure to write. An explicit `Gate.define` or `Policy` method still
-takes priority over the RBAC fallback, so you can override behaviour for a
-specific ability without touching the role/permission data.
+### Why groups
 
-## Route middleware
+Organisations grant access to a team, a department or a unit, not to one person
+at a time. A group carries roles and/or permissions, and every member inherits
+them, so onboarding is one membership row instead of a tour of every role that
+team needs — and offboarding is one delete instead of an audit of five pivots.
 
-Two middleware classes (`engine/http/middleware.py`) enforce roles and
-permissions at the route level, resolved through parameterized aliases in the
-kernel (`engine/http/kernel.py`):
+### Why direct grants
 
-```python
-from craft.facades import Route
+One person occasionally needs one extra permission. Inventing a single-member
+role for that is worse than recording it honestly, so `permission_user` exists.
 
-Route.get("/admin/roles", [RoleController, "index"]).middleware("auth", "role:admin")
-Route.get("/reports", [ReportController, "index"]).middleware("auth", "permission:view-reports")
+---
+
+## ABAC — conditions on a grant
+
+A permission is often not absolute:
+
+- *edit articles, **but only your own***
+- *approve invoices, **but only under 10,000***
+- *read patient records, **but only in your own department***
+
+Those are attributes of the resource and of the acting user, not properties of
+the role. Every grant may therefore carry a small JSON object, evaluated
+against the record being acted upon:
+
+```json
+{"user_id": "@user.id"}
 ```
 
-`"role:<slug>"` and `"permission:<slug>"` split on the first `:`; the base
-alias (`role` / `permission`) resolves to `RequireRole` / `RequirePermission`,
-and the slug is passed to the middleware's constructor
-(`RequireRole(role="admin")`). Both middleware classes:
+`@user.<attr>` is replaced with the acting user's attribute at check time, so
+that condition reads "the record's `user_id` must equal the acting user's id" —
+ownership, expressed as data.
 
-- Look up `Auth.user()`.
-- Return **403** (via `AuthorizationException`) when the request expects JSON
-  (`request.expects_json()`) and the check fails.
-- Redirect to `/login` when there is no authenticated user at all and JSON was
-  not requested.
-- Otherwise raise the same 403 for an authenticated user missing the
-  role/permission.
+### The vocabulary
 
-Unknown aliases — including a malformed `"role"` with no `:param` — still
-raise `KeyError` at boot, same as any other unregistered route middleware
-alias: a route that declares protection which silently does nothing is worse
-than one that fails loudly.
+A key with a plain value compares for equality. A key with a one-entry object
+names an operator:
 
-## CLI
-
-`dev.py` exposes RBAC management under three sub-apps (`engine/cli/app.py`):
-
-```bash
-python dev.py role:list
-python dev.py role:create "Tenant Manager" tenant-manager
-python dev.py permission:list
-python dev.py permission:create "Manage Users" manage-users
-python dev.py role:grant tenant-manager manage-users
-python dev.py user:assign-role tenant@craft.local tenant-manager
+```json
+{"status":      {"in": ["draft", "review"]}}
+{"amount":      {"lte": 10000}}
+{"department":  "@user.department"}
+{"archived_at": {"is_null": true}}
 ```
 
-## Admin UI
+| Operator | Meaning |
+|---|---|
+| *(none)* | equality |
+| `eq`, `ne` | equal / not equal |
+| `in`, `not_in` | membership in a list |
+| `gt`, `gte`, `lt`, `lte` | ordering |
+| `is_null` | the attribute is (or is not) null |
+| `contains` | the attribute contains the value |
 
-`GET /admin/roles` lists every role with its granted permissions and a form to
-grant a permission to a role; `GET /admin/permissions` lists every permission.
-Both are behind `auth` and `role:admin` (`app/Http/Controllers/Admin/RoleController.py`,
-`resources/views/admin/roles/index.forge.py`,
-`resources/views/admin/permissions/index.forge.py`) — the first real usage of
-the `role:<slug>` middleware in the shipped skeleton.
+Every key must hold — the object is an AND. Anything more expressive belongs in
+a Policy class, which is ordinary Python and can be tested.
 
-## Recipes
+### Three behaviours worth knowing
 
-**Protect a new route by role.**
+They are all deliberate, and each exists to fail safely:
 
-```python
-# routes/web.py
-Route.get("/reports", [ReportController, "index"]).middleware("auth", "role:admin")
-```
+1. **A conditional grant does not answer an unconditional question.**
+   `has_permission("edit-articles")` is asked with no resource in hand, so a
+   grant that says *only your own* returns `False` there. Use
+   `can("edit-articles", article)` when you have the record. Answering `True`
+   would hand out the unconditional version of a deliberately narrowed grant.
+2. **A malformed condition denies**, and is logged as an error. A typo must
+   never become an open grant.
+3. **`{}` is not `NULL`.** An empty object means someone wrote something and
+   meant it, so it denies rather than being read as "no conditions".
 
-`"auth"` first (redirects a guest to `/login` before `RequireRole` even runs —
-without it, an unauthenticated request would 403 instead of getting the
-familiar login redirect). Order matters here the same way it does for
-`session`/`csrf`/`auth` in `bootstrap/app.py`.
+---
 
-**Protect a route by permission instead of role** — use this when the check
-should survive a role being renamed or restructured later:
-
-```python
-Route.get("/reports", [ReportController, "index"]).middleware("auth", "permission:view-reports")
-```
-
-**Check inside a controller**, when the route-level middleware isn't granular
-enough (e.g. the same route serves different content by permission):
+## Checking access
 
 ```python
 from craft.facades import Auth, Gate
 
-class ReportController(Controller):
-    def index(self, request):
-        if not Auth.user().has_permission("view-reports"):
-            return self.json({"message": "Forbidden"}, status=403)
-        ...
+user = Auth.user()
+
+user.has_role("admin")                    # direct or through a group
+user.in_group("content-team")
+user.has_permission("manage-users")       # unconditional grants only
+user.can("edit-articles", article)        # evaluates conditions
+user.permission_slugs()                   # everything reachable, for display
 ```
 
-or, to reuse the Gate fallback tier and get consistent exception handling:
+### The Gate
+
+`Gate.allows(ability, user, resource)` resolves in order, first answer wins:
+
+1. an ability closure registered with `Gate.define(...)`;
+2. a method of the Policy registered for the resource's model;
+3. the grant tables — the ability name doubles as a permission slug, and the
+   resource is passed through so conditions are evaluated;
+4. deny.
+
+So a permission slug is a Gate ability for free, and `Gate.define`/a Policy
+still overrides the data when a decision needs real code:
 
 ```python
-Gate.authorize("view-reports", Auth.user())  # raises AuthorizationException if denied
+Gate.authorize("edit-articles", user, article)   # raises AuthorizationException
 ```
 
-**Check inside a Forge view** — `has_permission`/`has_role` are plain model
-methods, so they work through the `auth` global helper:
+### The Access facade — inspecting, not deciding
+
+```python
+from craft.facades import Access
+
+Access.roles(user)          # ["admin"]
+Access.groups(user)         # ["content-team"]
+Access.permissions(user)    # every slug reachable, conditional included
+Access.explain(user, "publish-post")
+# [{"source": "group", "conditions": '{"user_id": "@user.id"}'}]
+```
+
+`explain()` answers "why can this person do that?" without reading five tables
+by hand — the query an audit screen and an incident review both start from.
+
+### Route middleware
+
+```python
+Route.get("/reports", [ReportController, "index"]).middleware("auth", "role:admin")
+Route.get("/reports", [ReportController, "index"]).middleware("auth", "permission:view-reports")
+Route.get("/support", [DeskController, "index"]).middleware("auth", "group:support")
+```
+
+Put `"auth"` first, so a guest is redirected to `/login` instead of getting a
+403. An unknown alias raises **at boot**, not silently at request time.
+
+> Route middleware asks without a resource, so a conditional grant does not
+> satisfy it — the router cannot know which record the controller will load.
+> Guard those in the controller with `Gate.authorize(ability, user, record)`
+> once the record exists.
+
+### In a view
 
 ```html
 @if(auth() and auth().has_permission("manage-users"))
-    <a href="/admin/roles">Manage roles</a>
+    <a href="/admin/groups">Manage groups</a>
 @endif
 ```
 
-**Add a brand-new role from scratch**, end to end:
+---
+
+## Managing access from the CLI
 
 ```bash
-python dev.py permission:create "Export Data" export-data
-python dev.py role:create "Analyst" analyst
-python dev.py role:grant analyst export-data
-python dev.py user:assign-role someone@example.com analyst
+# Roles and permissions
+python dev.py role list
+python dev.py role create "Analyst" analyst
+python dev.py permission create "Export Data" export-data
+python dev.py role grant analyst export-data
+python dev.py user assign-role someone@example.com analyst
+
+# Groups
+python dev.py group create "Support Team" support
+python dev.py group add-user support someone@example.com
+python dev.py group grant-role support analyst
+python dev.py group grant support export-data
+
+# Conditional (ABAC) grants
+python dev.py group grant content-team publish-post --conditions '{"user_id": "@user.id"}'
+python dev.py user grant someone@example.com approve-invoice --conditions '{"amount": {"lte": 10000}}'
+
+# Who can do what, and why
+python dev.py user access someone@example.com
 ```
 
-No migration needed — `roles`/`permissions`/the two pivot tables already
-exist from the framework's own migrations. A new role or permission is just
-a row.
+`--conditions` is validated before anything is stored: a condition that cannot
+be parsed is refused at the CLI, because at check time it would deny and look
+like a grant that simply does not work.
 
-## The 3 demo accounts
+No migration is needed to add a role, a group or a permission — the tables ship
+with the framework, and each of these is a row.
 
-The framework seeds 3 demo accounts forming a role ladder: `user` (basic) ->
-`tenant-manager` (elevated — has `manage-users` but isn't a full admin) ->
-`admin` (full access, every permission). See [the README's Demo
-accounts section](../README.md#demo-accounts) for emails/passwords and what
-each one demonstrates.
+## Admin UI
+
+| Page | What it does |
+|---|---|
+| `/admin/roles` | Roles with their permissions; grant a permission to a role |
+| `/admin/permissions` | The permission catalogue |
+| `/admin/groups` | Groups with members, roles and direct permissions; create a group, add members, grant roles, grant permissions **with optional conditions** |
+
+All of them require `auth` + `role:admin`. Granting access is itself an
+authorized action, and these screens hand it out.
+
+---
+
+## What ships seeded
+
+`migrate --seed` creates a working ladder rather than empty tables:
+
+- **Roles** — `user` (basic) → `tenant-manager` (elevated: adds `manage-users`)
+  → `admin` (everything).
+- **A group** — `content-team`, granting the `user` role; the standard demo
+  account is a member, so the group path is exercisable immediately.
+- **One conditional grant** — the Content Team may `publish-post`, but only
+  their own (`{"user_id": "@user.id"}`); administrators hold the same
+  permission unconditionally. The feature is visible, not merely documented.
+
+The three demo accounts are listed in [the README](../README.md#demo-accounts).
+
+Check any of it with:
+
+```bash
+python dev.py user access user@craft.local
+```
+
+---
+
+## Where this lives
+
+| File | Role |
+|---|---|
+| `engine/auth/access.py` | `AccessResolver` — the single union query and every decision |
+| `engine/auth/conditions.py` | The condition language, its operators and its parser |
+| `engine/auth/gate.py` | `Gate` — closures, policies, then the grant tables, then deny |
+| `engine/http/middleware.py` | `RequireRole`, `RequirePermission`, `RequireGroup` |
+| `app/Models/Group.py` | Membership and group-level grants |
+| `app/Models/User.py` | Delegates `has_role`/`has_permission`/`can` to the resolver |
+
+Nothing outside `AccessResolver` re-implements "check the role table". A caller
+that does gets one of the four paths wrong; keeping the union in one place
+means adding a fifth path later changes one file.

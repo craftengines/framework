@@ -1,3 +1,18 @@
+{#
+    The application layout every page extends.
+
+    Provides the document shell, the header/navigation, the optional sidebar and
+    the footer, and yields two sections: `title` and `content`. A page opts into
+    the sidebar by passing `show_sidebar=True` in its context.
+
+    Content is constrained to `max-w-7xl` here — a section that must span the
+    full viewport (the landing hero) breaks out with the standard full-bleed
+    technique rather than by loosening this container.
+
+    Stylesheets live in `public/assets/css/`. Note that `public/css/app.css` is
+    NOT loaded by anything; edits meant for the live pages belong in
+    `assets/css/craft-components.css`.
+#}
 <!DOCTYPE html>
 <html lang="{{ locale() }}" class="h-full bg-slate-50 text-slate-900">
 <head>

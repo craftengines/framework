@@ -1,3 +1,13 @@
+{#
+    Blog — post listing.
+
+    Rendered by `app/Http/Controllers/Blog/PostController.py::index` at
+    `GET /posts`. Reads are public; the write routes require a session and go
+    through `PostPolicy` for ownership.
+
+    Context:
+      posts   paginated list[Post], newest first
+#}
 @extends("layouts.app")
 
 @section("title", "All Posts")

@@ -3,7 +3,15 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
-> Estado: **787/787 testes passando** em SQLite e em PostgreSQL real, no Python
+> ⚠️ **2026-08-11 — falha de segurança encontrada em uso, não por teste:**
+> `GET /admin` (lista todos os usuários, administradores e tenants) carregava
+> só o alias `auth`. Qualquer conta que fizesse login lia o diretório inteiro.
+> Fechado no commit `0808161`, com guarda estrutural: toda rota sob `/admin`
+> precisa declarar um alias que autoriza, e a suíte falha se alguma não
+> declarar. Lição registrada: comparar declarações de rota no olho não é
+> controle.
+>
+> Estado: **823/823 testes passando** em SQLite e em PostgreSQL real, no Python
 > 3.11 do container, com `ruff check .` limpo. Cada arquivo de teste também
 > passa isolado — nenhum depende da ordem. App real validado em
 > `http://localhost:8300`, incluindo o fluxo de login com CSRF e captcha,

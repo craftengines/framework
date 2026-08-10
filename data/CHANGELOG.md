@@ -22,6 +22,30 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Security
 
+- **`GET /admin` was readable by any authenticated user.** The dashboard lists
+  every user, every administrator and every tenant in the installation, and it
+  carried the `auth` alias alone — so the seeded `user@craft.local`, or any
+  account that could log in, read the whole directory. Every *other* admin
+  route already required `role:admin`; this one was missed. Reported from a
+  running installation, not found by a test, which is the part worth keeping in
+  mind. Three changes:
+  - the route now declares `auth` + `role:admin`;
+  - the controller repeats the check itself
+    (`Gate.authorize("access-admin-dashboard")`, defined in
+    `AuthServiceProvider` as `is_admin` OR the `admin` role) — two independent
+    controls, because with the data this action returns, one forgotten alias
+    must not be the only thing between an ordinary user and the installation;
+  - `tests/test_admin_authorization.py` reproduces the report **and** adds a
+    structural guard: every route under `/admin` must declare an authorizing
+    alias (`role:`, `permission:`, `group:`, `can:`), not just `auth`. The page
+    was not left open by a wrong decision — it was left open by a declaration
+    nobody compared against its neighbours, and comparison by eye is not a
+    control. A second test asserts each admin page still renders **200** for an
+    administrator, since "locked down" and "broken" look identical from outside.
+- **`has_role()` and `has_permission()` could not see group grants**, because
+  they queried `role_user`/`permission_role` directly. With groups added, that
+  would have meant membership looking correct in the admin UI while the route
+  middleware refused. Both now delegate to the single resolver.
 - **`AuthenticateApiToken` never rejected anything.** It resolved a user when a
   bearer token happened to match and called the next handler regardless, so
   every route carrying the `api` alias — including `routes/api.py`, whose own
@@ -186,6 +210,46 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **Groups and attribute-based access control (ABAC).** Authorization could
+  previously say only *who you are*: a user held roles, and roles held
+  permissions. Two things real systems need were missing.
+  - **Groups** (`groups`, `group_user`, `group_role`, `permission_group`) grant
+    access to a team rather than one person at a time: a group carries roles
+    and/or permissions and every member inherits them, so onboarding is one
+    membership row. Plus `permission_user` for the case every system hits
+    eventually — one person, one extra permission, where inventing a
+    single-member role is worse than recording it honestly.
+  - **Conditions** — every grant table carries a nullable `conditions` column
+    holding a small JSON object evaluated against the record being acted upon:
+    `{"user_id": "@user.id"}` for *only your own*, `{"amount": {"lte": 10000}}`
+    for an approval ceiling. `@user.<attr>` resolves to the acting user.
+    Operators: eq, ne, in, not_in, gt, gte, lt, lte, is_null, contains. `NULL`
+    means unconditional, so every existing grant keeps working untouched.
+  - **`engine/auth/access.py`** is now the single place that answers "can this
+    user do this?", unioning all four grant paths (direct, role, group→role,
+    group) in one query. `has_role`, `has_permission` and the new `can()` on
+    `User` delegate to it; the Gate consults it after closures and policies and
+    passes the resource through, so a conditional grant is evaluated rather
+    than treated as unconditional.
+  - Three deliberate behaviours, each failing safe: `has_permission()` (no
+    resource) counts **unconditional grants only**, since answering True for a
+    narrowed grant would widen it; a **malformed condition denies** and is
+    logged, so a typo cannot become an open grant; and `{}` is not `NULL` —
+    someone wrote it and meant something, so it denies.
+  - Exposed everywhere it needs to be: the `group:<slug>` route middleware, an
+    `Access` facade (`roles`, `groups`, `permissions`, `explain`), the
+    `/admin/groups` screen (membership, role grants, permission grants with
+    conditions shown verbatim), and CLI — `group create|list|add-user|
+    remove-user|grant-role|grant`, `user grant --conditions`, and
+    `user access <email>`, which prints why each permission reaches someone.
+  - The seeder ships a working example rather than empty tables: a
+    `content-team` group granting the `user` role, and one conditional grant
+    (the team may `publish-post`, but only their own) so the feature is visible
+    and not merely documented.
+  - `documentation/authorization.md` rewritten around all of it.
+- **Every Forge view now carries a documentation header** — what the page is,
+  which controller and route render it, what guards it, and the context
+  variables it expects. 16 of 16.
 - **`CRAFT_ENGINE.md`** — the framework's own overview, written for whoever (or
   whatever) picks this repository up cold: what each engine subsystem provides,
   the build loop for a feature, and how the same codebase carries an

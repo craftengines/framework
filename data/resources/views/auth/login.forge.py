@@ -1,3 +1,20 @@
+{#
+    Sign in.
+
+    Rendered by `app/Http/Controllers/Auth/AuthController.py::show_login`, and
+    again by `login()` when authentication fails. `GET /login` is open;
+    `POST /login` is throttled per IP and route (`routes/web.py`) — the CAPTCHA
+    stops naive scripted attempts, but only a rate limit bounds automated ones.
+
+    The form carries `@csrf` and a CAPTCHA; both are verified server-side, and a
+    failed attempt costs the same time whether or not the email exists, so
+    timing does not reveal which accounts are real.
+
+    Context:
+      captcha_html  str   pre-rendered, obfuscated CAPTCHA markup
+      error         str   set on a failed attempt
+      old           dict  the submitted email, so it is not retyped
+#}
 @extends("layouts.app")
 
 @section("title", "Sign In & Onboard — Craft Enterprise")

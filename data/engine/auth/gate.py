@@ -15,9 +15,38 @@ from typing import Any, Callable, Dict, Optional
 
 
 class GateManager:
-    def __init__(self):
+    """Resolution order, first answer wins:
+
+    1. an ability closure registered with `define()`;
+    2. a method of the Policy registered for the model being acted upon;
+    3. the RBAC/ABAC grant tables, via the `access` resolver — the ability name
+       doubles as a permission slug, and a grant's attribute conditions are
+       evaluated against the resource;
+    4. deny.
+
+    Step 4 is the point: an ability nobody defined and no grant covers is a
+    refusal. A Gate that returns True for what it does not recognise is worse
+    than no Gate, because it looks like protection.
+    """
+
+    def __init__(self, app: Any = None):
+        self.app = app
         self._abilities: Dict[str, Callable] = {}
         self._policies: Dict[Any, Any] = {}
+
+    def _access(self) -> Any:
+        """The `AccessResolver`, or None when no container is bound.
+
+        Models are used in unit tests with no booted application, so this has
+        to degrade — but it degrades to *denial* (`allows` falls through to
+        False), never to a grant.
+        """
+        if self.app is None:
+            return None
+        try:
+            return self.app.make("access")
+        except Exception:
+            return None
 
     def define(self, ability: str, callback: Callable) -> None:
         self._abilities[ability] = callback
@@ -39,15 +68,30 @@ class GateManager:
                 if callable(method):
                     return bool(method(user, *args))
 
-        # Fall back to the RBAC permission system: a permission slug works as
-        # a Gate ability without anyone having to manually register a closure.
-        has_permission = getattr(user, "has_permission", None)
-        if callable(has_permission):
+        # Fall back to the grant tables: a permission slug works as a Gate
+        # ability without anyone registering a closure for it. The resource —
+        # `args[0]`, when there is one — is passed through, so a grant narrowed
+        # by attribute conditions ("only your own", "only under 10k") is
+        # evaluated here rather than silently treated as unconditional.
+        resource = args[0] if args else None
+        access = self._access()
+        if access is not None:
             try:
-                if has_permission(ability):
+                if access.allows(user, ability, resource):
                     return True
             except Exception:
+                # A failed authorization query is not a decision. Deny.
                 pass
+        else:
+            # No container (unit tests, a model used standalone): honour a
+            # model that answers for itself, and only unconditionally.
+            has_permission = getattr(user, "has_permission", None)
+            if callable(has_permission):
+                try:
+                    if has_permission(ability):
+                        return True
+                except Exception:
+                    pass
 
         # Deny by default: an unknown ability must never grant access.
         return False

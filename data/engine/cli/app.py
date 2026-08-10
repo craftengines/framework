@@ -40,6 +40,7 @@ cache_app = typer.Typer(name="cache", help="Cache utilities.", no_args_is_help=T
 plugin_app = typer.Typer(name="plugin", help="Plugin discovery and lifecycle.", no_args_is_help=True)
 role_app = typer.Typer(name="role", help="RBAC role management.", no_args_is_help=True)
 permission_app = typer.Typer(name="permission", help="RBAC permission management.", no_args_is_help=True)
+group_app = typer.Typer(name="group", help="Group management (team-level access).", no_args_is_help=True)
 user_app = typer.Typer(name="user", help="User management.", no_args_is_help=True)
 
 cli.add_typer(make_app)
@@ -52,6 +53,7 @@ cli.add_typer(cache_app)
 cli.add_typer(plugin_app)
 cli.add_typer(role_app)
 cli.add_typer(permission_app)
+cli.add_typer(group_app)
 cli.add_typer(user_app)
 
 
@@ -635,6 +637,263 @@ def permission_create(name: str, slug: str) -> None:
     get_app()
     Permission.create({"name": name, "slug": slug})
     echo(f"Permission created: {slug}", "green")
+
+
+# -- groups ----------------------------------------------------------------------
+# A group grants access to a team rather than to one person at a time: it holds
+# roles and/or permissions, and every member inherits them. See
+# `documentation/authorization.md`.
+
+def _require(model_cls, slug: str, label: str):
+    """Fetch a record by slug or abort with a message naming what was missing."""
+    record = model_cls.query().where("slug", slug).first()
+    if record is None:
+        echo(f"No such {label}: {slug}", "red")
+        raise typer.Exit(code=1) from None
+    return record
+
+
+def _parse_conditions(raw: Optional[str]):
+    """Validate `--conditions` before it reaches the database.
+
+    A grant whose conditions cannot be parsed is refused at the CLI rather than
+    stored: at check time an unreadable condition denies, so accepting it here
+    would quietly create a grant that never works.
+    """
+    if raw is None:
+        return None
+    from engine.auth.conditions import ConditionError, dump, parse
+
+    try:
+        return dump(parse(raw))
+    except ConditionError as exc:
+        echo(f"Invalid --conditions: {exc}", "red")
+        raise typer.Exit(code=1) from None
+
+
+#: Shown wherever `--conditions` is accepted, so the syntax is one `--help` away.
+CONDITIONS_HELP = (
+    'Optional JSON conditions (ABAC), e.g. \'{"user_id": "@user.id"}\' for '
+    '"only their own", or \'{"amount": {"lte": 10000}}\'. Omit for an '
+    "unconditional grant."
+)
+
+
+@group_app.command("list")
+def group_list() -> None:
+    """List every group with its members, roles and direct permissions."""
+    get_app()
+    from app.Models.Group import Group
+
+    echo(f"{'SLUG':<20} {'NAME':<24} {'MEMBERS':<8} ROLES / PERMISSIONS")
+    echo("-" * 100)
+    for group in Group.query().get():
+        roles = ", ".join(r.get_attribute("slug") for r in group.roles().get())
+        perms = ", ".join(p.get_attribute("slug") for p in group.permissions().get())
+        granted = " / ".join(part for part in (roles, perms) if part) or "-"
+        members = len(group.users().get())
+        echo(
+            f"{group.get_attribute('slug'):<20} {group.get_attribute('name'):<24} "
+            f"{members:<8} {granted}"
+        )
+
+
+@group_app.command("create")
+def group_create(name: str, slug: str, description: str = typer.Option("", help="Optional description.")) -> None:
+    """Create a group."""
+    from app.Models.Group import Group
+
+    get_app()
+    Group.create({"name": name, "slug": slug, "description": description or None})
+    echo(f"Group created: {slug}", "green")
+
+
+@group_app.command("add-user")
+def group_add_user(group_slug: str, email: str) -> None:
+    """Add a user to a group."""
+    get_app()
+    from app.Models.Group import Group
+    from app.Models.User import User
+
+    group = _require(Group, group_slug, "group")
+    user = User.query().where("email", email).first()
+    if user is None:
+        echo(f"No such user: {email}", "red")
+        raise typer.Exit(code=1) from None
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM group_user WHERE user_id = ? AND group_id = ?",
+        [user.get_attribute("id"), group.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"[{email}] is already in group [{group_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO group_user (user_id, group_id) VALUES (?, ?)",
+        [user.get_attribute("id"), group.get_attribute("id")],
+    )
+    echo(f"Added [{email}] to group [{group_slug}].", "green")
+
+
+@group_app.command("remove-user")
+def group_remove_user(group_slug: str, email: str) -> None:
+    """Remove a user from a group."""
+    get_app()
+    from app.Models.Group import Group
+    from app.Models.User import User
+
+    group = _require(Group, group_slug, "group")
+    user = User.query().where("email", email).first()
+    if user is None:
+        echo(f"No such user: {email}", "red")
+        raise typer.Exit(code=1) from None
+
+    db = get_app().make("db")
+    result = db.statement(
+        "DELETE FROM group_user WHERE user_id = ? AND group_id = ?",
+        [user.get_attribute("id"), group.get_attribute("id")],
+    )
+    # Report what happened: "removed" for a membership that was never there
+    # reads as success and hides a typo in the email or slug.
+    if (getattr(result, "rowcount", 0) or 0) < 1:
+        echo(f"[{email}] was not in group [{group_slug}]; nothing removed.", "yellow")
+        return
+    echo(f"Removed [{email}] from group [{group_slug}].", "green")
+
+
+@group_app.command("grant-role")
+def group_grant_role(
+    group_slug: str,
+    role_slug: str,
+    conditions: Optional[str] = typer.Option(None, help=CONDITIONS_HELP),
+) -> None:
+    """Grant a role to every member of a group."""
+    get_app()
+    from app.Models.Group import Group
+    from app.Models.Role import Role
+
+    group = _require(Group, group_slug, "group")
+    role = _require(Role, role_slug, "role")
+    stored = _parse_conditions(conditions)
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM group_role WHERE group_id = ? AND role_id = ?",
+        [group.get_attribute("id"), role.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"Group [{group_slug}] already grants role [{role_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO group_role (group_id, role_id, conditions) VALUES (?, ?, ?)",
+        [group.get_attribute("id"), role.get_attribute("id"), stored],
+    )
+    echo(f"Group [{group_slug}] now grants role [{role_slug}].", "green")
+
+
+@group_app.command("grant")
+def group_grant_permission(
+    group_slug: str,
+    permission_slug: str,
+    conditions: Optional[str] = typer.Option(None, help=CONDITIONS_HELP),
+) -> None:
+    """Grant a permission straight to a group, without inventing a role."""
+    get_app()
+    from app.Models.Group import Group
+    from app.Models.Permission import Permission
+
+    group = _require(Group, group_slug, "group")
+    permission = _require(Permission, permission_slug, "permission")
+    stored = _parse_conditions(conditions)
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM permission_group WHERE group_id = ? AND permission_id = ?",
+        [group.get_attribute("id"), permission.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"Group [{group_slug}] already has permission [{permission_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO permission_group (group_id, permission_id, conditions) VALUES (?, ?, ?)",
+        [group.get_attribute("id"), permission.get_attribute("id"), stored],
+    )
+    echo(f"Granted [{permission_slug}] to group [{group_slug}].", "green")
+
+
+@user_app.command("grant")
+def user_grant_permission(
+    email: str,
+    permission_slug: str,
+    conditions: Optional[str] = typer.Option(None, help=CONDITIONS_HELP),
+) -> None:
+    """Grant a permission directly to one user.
+
+    The exception every real system needs eventually: one person gets one extra
+    permission, and inventing a single-member role for it is worse than
+    recording it honestly.
+    """
+    get_app()
+    from app.Models.Permission import Permission
+    from app.Models.User import User
+
+    user = User.query().where("email", email).first()
+    if user is None:
+        echo(f"No such user: {email}", "red")
+        raise typer.Exit(code=1) from None
+    permission = _require(Permission, permission_slug, "permission")
+    stored = _parse_conditions(conditions)
+
+    db = get_app().make("db")
+    already = db.statement(
+        "SELECT 1 FROM permission_user WHERE user_id = ? AND permission_id = ?",
+        [user.get_attribute("id"), permission.get_attribute("id")],
+        read=True,
+    ).fetchone()
+    if already:
+        echo(f"[{email}] already has permission [{permission_slug}].", "yellow")
+        return
+
+    db.statement(
+        "INSERT INTO permission_user (user_id, permission_id, conditions) VALUES (?, ?, ?)",
+        [user.get_attribute("id"), permission.get_attribute("id"), stored],
+    )
+    echo(f"Granted [{permission_slug}] to [{email}].", "green")
+
+
+@user_app.command("access")
+def user_access(email: str) -> None:
+    """Show everything that authorizes a user: groups, roles, permissions.
+
+    The answer to "why can this person do that?", which otherwise means reading
+    five pivot tables by hand.
+    """
+    app = get_app()
+    from app.Models.User import User
+
+    user = User.query().where("email", email).first()
+    if user is None:
+        echo(f"No such user: {email}", "red")
+        raise typer.Exit(code=1) from None
+
+    access = app.make("access")
+    echo(f"{email}", "green")
+    echo(f"  groups      : {', '.join(access.groups(user)) or '-'}")
+    echo(f"  roles       : {', '.join(access.roles(user)) or '-'}")
+
+    slugs = access.permissions(user)
+    echo(f"  permissions : {', '.join(slugs) or '-'}")
+    for slug in slugs:
+        for grant in access.explain(user, slug):
+            condition = grant["conditions"] or "unconditional"
+            echo(f"      {slug} via {grant['source']} ({condition})")
 
 
 @user_app.command("assign-role")

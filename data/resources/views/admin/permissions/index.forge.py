@@ -1,3 +1,15 @@
+{#
+    Admin — Permissions.
+
+    Rendered by `app/Http/Controllers/Admin/RoleController.py::PermissionController.index`
+    at `GET /admin/permissions`, behind `auth` + `role:admin`. Read-only: a
+    permission is created by `dev.py permission create`, or by whatever grants
+    it — this page is the catalogue.
+
+    Context:
+      permissions   list[Permission]
+      show_sidebar  bool
+#}
 @extends("layouts.app")
 
 @section("title", "Permissions — Admin")
