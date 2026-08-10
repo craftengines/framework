@@ -32,10 +32,22 @@ class HomeController(Controller):
         return self.view("home", {"posts": posts, "show_sidebar": False})
 
     def admin(self, request):
-        from craft.facades import Auth
+        """The administration dashboard: every user, administrator and tenant.
+
+        Two independent controls guard this, deliberately. The route declares
+        `auth` + `role:admin` (see `routes/web.py`), and the check below repeats
+        it here. The route once carried `auth` alone, which let any account that
+        could log in read the entire user directory — with the data this action
+        returns, one forgotten alias should not be the only thing standing
+        between an ordinary user and the whole installation.
+        """
+        from craft.facades import Auth, Gate
+
         user = Auth.user()
         if not user:
             return redirect(url="/login", status=302)
+
+        Gate.authorize("access-admin-dashboard", user)
 
         import logging
 

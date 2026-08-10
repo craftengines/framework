@@ -25,8 +25,13 @@ Route.get("/register", [AuthController, "show_register"]).name("register")
 Route.post("/register", [AuthController, "register"]).middleware("throttle").name("register.store")
 Route.post("/logout", [AuthController, "logout"]).name("logout")
 
-# Admin Route with auth middleware
-Route.get("/admin", [HomeController, "admin"]).middleware("auth").name("admin.dashboard")
+# The dashboard lists every user, every administrator and every tenant in the
+# installation. It carried `auth` alone, so any account that could log in read
+# the whole directory — authentication is not authorization. `role:admin` puts
+# it on the same footing as the rest of the admin surface, and
+# `tests/test_admin_authorization.py` now fails the build if any /admin route
+# is ever declared without an authorizing alias again.
+Route.get("/admin", [HomeController, "admin"]).middleware("auth", "role:admin").name("admin.dashboard")
 
 # The CRUD builder writes real `.py` files into app/ and database/migrations/
 # and rewrites routes/api.py and routes/web.py. Behind `auth` alone that is
