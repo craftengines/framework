@@ -12,6 +12,11 @@ from craft.orm.model import Model
 
 **787 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
 
+> New here — or an AI agent picking this up? Read
+> [**`CRAFT_ENGINE.md`**](CRAFT_ENGINE.md): what the engine contains, the build
+> loop, how the same codebase carries an app from a blog to multi-tenant scale,
+> and an explicit list of what does *not* exist yet.
+
 ---
 
 ## Getting started
@@ -281,6 +286,32 @@ data = StorePostRequest(request).validated()   # raises on failure
 
 ---
 
+## Concurrency
+
+One worker process serves requests **in parallel**: the synchronous middleware
+and controller chain runs on a thread pool, and each thread borrows a pooled
+database connection for the request, returning it afterwards. Measured on the
+sample app with `tools/loadtest.py`: ~27 req/s regardless of client count
+before, ~115 req/s from 10 clients up after, p95 falling from 1.9s to 0.57s.
+
+```python
+# config/database.py — per connection
+"pool_size": 10,      # physical connections per worker process (default)
+"pool_timeout": 30,   # seconds to wait for a free one before failing
+```
+
+Scale further with processes, since the GIL caps one:
+
+```bash
+python dev.py serve --host 0.0.0.0 --port 8000 --no-reload --workers 4
+```
+
+Transaction depth, the tenant `search_path` and the authenticated user are all
+scoped to the request being served, never process-wide — under concurrency that
+distinction is correctness, not tidiness.
+
+---
+
 ## Cache, queues, and events
 
 ```python
@@ -321,6 +352,8 @@ installation, configuration, the container, routing, controllers, views,
 validation, migrations, the ORM, security, sessions, cache, queues,
 resources, i18n, testing, deployment, and the `dev` reference.
 
+- [`CRAFT_ENGINE.md`](CRAFT_ENGINE.md) — what the engine is, the build loop,
+  scaling from a blog to multi-tenant, and what is not built yet.
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed, in Keep a Changelog format.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to contribute.
 - [`SECURITY.md`](SECURITY.md) — security policy and production checklist.

@@ -2,6 +2,10 @@
 
 A batteries-included Python web framework built on Starlette.
 
+Looking for the big picture first — what the engine contains, the build loop,
+scaling from a blog to multi-tenant, and what is not implemented yet? That is
+[`CRAFT_ENGINE.md`](../CRAFT_ENGINE.md).
+
 ## Getting started
 
 | Guide | What it covers |

@@ -8,7 +8,8 @@ Craft is a modern, full-stack MVC backend framework that brings expressive conve
 
 1. **Convention over Configuration**: files go in specific directories, classes adhere to consistent name patterns, and dependencies resolve automatically.
 2. **Developer Ergonomics**: Powerful command-line tooling, dynamic facades, and automatic dependency injection minimize boilerplate.
-3. **High Performance**: Async controller actions are awaited natively, and dependencies boot lazily.
+3. **Concurrent by default**: the synchronous middleware and controller chain runs on a thread pool, with each request borrowing a pooled database connection and returning it at the end — so one worker process overlaps requests instead of serving them one at a time. Async controller actions are awaited natively, and dependencies boot lazily. See [Deployment](deployment.md#concurrency) for the numbers and how to scale with `--workers`.
+4. **Nothing decorative**: a promise the framework cannot keep is removed rather than faked. Unknown middleware aliases, unknown route names and unknown authorization abilities all fail loudly instead of silently doing nothing. [`CRAFT_ENGINE.md`](../CRAFT_ENGINE.md) keeps an explicit list of what is *not* built.
 
 ---
 

@@ -28,6 +28,11 @@ project, regenerate `.env`, verify the live mount, what never to nest inside
 
 ## For AI agents working in this repository
 
+**Start with [`data/CRAFT_ENGINE.md`](data/CRAFT_ENGINE.md)** — what the engine
+is, the build loop for a new feature, how the same codebase carries an
+application from a blog to multi-tenant scale, and an explicit list of what is
+*not* built yet (storage/S3, mail, API key manager, Redis queue driver). Then:
+
 - `.agents/skills/framework/craft-development/SKILL.md` — framework internals
   (`engine/`, exposed as `craft.*`): what each subsystem owns, what must
   stay framework-agnostic.

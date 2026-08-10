@@ -186,6 +186,16 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **`CRAFT_ENGINE.md`** — the framework's own overview, written for whoever (or
+  whatever) picks this repository up cold: what each engine subsystem provides,
+  the build loop for a feature, and how the same codebase carries an
+  application through four stages — a single-machine blog, a real product with
+  roles and background work, a concurrent multi-worker deployment, and
+  schema-per-tenant multi-tenancy. It carries an explicit **"what does not
+  exist yet"** section (storage/S3, mail, API key manager, Redis queue driver,
+  broadcasting, nested eager loading, remember-me, session encryption), because
+  an agent that assumes those exist writes code that cannot work. Linked from
+  both READMEs and the documentation index.
 - **The framework serves requests in parallel.** Throughput was ~27 req/s
   whether 1 client or 50 were connected — the signature of a process handling
   one request at a time — and p95 latency at 50 clients was 1.9s. It is now
