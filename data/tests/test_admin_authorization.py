@@ -119,11 +119,20 @@ class TestOrdinaryUsersCannotReachTheAdminSurface:
 
 class TestAdministratorsStillGetIn:
     def test_the_dashboard_answers_an_administrator(self, client, accounts):
-        """The fix must close the hole without closing the door."""
+        """The fix must close the hole without closing the door.
+
+        `/admin` now redirects into `/panel` — the old dashboard rendered its
+        own shell, and two panels is how the two drift apart. The guard still
+        runs first, so this is not a way around it: an ordinary account is
+        refused before the redirect (asserted above).
+        """
         login(client, "admin-admintest@craft.local")
 
         response = client.get("/admin", follow_redirects=False)
-        assert response.status_code == 200
+        assert response.status_code == 302
+        assert response.headers["location"].endswith("/panel")
+
+        assert client.get("/panel", follow_redirects=False).status_code == 200
 
     def test_every_admin_page_renders_for_an_administrator(self, client, accounts):
         """Locking a page down and breaking it look identical from outside.
@@ -138,7 +147,9 @@ class TestAdministratorsStillGetIn:
         for route in admin_routes():
             if "GET" not in route.methods:
                 continue
-            response = client.get(route.uri, follow_redirects=False)
+            # Follow redirects: `/admin` is a redirect into `/panel`, and what
+            # matters is that an administrator lands on a working page.
+            response = client.get(route.uri)
             if response.status_code != 200:
                 broken.append((route.uri, response.status_code))
 

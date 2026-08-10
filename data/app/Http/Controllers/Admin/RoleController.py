@@ -13,12 +13,13 @@ References:
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
+from app.Http.Controllers.Panel.PanelPage import PanelPage
 from craft.http.controller import Controller
 from craft.http.response import redirect
 from craft.facades import DB
 
 
-class RoleController(Controller):
+class RoleController(PanelPage, Controller):
     def index(self, request):
         from app.Models.Role import Role
 
@@ -29,11 +30,14 @@ class RoleController(Controller):
 
         from app.Models.Permission import Permission
 
-        return self.view("admin.roles.index", {
+        # Rendered inside the control panel shell rather than the marketing
+        # layout: one panel, one sidebar, one set of guards.
+        return self.panel(request, "admin.roles.index", {
+            "heading": "Roles",
+            "subheading": "Roles and the permissions granted to each.",
             "roles": roles,
             "role_permissions": role_permissions,
             "permissions": Permission.query().get(),
-            "show_sidebar": True,
         })
 
     def grant(self, request):
@@ -61,11 +65,12 @@ class RoleController(Controller):
         return redirect(url="/admin/roles", status=302)
 
 
-class PermissionController(Controller):
+class PermissionController(PanelPage, Controller):
     def index(self, request):
         from app.Models.Permission import Permission
 
-        return self.view("admin.permissions.index", {
+        return self.panel(request, "admin.permissions.index", {
+            "heading": "Permissions",
+            "subheading": "Every permission this installation knows about.",
             "permissions": Permission.query().get(),
-            "show_sidebar": True,
         })

@@ -145,7 +145,10 @@ class TestTheSidebarShowsLabelsAndOnlyReachablePages:
                     url = item["url"]
                     if not url.startswith("/"):
                         continue
-                    status = client.get(url, follow_redirects=False).status_code
+                    # Redirects are followed: `/admin/*` links land in the
+                    # panel. What must hold is that the visitor reaches a
+                    # working page, never a 403.
+                    status = client.get(url).status_code
                     assert status == 200, f"{email} is offered {url}, which answers {status}"
 
 

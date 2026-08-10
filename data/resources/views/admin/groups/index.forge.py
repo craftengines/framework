@@ -18,18 +18,14 @@
       permissions_of  {group_id: [{"slug": str, "conditions": str|None}]}
       roles, permissions, users   for the three grant forms below
 #}
-@extends("layouts.app")
+@extends("layouts.panel")
 
 @section("title", "Groups — Admin")
 
 @section("content")
 <div class="space-y-8">
-    <div>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Groups</h1>
-        <p class="text-slate-500 text-sm mt-1">
-            Team-level access. Members inherit every role and permission the group carries.
-        </p>
-    </div>
+    {# The heading is rendered by the panel layout from the controller's
+       `heading`/`subheading`; repeating it here would print it twice. #}
 
     {# --- The groups themselves, with everything they grant ----------------- #}
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">

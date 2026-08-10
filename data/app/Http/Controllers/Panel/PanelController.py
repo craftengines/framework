@@ -22,39 +22,14 @@ alone click, what they may not have.
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from craft.facades import Auth, DB, Nav
+from app.Http.Controllers.Panel.PanelPage import PanelPage
+from craft.facades import Auth
 from craft.http.controller import Controller
 from craft.http.response import redirect
 
 
-class PanelController(Controller):
+class PanelController(PanelPage, Controller):
     """Every page of the panel. Each action ends in `self.panel(...)`."""
-
-    # -- shell -----------------------------------------------------------------
-
-    def panel(self, request, template: str, data: dict):
-        """Render a panel page with the shell's own context filled in.
-
-        Centralised so no page can forget the menu — a panel page that renders
-        without `nav_sections` loses its navigation entirely, and the failure
-        looks like a styling bug rather than a missing variable.
-        """
-        user = Auth.user()
-        context = {
-            "current_user": user,
-            "nav_sections": Nav.for_user(user, self._path(request)),
-            "show_sidebar": False,
-        }
-        context.update(data)
-        return self.view(template, context)
-
-    @staticmethod
-    def _path(request) -> str:
-        """Current path, used to highlight the active menu item."""
-        try:
-            return request.url.path
-        except Exception:
-            return ""
 
     # -- workspace -------------------------------------------------------------
 
@@ -87,7 +62,7 @@ class PanelController(Controller):
         ]
 
         admin_stats = []
-        if self._is_admin(user):
+        if self.is_admin(user):
             from app.Models.Group import Group
             from app.Models.User import User
 
@@ -113,18 +88,6 @@ class PanelController(Controller):
         value = user.get_attribute("created_at")
         return str(value).split("T")[0].split(" ")[0] if value else "—"
 
-    def _is_admin(self, user) -> bool:
-        """`is_admin`, or the `admin` role — either is sufficient.
-
-        Same rule as the `access-admin-dashboard` Gate ability, so an
-        installation that manages access purely through roles and one that flags
-        the column both behave the same.
-        """
-        if user is None:
-            return False
-        if user.get_attribute("is_admin"):
-            return True
-        return self.app_access().has_role(user, "admin")
 
     def profile(self, request):
         """The account's own details — and nothing about how access is wired.
@@ -139,7 +102,7 @@ class PanelController(Controller):
             "heading": "My profile",
             "subheading": "Your account in this installation.",
             "user": user,
-            "is_admin": self._is_admin(user),
+            "is_admin": self.is_admin(user),
         })
 
     def access(self, request):
@@ -297,16 +260,211 @@ class PanelController(Controller):
             "facts": facts,
         })
 
+    # -- framework control -----------------------------------------------------
+    # These pages exist so an administrator can answer "what is this
+    # installation actually doing?" without shelling into the container. Every
+    # figure is read from the running application — the live router, the live
+    # connection, the live managers — never from a config file that may not be
+    # the one in effect.
+
+    def routes(self, request):
+        """Every registered route, with the middleware that guards it.
+
+        The single most useful screen for auditing an installation: the route
+        table *is* the attack surface, and reading it here beats grepping
+        `routes/` and hoping nothing registers routes at runtime (the CRUD
+        builder does).
+        """
+        router = self.container().make("router")
+
+        rows = []
+        for route in router.routes:
+            declared = [m if isinstance(m, str) else getattr(m, "__name__", str(m))
+                        for m in route.middleware_list]
+            rows.append({
+                "methods": ", ".join(route.methods),
+                "uri": route.uri,
+                "name": route._name or "—",
+                "middleware": declared,
+                "module": route._module or "",
+                # An unguarded write route is worth seeing at a glance.
+                "guarded": any(
+                    isinstance(m, str) and m.startswith(("auth", "role:", "permission:", "group:", "api"))
+                    for m in route.middleware_list
+                ),
+            })
+        rows.sort(key=lambda r: r["uri"])
+
+        return self.panel(request, "panel.routes", {
+            "heading": "Routes",
+            "subheading": f"{len(rows)} routes registered in this process.",
+            "rows": rows,
+        })
+
+    def database(self, request):
+        """Driver, connection pool and every table with its row count."""
+        db = self.container().make("db")
+
+        listings = {
+            "sqlite": "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+            "postgresql": "SELECT tablename AS name FROM pg_tables WHERE schemaname = current_schema() ORDER BY tablename",
+        }
+        sql = listings.get(
+            db.driver,
+            "SELECT table_name AS name FROM information_schema.tables "
+            "WHERE table_schema = DATABASE() ORDER BY table_name",
+        )
+
+        tables = []
+        try:
+            for row in db.statement(sql, read=True).fetchall():
+                name = row["name"]
+                try:
+                    count = db.statement(f'SELECT COUNT(*) AS n FROM "{name}"', read=True).fetchone()["n"]
+                except Exception:
+                    # A table the current role cannot read is reported as such,
+                    # not as zero rows.
+                    count = None
+                tables.append({"name": name, "rows": count})
+        except Exception:
+            tables = []
+
+        try:
+            pool = db.write_connection.pool_stats
+        except Exception:
+            pool = {"open": 0, "idle": 0}
+
+        return self.panel(request, "panel.database", {
+            "heading": "Database",
+            "subheading": f"{db.driver} — {len(tables)} tables.",
+            "driver": db.driver,
+            "pool": pool,
+            "pool_size": getattr(db.write_connection, "pool_size", "?"),
+            "tables": tables,
+        })
+
+    def cache(self, request):
+        """Which cache store is in effect, and a way to empty it."""
+        config = self.container().make("config")
+        # `store` is a property on the manager, not a method — the resolved
+        # store object, whichever driver actually came up.
+        store = self.container().make("cache").store
+
+        return self.panel(request, "panel.cache", {
+            "heading": "Cache",
+            "subheading": "The store actually in use, resolved at runtime.",
+            "configured": config.get("cache.default", "array"),
+            "store": type(store).__name__,
+            "flushed": request.input("flushed") == "1",
+        })
+
+    def flush_cache(self, request):
+        """Empty the cache. POST + CSRF: a GET that mutates can be prefetched."""
+        try:
+            self.container().make("cache").flush()
+        except Exception:
+            return redirect(url="/panel/cache", status=302)
+        return redirect(url="/panel/cache?flushed=1", status=302)
+
+    def queue(self, request):
+        """Pending and failed jobs, straight from the `jobs` table."""
+        db = self.container().make("db")
+        config = self.container().make("config")
+
+        def count(sql, bindings=None):
+            try:
+                return db.statement(sql, bindings, read=True).fetchone()["n"]
+            except Exception:
+                # No jobs table yet (nothing queued in this installation).
+                return None
+
+        pending = count("SELECT COUNT(*) AS n FROM jobs")
+        attempted = count("SELECT COUNT(*) AS n FROM jobs WHERE attempts > 0")
+
+        recent = []
+        try:
+            rows = db.statement(
+                "SELECT id, queue, attempts, available_at FROM jobs "
+                "ORDER BY id DESC LIMIT 20",
+                read=True,
+            ).fetchall()
+            recent = [
+                {
+                    "id": row["id"], "queue": row["queue"],
+                    "attempts": row["attempts"], "available_at": row["available_at"],
+                }
+                for row in rows
+            ]
+        except Exception:
+            recent = []
+
+        return self.panel(request, "panel.queue", {
+            "heading": "Queue",
+            "subheading": "Jobs waiting to be processed by `dev.py queue work`.",
+            "connection": config.get("queue.default", "sync"),
+            "pending": pending,
+            "attempted": attempted,
+            "recent": recent,
+        })
+
+    def logs(self, request):
+        """The most recent entries the application wrote to the database."""
+        db = self.container().make("db")
+
+        entries = []
+        try:
+            rows = db.statement(
+                "SELECT * FROM system_logs ORDER BY id DESC LIMIT 100", read=True
+            ).fetchall()
+            entries = [dict(row) for row in rows]
+        except Exception:
+            entries = []
+
+        return self.panel(request, "panel.logs", {
+            "heading": "Logs",
+            "subheading": "The last 100 entries recorded in `system_logs`.",
+            "entries": entries,
+            "columns": list(entries[0].keys()) if entries else [],
+        })
+
+    def schedule(self, request):
+        """Registered scheduled tasks and when each one runs."""
+        try:
+            tasks = self.container().make("schedule").tasks()
+        except Exception:
+            tasks = []
+
+        rows = [
+            {"name": task.name(), "expression": task.expression()}
+            for task in tasks
+        ]
+
+        return self.panel(request, "panel.schedule", {
+            "heading": "Scheduler",
+            "subheading": "Run them with `dev.py schedule work`, or `schedule run` from cron.",
+            "rows": rows,
+        })
+
+    def tenants(self, request):
+        """Tenants and the schema each one is isolated into."""
+        from app.Services.Tenant.TenantService import TenantService
+
+        try:
+            tenants = TenantService().get_active_tenants()
+        except Exception:
+            tenants = []
+
+        db = self.container().make("db")
+        return self.panel(request, "panel.tenants", {
+            "heading": "Tenants",
+            "subheading": "Schema-per-tenant isolation requires PostgreSQL.",
+            "tenants": tenants,
+            "driver": db.driver,
+            "isolated": db.driver == "postgresql",
+        })
+
     # -- helpers ---------------------------------------------------------------
-
-    @staticmethod
-    def container():
-        from craft.container.application import Container
-
-        return Container.getInstance()
-
-    def app_access(self):
-        return self.container().make("access")
+    # `container()`, `app_access()` and `is_admin()` come from PanelPage.
 
     def _modules(self):
         """Every module with the state the router will actually honour."""

@@ -246,6 +246,31 @@ full policy (categories to use, what counts as security-relevant, how
   - Fixed while looking at the running page, not by a test: `/panel` lit up
     alongside `/panel/access`, because per-item prefix matching cannot express
     "closest wins". Exactly one item is active now, chosen across the whole menu.
+- **One panel, not two.** `/admin` rendered its own dashboard inside
+  `layouts.app`, whose sidebar is the hover-expanding icon rail that covers the
+  page underneath — the very problem the panel was built to fix, still visible
+  on the admin side. It now redirects into `/panel` (the guard still runs
+  first, so this is no way around it), and the roles, permissions and groups
+  screens render inside the panel shell through a shared `PanelPage` mixin.
+  Two dashboards is how the two drift apart: one gains a section, the other
+  keeps an old guard, and eventually one of them is wrong.
+- **Total control of the running installation**, all admin-only, all read from
+  the live application rather than a config file that may not be the one in
+  effect:
+  - **Routes** — every registered route with the middleware guarding it,
+    including anything registered at runtime (the CRUD builder does). The route
+    table *is* the attack surface; this is it in one screen.
+  - **Database** — driver, connection pool (`open`/`idle` against `pool_size`)
+    and every table with its row count. A count that could not be read shows
+    "—", never 0.
+  - **Cache** — what the config asks for *and* which store actually resolved,
+    because "configured redis, running array" otherwise goes unnoticed until a
+    second worker appears. Plus a flush, POST with CSRF.
+  - **Queue** — waiting and retried jobs from the `jobs` table, and the last 20.
+  - **Scheduler** — registered tasks and their cron expressions.
+  - **Logs** — the last 100 `system_logs` rows, columns taken from the data.
+  - **Tenants** — with a banner stating plainly when the driver cannot isolate
+    schemas, so the list never implies an isolation that is not there.
 - **Groups and attribute-based access control (ABAC).** Authorization could
   previously say only *who you are*: a user held roles, and roles held
   permissions. Two things real systems need were missing.

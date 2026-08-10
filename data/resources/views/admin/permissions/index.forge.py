@@ -10,16 +10,13 @@
       permissions   list[Permission]
       show_sidebar  bool
 #}
-@extends("layouts.app")
+@extends("layouts.panel")
 
 @section("title", "Permissions — Admin")
 
 @section("content")
 <div class="space-y-8">
-    <div>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Permissions</h1>
-        <p class="text-slate-500 text-sm mt-1">Every permission slug known to the RBAC system.</p>
-    </div>
+    {# Heading comes from the panel layout (`heading`/`subheading`). #}
 
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">

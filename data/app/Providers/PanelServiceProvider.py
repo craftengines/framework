@@ -67,8 +67,18 @@ class PanelServiceProvider(ServiceProvider):
         Nav.add("people", "Roles", "/admin/roles", icon="badge", order=30, role="admin")
         Nav.add("people", "Permissions", "/admin/permissions", icon="key", order=40, role="admin")
 
-        # -- System -----------------------------------------------------------
-        Nav.add("system", "Modules", "/panel/modules", icon="squares", order=10, role="admin")
-        Nav.add("system", "Plugins", "/panel/plugins", icon="puzzle", order=20, role="admin")
-        Nav.add("system", "CRUD builder", "/admin/crud-builder", icon="wrench", order=30, role="admin")
-        Nav.add("system", "About this install", "/panel/system", icon="info", order=40, role="admin")
+        # -- System: total control over the running installation --------------
+        # Every one of these reads the live application rather than a config
+        # file, so an administrator can answer "what is this process actually
+        # doing?" without shelling into the container.
+        Nav.add("system", "Routes", "/panel/routes", icon="document", order=10, role="admin")
+        Nav.add("system", "Database", "/panel/database", icon="collection", order=20, role="admin")
+        Nav.add("system", "Cache", "/panel/cache", icon="squares", order=30, role="admin")
+        Nav.add("system", "Queue", "/panel/queue", icon="puzzle", order=40, role="admin")
+        Nav.add("system", "Scheduler", "/panel/schedule", icon="badge", order=50, role="admin")
+        Nav.add("system", "Logs", "/panel/logs", icon="document", order=60, role="admin")
+        Nav.add("system", "Modules", "/panel/modules", icon="squares", order=70, role="admin")
+        Nav.add("system", "Plugins", "/panel/plugins", icon="puzzle", order=80, role="admin")
+        Nav.add("system", "Tenants", "/panel/tenants", icon="collection", order=90, role="admin")
+        Nav.add("system", "CRUD builder", "/admin/crud-builder", icon="wrench", order=100, role="admin")
+        Nav.add("system", "About this install", "/panel/system", icon="info", order=110, role="admin")

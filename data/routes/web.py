@@ -73,6 +73,20 @@ Route.get("/panel/users", [PanelController, "users"]).middleware("auth", "role:a
 Route.get("/panel/modules", [PanelController, "modules"]).middleware("auth", "role:admin").name("panel.modules")
 Route.post("/panel/modules/toggle", [PanelController, "toggle_module"]).middleware("auth", "role:admin").name("panel.modules.toggle")
 Route.get("/panel/plugins", [PanelController, "plugins"]).middleware("auth", "role:admin").name("panel.plugins")
+Route.get("/panel/tenants", [PanelController, "tenants"]).middleware("auth", "role:admin").name("panel.tenants")
+
+# Framework control. These answer "what is this installation actually doing?"
+# from the running application — the live router, the live connection, the live
+# managers — so an administrator never has to shell into the container to find
+# out. `/panel/routes` in particular is the installation's attack surface in
+# one table.
+Route.get("/panel/routes", [PanelController, "routes"]).middleware("auth", "role:admin").name("panel.routes")
+Route.get("/panel/database", [PanelController, "database"]).middleware("auth", "role:admin").name("panel.database")
+Route.get("/panel/cache", [PanelController, "cache"]).middleware("auth", "role:admin").name("panel.cache")
+Route.post("/panel/cache/flush", [PanelController, "flush_cache"]).middleware("auth", "role:admin").name("panel.cache.flush")
+Route.get("/panel/queue", [PanelController, "queue"]).middleware("auth", "role:admin").name("panel.queue")
+Route.get("/panel/schedule", [PanelController, "schedule"]).middleware("auth", "role:admin").name("panel.schedule")
+Route.get("/panel/logs", [PanelController, "logs"]).middleware("auth", "role:admin").name("panel.logs")
 Route.get("/panel/system", [PanelController, "system"]).middleware("auth", "role:admin").name("panel.system")
 
 # Resource & Web Content Routes

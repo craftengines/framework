@@ -21,12 +21,13 @@ single membership row instead of a tour of every role that team needs.
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
+from app.Http.Controllers.Panel.PanelPage import PanelPage
 from craft.facades import DB
 from craft.http.controller import Controller
 from craft.http.response import redirect
 
 
-class GroupController(Controller):
+class GroupController(PanelPage, Controller):
     """Lists groups and lets an administrator wire membership and grants."""
 
     def index(self, request):
@@ -52,7 +53,9 @@ class GroupController(Controller):
             roles_of[group_id] = group.roles().get()
             permissions_of[group_id] = self._granted_permissions(group_id)
 
-        return self.view("admin.groups.index", {
+        return self.panel(request, "admin.groups.index", {
+            "heading": "Groups",
+            "subheading": "Team-level access. Members inherit every role and permission the group carries.",
             "groups": groups,
             "members": members,
             "roles_of": roles_of,
@@ -60,7 +63,6 @@ class GroupController(Controller):
             "roles": Role.query().get(),
             "permissions": Permission.query().get(),
             "users": User.query().order_by("name").get(),
-            "show_sidebar": True,
         })
 
     @staticmethod

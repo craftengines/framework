@@ -32,50 +32,22 @@ class HomeController(Controller):
         return self.view("home", {"posts": posts, "show_sidebar": False})
 
     def admin(self, request):
-        """The administration dashboard: every user, administrator and tenant.
+        """`/admin` — kept only as a redirect into the control panel.
 
-        Two independent controls guard this, deliberately. The route declares
-        `auth` + `role:admin` (see `routes/web.py`), and the check below repeats
-        it here. The route once carried `auth` alone, which let any account that
-        could log in read the entire user directory — with the data this action
-        returns, one forgotten alias should not be the only thing standing
-        between an ordinary user and the whole installation.
+        This action used to render its own dashboard inside `layouts.app`,
+        whose sidebar is a hover-expanding icon rail that covers the page
+        underneath. Everything it showed — users, administrators, tenants —
+        now lives in `/panel`, on a shell with a labelled sidebar and a menu
+        filtered by what the visitor may actually reach.
+
+        Two dashboards is how the two drift apart: one gets a new section, the
+        other keeps an old guard, and eventually one of them is wrong. The
+        redirect keeps every existing `/admin` bookmark and link working while
+        there is exactly one panel to maintain.
+
+        The route still carries `auth` + `role:admin`, so this redirect is not
+        a way around the guard — an ordinary account is refused before reaching
+        it, exactly as before.
         """
-        from craft.facades import Auth, Gate
-
-        user = Auth.user()
-        if not user:
-            return redirect(url="/login", status=302)
-
-        Gate.authorize("access-admin-dashboard", user)
-
-        import logging
-
-        from app.Models.User import User
-        from app.Services.Tenant.TenantService import TenantService
-
-        # The user and admin counts are the dashboard's actual content. They
-        # used to be wrapped in `except: []` each, so an unreachable database
-        # rendered a healthy-looking dashboard reporting zero of everything —
-        # the worst possible answer, because it is indistinguishable from a
-        # correct one. Let it fail and reach the exception handler.
-        users = User.query().order_by("created_at", "desc").get()
-        administrators = User.query().where("is_admin", True).get()
-
-        # Tenancy is optional and may not be provisioned at all, so an empty
-        # list is a legitimate result here rather than a swallowed failure.
-        try:
-            tenants = TenantService().get_active_tenants()
-        except Exception:
-            logging.getLogger("craft").info(
-                "No tenant list available for the dashboard.", exc_info=True
-            )
-            tenants = []
-
-        return self.view("admin.dashboard", {
-            "tenants": tenants,
-            "administrators": administrators,
-            "users": users,
-            "show_sidebar": True,
-        })
+        return redirect(url="/panel", status=302)
 
