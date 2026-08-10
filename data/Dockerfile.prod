@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml .
 COPY README.md .
-COPY services/ ./services/
+COPY engine/ ./engine/
 
 RUN pip install --no-cache-dir --prefix=/install . \
     && pip install --no-cache-dir --prefix=/install uvicorn[standard] gunicorn psycopg[binary]

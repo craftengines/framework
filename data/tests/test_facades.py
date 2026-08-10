@@ -5,8 +5,8 @@
 
 import pytest
 
-from services.container.application import Application, Container
-from services.facades.base import Facade
+from craft.container.application import Application, Container
+from craft.facades.base import Facade
 
 
 class Dummy:

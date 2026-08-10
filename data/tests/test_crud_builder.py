@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from services.cli import crud_builder
+from craft.cli import crud_builder
 
 
 FIELDS = [
@@ -232,10 +232,10 @@ class TestRouteAppendIsIdempotent:
         assert source.count('Route.api_resource("products"') == 1
 
     def test_write_routes_require_real_authentication(self, tmp_path):
-        # `write_middleware="api"` alone never rejects a missing/invalid
-        # token — `AuthenticateApiToken` only resolves a user if present.
-        # The generated route must also carry `"auth"` (`RequireAuth`), the
-        # alias that actually blocks an unauthenticated request.
+        # Generated writes carry both aliases: `"api"` (a valid bearer token)
+        # and `"auth"` (an authenticated session). Runtime enforcement of the
+        # `"api"` alias itself is covered by
+        # `test_api_token_middleware.py`.
         routes_path = _make_routes_file(str(tmp_path))
         crud_builder.build_crud("Product", FIELDS, str(tmp_path))
         source = open(routes_path, encoding="utf-8").read()

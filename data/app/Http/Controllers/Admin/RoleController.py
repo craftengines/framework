@@ -3,9 +3,9 @@
 Category: Application (Admin Controllers).
 Relations:
   - Reads/writes `app/Models/Role.py`, `app/Models/Permission.py` through the
-    `roles()`/`permissions()` BelongsToMany relations on `services/orm/model.py`.
+    `roles()`/`permissions()` BelongsToMany relations on `engine/orm/model.py`.
   - Routes registered in `routes/web.py`, guarded by the `role:admin` route
-    middleware (`services/http/middleware.py`).
+    middleware (`engine/http/middleware.py`).
 References:
   - Guide: `documentation/authorization.md`
 """

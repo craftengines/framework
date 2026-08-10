@@ -5,7 +5,7 @@
 
 import pytest
 
-from services.orm.connection import Connection, Row, normalize_placeholders
+from craft.orm.connection import Connection, Row, normalize_placeholders
 
 
 class TestPlaceholderNormalization:

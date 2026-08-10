@@ -5,7 +5,7 @@
 
 import pytest
 
-from services.container.application import Application, Container
+from craft.container.application import Application, Container
 
 
 class Engine:

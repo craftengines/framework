@@ -1,0 +1,9 @@
+# Third-party repository kept locally as a learning reference for the AI Engine
+# epic (see `.agents/docs/backlog.md`). ~28 MB of someone else's code — read it,
+# never vendor it into this history.
+.claude/Project Reference/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/

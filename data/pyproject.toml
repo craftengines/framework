@@ -59,11 +59,11 @@ mysql = ["pymysql>=1.1"]
 redis = ["redis>=5.0"]
 
 [project.scripts]
-dev = "services.cli.app:main"
+dev = "engine.cli.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["services*"]
+include = ["engine*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -74,7 +74,7 @@ target-version = "py311"
 # Starting scope: the framework package only. `app/` (the sample application)
 # and `tests/` are intentionally excluded for now — turning on lint here
 # should not become a blocking rewrite of the whole codebase in one pass.
-include = ["services/**/*.py"]
+include = ["engine/**/*.py"]
 
 [tool.ruff.lint]
 # Deliberately small starting ruleset: undefined names, unused imports, and

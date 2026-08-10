@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from services.events.dispatcher import EventDispatcher
-from services.events.event import Event
-from services.resources.resource import Resource, ResourceCollection
+from craft.events.dispatcher import EventDispatcher
+from craft.events.event import Event
+from craft.resources.resource import Resource, ResourceCollection
 
 
 class Fired(Event):
@@ -293,7 +293,7 @@ class TestResourceCollection:
         assert json.loads(response.to_starlette().body) == {"data": [{"id": 1}]}
 
     def test_pagination_metadata_survives(self):
-        from services.support.collection import Collection
+        from craft.support.collection import Collection
 
         items = Collection([Model()])
         items.pagination = {"total": 1, "per_page": 15, "current_page": 1, "last_page": 1}

@@ -6,8 +6,13 @@
 from craft.config import env
 
 FRAMEWORK_NAME = "Craft"
-FRAMEWORK_VERSION = env("APP_VERSION", "v3.11")
-FRAMEWORK_RELEASE = env("APP_RELEASE", "r00002")
+
+# Sourced from the package rather than hand-maintained here: these were literal
+# strings that had already drifted from `engine/__init__.py` (claiming r00002
+# against the package's r00001), so whichever one you read told you something
+# different. Use `config('app.version')` / `config('app.release')`.
+from craft import __release__ as FRAMEWORK_RELEASE  # noqa: E402
+from craft import __version__ as FRAMEWORK_VERSION  # noqa: E402
 
 # Global feature flags
 MULTI_TENANCY_ENABLED = env("MULTI_TENANCY_ENABLED", True)

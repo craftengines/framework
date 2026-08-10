@@ -89,11 +89,16 @@ python dev.py db seed
 
 ## Factories
 
-Factories define default mock attribute layouts for your models. They utilize the Python `faker` library to generate realistic test data:
+Factories define the default attribute layout for a model. `definition()`
+returns a plain dict — there is no bundled fake-data library, so use the
+standard library, or add `faker` to your own project and call it yourself.
 
 ### Example Factory
 
 ```python
+import random
+import uuid
+
 from craft.factories import Factory
 from app.Models.Post import Post
 
@@ -102,12 +107,15 @@ class PostFactory(Factory):
 
     def definition(self):
         return {
-            "title": self.faker.sentence(),
-            "body": self.faker.paragraph(),
+            "title": f"Post {uuid.uuid4().hex[:8]}",
+            "body": " ".join(random.choices(WORDS, k=30)),
             "published": True,
-            "user_id": "user-uuid"
+            "user_id": 1,
         }
 ```
+
+Every value must be unique where the schema demands it — a factory that
+returns a constant for a `unique` column fails on the second record.
 
 Use factories within seeders or unit tests to generate multiple records quickly:
 ```python

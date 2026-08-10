@@ -3,10 +3,15 @@
 > Contexto: este repositório é o **framework base** usado para criar novas aplicações
 > (o esqueleto que se copia para iniciar uma app), não uma aplicação de negócio.
 >
-> Estado: **633/633 testes passando** em SQLite, PostgreSQL real e Python 3.11 do
-> container. Cada arquivo de teste também passa isolado — nenhum depende da ordem.
-> App real validado em `http://localhost:8300`, incluindo o fluxo de login com
-> CSRF e captcha, headers de segurança confirmados ao vivo.
+> Estado: **775/775 testes passando** em SQLite e em PostgreSQL real, no Python
+> 3.11 do container, com `ruff check .` limpo. Cada arquivo de teste também
+> passa isolado — nenhum depende da ordem. App real validado em
+> `http://localhost:8300`, incluindo o fluxo de login com CSRF e captcha,
+> headers de segurança confirmados ao vivo.
+>
+> ⚠️ O motor foi renomeado de `services/` para **`engine/`** (importado como
+> `craft.*`). Referências a `services/` mais abaixo neste arquivo são registro
+> histórico — o path atual é `engine/`.
 
 ## 🔬 Benchmark e stress test (2026-08-07)
 
@@ -308,43 +313,242 @@ deliberada quando não há banco. Nenhum esconde erro do usuário.
 
 ---
 
+## ✅ Erradicação de placebos (2026-08-10)
+
+Princípio adotado pelo usuário como regra permanente: **o que o framework
+promete ao desenvolvedor, ele tem que entregar.** Quatro varreduras sucessivas
+contra o código real; a quarta veio praticamente limpa. ~30 placebos
+eliminados, cada um com teste de regressão. Detalhe linha a linha no
+`CHANGELOG.md`.
+
+Um placebo é código que *parece* implementado visto de fora — nome de método,
+docstring, config declarada, comando de CLI, diretiva de template — e que
+retorna valor fixo, engole exceção fingindo sucesso, ignora argumentos ou
+nunca é invocado.
+
+**Segurança:**
+
+- `AuthenticateApiToken` nunca rejeitava — resolvia o usuário se o token
+  casasse e seguia adiante de qualquer forma. Toda rota com o alias `api`
+  aceitava anônimo. E o guard não tinha coluna: `api_token` não existia em
+  migration nenhuma.
+- `/admin/crud-builder` protegido só por `auth` — a rota escreve `.py` e
+  reescreve `routes/`. Era RCE para qualquer usuário registrado.
+- `make policy` gerava política com `return True` em tudo, inclusive `user=None`.
+- `unique`/`exists` falhavam em aberto: qualquer erro de banco fazia a regra
+  passar (`unique:userz,email` validava e o duplicado entrava).
+- Agregados (`count`/`sum`/…) interpolavam a coluna sem allowlist.
+
+**Funcionalidade quebrada em silêncio:**
+
+- Method spoofing nunca funcionou: o `_method` era emitido em dois lugares e
+  lido em nenhum, então todo edit/delete gerado dava 405 e `@method` era HTML
+  decorativo. Resolvido na camada ASGI (o Starlette roteia por método antes).
+- `support.view()` engolia toda exceção e devolvia HTTP 200 com
+  `"View x rendered"`.
+- `Schema.table()` descartava índices; `enum()` não restringia nada.
+- `Model.roles()` na classe base devolvia papéis de *usuário* para qualquer
+  modelo (movido para `User`/`Role`).
+- `url_for()` fabricava `/nome.da.rota` para rota inexistente.
+- Falha ao sondar colunas era cacheada para sempre, desligando o UUID público.
+- `Auth.once()` não autenticava ninguém; `Facade._swap()` era `pass`.
+- Scheduler era stub (`hourly()` retornava `self`) e `register_console()` nunca
+  era chamado — ver `engine/schedule/`.
+
+**Config decorativa:** `config/logging.py` inteiro ignorado, os três feature
+flags não ligavam nada, `app.debug` nunca resolvia (debug jamais ligava),
+`app.release` inexistente, `retry_after` hardcoded.
+
+**Lição registrada:** um teste existente (`test_once_authenticates_without_persisting`)
+**codificava o bug** em vez do contrato — exigia `guest() is True` depois de
+`Auth.once()`. Vale auditar outros testes com a mesma pergunta: fixam a promessa
+ou o comportamento que existia?
+
+## 🧭 Épico registrado (2026-08-10) — Hardening + Craft AI Engine
+
+Pedido do usuário, registrado como escopo grande a ser fatiado. **Nada
+executado ainda** — isto é só o registro.
+
+Referência de aprendizado: repo `odysseus-dev/odysseus`, cópia local em
+`.claude/Project Reference` — extrair padrões de motor de inferência,
+adaptadores de modelo, orquestração de workspace, fluxos de automação e
+integração de agentes. Referência, não código a copiar.
+
+### E1. Revisão e modernização do Python core
+- Revisar o código Python de todo o framework (`services/` primeiro, depois `app/`).
+- Aplicar práticas modernas: typing completo, async onde faz sentido, context
+  managers, dataclasses, `match`, hierarquia de exceções melhor.
+- Remover padrões datados e degradação silenciosa remanescente.
+
+### E2. Hardening de segurança (todas as camadas)
+- Router, middleware, ORM, motor de views (Forge), auth, autorização,
+  sessão/token, fronteira de módulos e plugins.
+- Levantar vulnerabilidades, padrões inseguros e validações fracas; corrigir
+  com teste que prove a correção.
+- Segredos: manuseio seguro, sem default conhecido, sem vazamento em log.
+- Entregável: lista de vulnerabilidades encontradas × correção aplicada.
+
+### E3. Craft AI Engine — inferência nativa
+- Interface unificada para qualquer LLM, local ou remoto.
+- Adaptadores nativos: Anthropic, OpenAI, Gemini, DeepSeek, Groq e afins.
+- Suporte a runners locais / inferência local.
+- Agentes de automação, tool-calling e orquestração de workflow.
+- Documentação + exemplos para estender via plugin/módulo (o `PluginManager`
+  DB-backed da Fatia 3 é a base natural do ponto de extensão).
+
+### E4. Cloud e storage
+- Validar/implementar drivers: FS local, NFS, Amazon S3.
+- Fluxos seguros de upload/download; abstração de driver preparada para novos
+  provedores; storage criptografado.
+
+### E5. Entregáveis de saída
+- Revisão detalhada da arquitetura atual.
+- Vulnerabilidades × correções.
+- Propostas de features Python novas e melhorias.
+- Propostas de evolução do motor de inferência, integrações e abstrações.
+- Melhorias de documentação.
+
+**Pré-requisito de ordem:** o teto de concorrência (~30 req/s, item vermelho
+acima) toca E3 diretamente — inferência é I/O-bound e vai empilhar requests
+longos. Pool de conexão antes de expor o AI Engine sob carga.
+
 ## 🔜 Próximas fatias
 
-### 1. Eager loading aninhado e sob demanda
+Ordenadas por impacto. Revisadas em 2026-08-10 — itens que já haviam sido
+resolvidos e continuavam listados como pendentes foram removidos (rate limiting
+via `ThrottleRequests`, `_old_input`, `per_page` capado, headers de segurança).
+
+### O que sobrou, priorizado (resumo)
+
+Leia isto primeiro; o detalhe de cada um está logo abaixo.
+
+| # | Item | Por quê |
+|---|---|---|
+| 🔴 1 | **Teto de concorrência** | O único que exige **arquitetura**, não correção. ~30 req/s constante de 1 a 100 clientes. Reconfirmado por grep em 2026-08-10: zero `run_in_threadpool`, zero pool, sem `--workers`. Ordem obrigatória: **pool → threadpool → workers**. |
+| 🟠 2 | **Storage/S3, SMTP/mail, API manager** | Os três da lista original do usuário que ainda **não existem**. A decisão do S3 já está tomada: `boto3` como extra opcional. |
+| ✅ 3 | ~~`engine/orm/__init__.py` vazio~~ | **Resolvido (2026-08-10)** — exporta `Model`, `QueryBuilder`, `SoftDeletes`, relações e exceções, com teste. |
+| 4–10 | Eager loading aninhado, remember-me/reset de senha, cifra de sessão, Redis na fila, decisão do FastAPI | Melhorias e dívida acumulada, nenhuma bloqueante. Lacunas de doc e dívidas menores: **fechadas em 2026-08-10**. |
+| 11 | **Auditar testes que fixam comportamento em vez de promessa** | A erradicação de placebos achou um teste que codificava o próprio bug. Provavelmente não é o único. |
+
+### 🔴 1. Teto de concorrência — o único item que exige arquitetura
+
+Detalhado no item vermelho do benchmark, acima. **~30 req/s constante de 1 a 100
+clientes** — a assinatura de um processo que atende uma requisição por vez.
+Confirmado por grep em 2026-08-10: zero `run_in_threadpool` em
+`engine/http/kernel.py`, zero pool em `engine/orm/{db,connection}.py`, nenhum
+`--workers` no CLI.
+
+Ordem obrigatória: **pool de conexão → offload de thread → `--workers`**. Nunca
+threading antes do pool (corrompe estado de cursor sob concorrência real).
+
+É pré-requisito do E3 (AI Engine): inferência é I/O-bound e vai empilhar
+requisições longas.
+
+### 🟠 2. Subsistemas que o `CRAFT_DESIGN.md` promete e não existem
+
+Nenhum destes existe em `engine/` — o doc de design os descreve como se
+existissem (hoje marcados como "planned" na árvore, mas ainda não construídos):
+
+- **Storage / filesystem** — nenhuma abstração de disco. Decisão já tomada com o
+  usuário: driver local sempre disponível (stdlib), S3 via `boto3` como *extra*
+  opcional no `pyproject` (`pip install craft[s3]`), importado só quando o driver
+  `s3` é usado.
+- **Mail / SMTP** — zero `smtplib` no projeto.
+- **API manager** — não existe módulo. Hoje há `Route.api_resource` +
+  `AuthenticateApiToken` (agora funcional, ver erradicação de placebos). Faltam
+  emissão/rotação de chaves, versionamento e rate-limit por cliente.
+- `broadcast/`, `notification/` — sem código.
+
+### ✅ 3. `engine/orm/__init__.py` (resolvido em 2026-08-10)
+
+Estava vazio — único subpacote assim, quebrando o `from craft.orm import Model`
+que `documentation/orm.md:12` ensina. Repopulado: `Model`, `QueryBuilder`,
+`DatabaseManager`, `Connection`, `Row`, `SoftDeletes`, as quatro relações e as
+quatro exceções do ORM, com teste que exige que todo nome de `__all__` resolva.
+
+### 4. Eager loading aninhado e sob demanda
 
 `with_()` cobre um nível. Faltam `with_("posts.comments")` (aninhado),
 `Collection.load("posts")` (carregar depois da query) e `with_count()`.
 
-### 2. Remember-me e reset de senha
+### 5. Remember-me e reset de senha
 
 `attempt()` não tem `remember` (removido em vez de fingir que funcionava) e não há
-fluxo de recuperação de senha nem verificação de e-mail.
+fluxo de recuperação de senha nem verificação de e-mail. O fluxo de reset depende
+do subsistema de mail (item 2).
 
-### 3. Camada HTTP restante
-
-- `services/http/router.py` e `kernel.py` ainda sem testes diretos (são exercitados
-  indiretamente por `test_http_middleware`, `test_view` e `test_framework`).
-- `Resource` é casca fina; sem testes.
-- Sem rate limiting.
-- Sem `_old_input`: o helper `old()` da view existe, mas nada popula a sessão com
-  os dados do formulário após uma validação falhar.
-
-### 3b. Criptografia de sessão
+### 6. Criptografia de sessão
 
 O driver `cookie` assina mas **não criptografa** — o payload é legível pelo
-cliente. Frameworks maduros costumam criptografar. Hoje a orientação é usar `SESSION_DRIVER=file`
-para dados sensíveis; adicionar cifra ao driver de cookie fecharia a lacuna.
+cliente. Hoje a orientação é usar `SESSION_DRIVER=file` para dados sensíveis;
+adicionar cifra ao driver de cookie fecharia a lacuna.
 
-### 4. Filas
+### 7. Filas
 
-Driver `database` e `sync` existem; falta Redis, `failed_jobs` persistida e worker
-com múltiplos processos.
+Drivers `database` e `sync` existem. Falta Redis (hoje `QUEUE_CONNECTION=redis`
+avisa e cai para `database` — honesto, mas não implementado), `failed_jobs`
+persistida e worker com múltiplos processos.
 
-### 5. Decisão pendente: FastAPI
+### ✅ 8. Documentação com lacunas verificadas (fechada em 2026-08-10)
+
+Auditada de novo contra o código; a maior parte da lista de 2026-08-08 já havia
+sido corrigida em sessões anteriores e continuava marcada como pendente
+(`self.faker` em `migrations.md`, `response()` em `security.md`, usuário `dev`
+em `installation.md`, versão `0.x` no `SECURITY.md` — nenhum existe mais).
+O que de fato faltava, e foi feito agora:
+
+- `orm.md` ganhou **Eager loading** e **Soft deletes** (mais many-to-many com
+  `attach/detach/sync`). `resources.md:133` já linkava `orm.md#eager-loading`,
+  seção que não existia. Os limites atuais estão escritos: um nível só, sem
+  `with_("posts.comments")`, sem `collection.load()`, sem `with_count()`.
+  A armadilha de MRO do `SoftDeletes` está documentada como o `TypeError` que
+  hoje ela levanta.
+- `crud-builder.md` entrou no índice (`documentation/README.md`), e o link
+  quebrado `orm.md#query-builder` virou `#querying--filtering`.
+- Contagem de testes do `README.md` atualizada (765 → 775). Os números do
+  `CHANGELOG` são registro histórico e ficam como estão.
+
+### ✅ 9. Dívidas menores (fechadas em 2026-08-10)
+
+- `ruff check . || true` no CI: `ruff` rodado no container (que tem o extra
+  `[dev]`), 9 achados, todos corrigidos — 6 `raise ... from None` na CLI, uma
+  variável de loop não usada, um `getattr` constante e um `zip()` sem `strict`.
+  Com a base limpa, o `|| true` foi removido: o lint agora reprova o build.
+- `engine/http/kernel.py` não consulta mais o banco por request: pergunta ao
+  `ModuleManager`, que cacheia por `cache_ttl` (5s) e invalida no
+  `enable()`/`disable()`. `ModuleManager.state()` novo devolve `None` para
+  módulo desconhecido (≠ `False`), preservando o fallback para
+  `modules.<slug>.enabled` no config. Contagem de queries em
+  `tests/test_module_state_cache.py`.
+- `PostController.show()/update()` agora usam `.response()`, como o `store()`.
+- Config morta resolvida por decisão explícita: `APP_URL` passou a ser lido pelo
+  `Router.absolute_url_for()` (novo); `auth.defaults.guard` + `provider` de cada
+  guard passaram a escolher de verdade o model, via
+  `AuthManager.provider_name()`; **`APP_TIMEZONE` e `password_timeout` foram
+  removidos** — o framework grava tudo em UTC por design e não tem janela de
+  confirmação de senha, então eram botões sem fiação.
+
+**Achado do dia, fora da lista:** o `Dockerfile` e o `Dockerfile.prod` ainda
+copiavam `services/`, então `docker compose up --build` falhava desde o rename
+para `engine/`. O container de dev seguia de pé só porque nunca fora
+reconstruído — e o bind mount dele apontava para `D:\data\www\craft framework`,
+caminho que não existe mais. Corrigido e revalidado: 775 testes em SQLite e em
+PostgreSQL real, app respondendo em `http://localhost:8300`.
+
+### 10. Decisão pendente: FastAPI
 
 O framework é construído **diretamente sobre Starlette** — `fastapi` está nas
-dependências e no nome do projeto, mas não é importado em lugar nenhum. Manter por
-identidade ou remover por honestidade é uma decisão sua.
+dependências (`pyproject.toml:33`) e no nome do projeto, mas não é importado em
+lugar nenhum. Peso morto no `pip install`. Manter por identidade ou remover por
+honestidade é uma decisão sua.
+
+### 11. Auditar testes que fixam comportamento em vez de contrato
+
+A erradicação de placebos achou um teste que **codificava o bug**
+(`test_once_authenticates_without_persisting` exigia `guest() is True` depois de
+`Auth.once()`, tornando `once()` idêntico a `validate()`). Vale uma passada
+perguntando de cada teste: ele afirma a promessa, ou o comportamento que existia
+quando foi escrito?
 
 ### 6. Documentação
 

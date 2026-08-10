@@ -1,4 +1,4 @@
-# Explicit project name — the directory is "craft framework" and Compose would
+# Explicit project name — the directory is "craft engine" and Compose would
 # otherwise derive the project (and volume/network prefixes) from that space.
 name: framework
 

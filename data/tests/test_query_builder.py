@@ -5,8 +5,8 @@
 
 import pytest
 
-from services.orm.db import DatabaseManager
-from services.orm.query_builder import QueryBuilder
+from craft.orm.db import DatabaseManager
+from craft.orm.query_builder import QueryBuilder
 
 
 @pytest.fixture

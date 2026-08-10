@@ -23,7 +23,7 @@ through roles.
 
 `app/Models/Role.py` and `app/Models/Permission.py` are plain Craft ORM
 models (`fillable = ["name", "slug"]`). The relations and checks live on the
-base `Model` class (`services/orm/model.py`), so every model — not just
+base `Model` class (`engine/orm/model.py`), so every model — not just
 `User` — can carry roles and permissions if your app needs that:
 
 ```python
@@ -44,7 +44,7 @@ meaningful — check via `has_permission`, which follows `role_user` ->
 
 ## The Gate fallback tier
 
-`GateManager.allows(ability, user, *args)` (`services/auth/gate.py`) resolves
+`GateManager.allows(ability, user, *args)` (`engine/auth/gate.py`) resolves
 an ability in three steps:
 
 1. A registered ability closure (`Gate.define(...)`).
@@ -63,9 +63,9 @@ specific ability without touching the role/permission data.
 
 ## Route middleware
 
-Two middleware classes (`services/http/middleware.py`) enforce roles and
+Two middleware classes (`engine/http/middleware.py`) enforce roles and
 permissions at the route level, resolved through parameterized aliases in the
-kernel (`services/http/kernel.py`):
+kernel (`engine/http/kernel.py`):
 
 ```python
 from craft.facades import Route
@@ -94,7 +94,7 @@ than one that fails loudly.
 
 ## CLI
 
-`dev.py` exposes RBAC management under three sub-apps (`services/cli/app.py`):
+`dev.py` exposes RBAC management under three sub-apps (`engine/cli/app.py`):
 
 ```bash
 python dev.py role:list

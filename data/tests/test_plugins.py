@@ -10,7 +10,7 @@ import textwrap
 import pytest
 
 from craft.facades import DB
-from services.plugins.manager import PluginManager
+from craft.plugins.manager import PluginManager
 
 
 @pytest.fixture

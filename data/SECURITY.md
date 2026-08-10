@@ -2,11 +2,11 @@
 
 ## Supported versions
 
-Craft is at `0.x`. Only the latest release receives security fixes.
+Only the latest release receives security fixes.
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | Yes       |
+| 3.11.x  | Yes       |
 
 ## Reporting a vulnerability
 

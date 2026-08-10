@@ -5,8 +5,8 @@
 
 import pytest
 
-from services.exceptions.handler import AuthorizationException, ValidationException
-from services.validation.form_request import FormRequest
+from craft.exceptions.handler import AuthorizationException, ValidationException
+from craft.validation.form_request import FormRequest
 
 
 class StoreThing(FormRequest):

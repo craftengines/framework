@@ -8,22 +8,30 @@ from app.Models.User import User
 
 
 class UserSeeder(Seeder):
+    """Seeds the framework's 3 official demo accounts.
+
+    Uses `force_create` deliberately: `type` and `is_admin` are excluded from
+    `User.fillable` so request input can never escalate privileges, which
+    means `create()` would silently drop them and seed three identical
+    non-admin accounts. Seeding is a trusted path, so it bypasses the guard.
+    """
+
     def run(self):
-        User.create({
+        User.force_create({
             "name": "Standard User",
             "email": "user@craft.local",
             "password": "craft",
             "type": "user",
             "is_admin": False,
         })
-        User.create({
+        User.force_create({
             "name": "Tenant User",
             "email": "tenant@craft.local",
             "password": "craft",
             "type": "tenant",
             "is_admin": False,
         })
-        User.create({
+        User.force_create({
             "name": "Admin User",
             "email": "admin@craft.local",
             "password": "craft",

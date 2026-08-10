@@ -13,8 +13,8 @@ root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-# Import services & bootstrap application
-import services
+# Import engine & bootstrap application
+import engine
 from bootstrap.app import app, asgi_app
 
 # The ASGI application entrypoint for Uvicorn / Gunicorn / ASGI Servers

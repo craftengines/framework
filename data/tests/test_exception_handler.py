@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from services.exceptions.handler import (
+from craft.exceptions.handler import (
     AuthorizationException,
     CraftException,
     ExceptionHandler,

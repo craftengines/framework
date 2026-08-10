@@ -27,7 +27,8 @@ A batteries-included Python web framework built on Starlette.
 |---|---|
 | [Migrations](migrations.md) | Schema builder, batches, rollback |
 | [ORM](orm.md) | Models, relationships, eager loading, soft deletes |
-| [Query builder](orm.md#query-builder) | Filtering, joins, aggregates, pagination |
+| [Query builder](orm.md#querying--filtering) | Filtering, joins, aggregates, pagination |
+| [CRUD builder](crud-builder.md) | Generating a migration, model, request, resource, API and admin UI for an entity |
 
 ## Application features
 

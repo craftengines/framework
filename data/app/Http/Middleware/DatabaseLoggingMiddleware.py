@@ -5,7 +5,7 @@
 
 import logging
 
-from services.http.middleware import Middleware
+from craft.http.middleware import Middleware
 from app.Models.SystemLog import SystemLog
 
 

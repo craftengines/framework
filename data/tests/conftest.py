@@ -35,14 +35,14 @@ os.environ["DB_CONNECTION"] = TEST_DB
 if TEST_DB == "sqlite":
     os.environ["DB_DATABASE"] = ":memory:"
 
-import services  # noqa: F401,E402  installs the `craft.*` import alias
+import engine  # noqa: F401,E402  installs the `craft.*` import alias
 
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database():
     """Build the test schema with the real migrator, once per session."""
     from bootstrap.app import app
-    from services.migrations.migrator import Migrator
+    from craft.migrations.migrator import Migrator
 
     migrator = Migrator(app)
     if TEST_DB != "sqlite":

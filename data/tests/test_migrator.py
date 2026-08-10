@@ -8,9 +8,9 @@ import textwrap
 
 import pytest
 
-from services.container.application import Application
-from services.migrations.migrator import Migrator, migration_filename
-from services.orm.db import DatabaseManager
+from craft.container.application import Application
+from craft.migrations.migrator import Migrator, migration_filename
+from craft.orm.db import DatabaseManager
 
 MIGRATION_A = '''
 from craft.migrations import Schema
@@ -54,11 +54,11 @@ def migrator(tmp_path):
     db = DatabaseManager(app, config={"driver": "sqlite", "database": ":memory:"})
     app.instance("db", db)
 
-    from services.migrations.schema import SchemaBuilder
+    from craft.migrations.schema import SchemaBuilder
 
     app.instance("schema", SchemaBuilder(db))
     # Migration files call the module-level Schema singleton.
-    import services.migrations.schema as schema_module
+    import craft.migrations.schema as schema_module
 
     schema_module.Schema._db = db
 

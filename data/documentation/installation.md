@@ -86,7 +86,7 @@ docker compose up -d --build
 ```
 
 - Application: `http://localhost:8300`
-- PostgreSQL: `localhost:5499` (user `dev`, database `craft_db`)
+- PostgreSQL: `localhost:5499` (user `craft`, database `craft_db`)
 
 Run the suite inside the container to check the minimum Python version:
 
@@ -119,7 +119,7 @@ public/index.py          Front controller (`application = asgi_app`)
 resources/views/         Forge templates
 resources/lang/          Translation catalog
 routes/                  web.py, api.py, console.py
-services/                The framework itself, imported as craft.*
+engine/                  The framework itself, imported as craft.*
 storage/                 Logs, cache, sessions
 tests/                   Test suite
 dev.py                 CLI entry point
@@ -127,8 +127,8 @@ dev.py                 CLI entry point
 
 ## Troubleshooting
 
-**`ModuleNotFoundError: No module named 'services'`** — run commands from the
-project root, or install with `pip install -e .`.
+**`ModuleNotFoundError: No module named 'craft'`** (or `'engine'`) — run commands
+from the project root, or install with `pip install -e .`.
 
 **`psycopg2` errors on connect** — check `db ping` output and confirm the
 database exists. `dev` cannot create the database itself.

@@ -2,10 +2,10 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: `MAJOR.MINOR.PATCH` plus a release counter (`rNNNNN`) that
-increments on every cut release, tracked in `services/__init__.py`
+increments on every cut release, tracked in `engine/__init__.py`
 (`__version__`, `__release__`) and `pyproject.toml`.
 
-**Every change to `services/`, `app/`, `bootstrap/`, `config/`, `database/`,
+**Every change to `engine/`, `app/`, `bootstrap/`, `config/`, `database/`,
 `routes/`, or `dev.py` gets an entry here, in the same change/PR that makes
 it** — not batched later, not left for the release cut to reconstruct from
 memory or `git log`. This applies to humans and AI agents alike: a bug fixed,
@@ -20,7 +20,242 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Security
+
+- **`AuthenticateApiToken` never rejected anything.** It resolved a user when a
+  bearer token happened to match and called the next handler regardless, so
+  every route carrying the `api` alias — including `routes/api.py`, whose own
+  comment promised "writes require a valid API token", and every write route
+  the CRUD builder generates — accepted anonymous callers. It now raises
+  `AuthorizationException` for a missing *or* invalid token, with an identical
+  response for both so probing cannot confirm which tokens exist. Covered by
+  `tests/test_api_token_middleware.py`, which had no runtime counterpart before
+  — the reason the gap survived.
+- **The `api` guard had no column behind it.** `config/auth.py` declares
+  `guards.api.token_name = "api_token"` and the middleware queried it, but no
+  migration ever created it, so bearer-token authentication could not have
+  succeeded for anyone. Added by
+  `2026_08_10_000001_add_api_token_to_users.py`, nullable with a unique index.
+- **`/admin/crud-builder` was protected by `auth` alone.** The builder writes
+  real `.py` files into `app/` and `database/migrations/` and rewrites
+  `routes/api.py` and `routes/web.py`, so any registered user — not just an
+  admin — could execute code on the host. Now carries `role:admin`, matching
+  the rest of the admin surface.
+- **`make policy` generated a policy that authorized everyone.** Every ability
+  returned `True`, including for `user=None`, so registering a generated policy
+  produced a file that looked like protection while granting universal access.
+  The stub now fails closed.
+- **Aggregate columns bypassed the identifier allowlist.** `count`, `sum`,
+  `avg`, `max` and `min` interpolated their column argument straight into SQL —
+  the one hole in the defence every other clause in the query builder applies,
+  and `count(request.input("col"))` is an ordinary-looking way to reach it.
+- **`unique` and `exists` failed open.** Both wrapped their query in
+  `except Exception: return`, so *any* database error made the rule pass: a
+  typo'd table (`unique:userz,email`), an incompatible column type or a
+  connection blip all validated cleanly and let the duplicate through. Only
+  "no application booted" is tolerated now; a real query failure surfaces.
+  Their table and column arguments also go through the identifier allowlist,
+  since both are interpolated into SQL.
+
 ### Fixed
+
+- **The Docker images still copied `services/`,** the package directory that
+  the `engine/` rename replaced, so `docker compose up --build` failed outright
+  on both `Dockerfile` and `Dockerfile.prod` — the dev container that was still
+  running had simply never been rebuilt, and its bind mount pointed at the old
+  workspace path. Both now copy `engine/`, and `docker-compose.yml` no longer
+  claims the directory is called "craft framework".
+- **`engine/orm/__init__.py` was empty** — the one subpackage in the engine
+  that exported nothing, so `from craft.orm import Model`, exactly as
+  `documentation/orm.md` teaches it, raised ImportError. It now exports `Model`,
+  `QueryBuilder`, `DatabaseManager`, `Connection`, `Row`, `SoftDeletes`, the
+  four relation classes and the four ORM exceptions, with a test asserting that
+  every name in `__all__` resolves.
+- **A route declared with `.module(...)` cost a SELECT per request.** The
+  kernel queried the `modules` table inline on every hit, with no cache, and
+  duplicated logic that already lived in `ModuleManager`. It now asks the
+  manager, which caches state for `cache_ttl` (5s) and drops the entry
+  immediately on `enable()`/`disable()`. `ModuleManager.state()` is new and
+  returns `None` for a module it has never heard of — distinct from `False`,
+  so the router can still fall back to `modules.<slug>.enabled` in config
+  instead of 404ing an unregistered module. Query counts are asserted in
+  `tests/test_module_state_cache.py`; write to the `modules` table behind the
+  manager's back and you must call `forget_cached_state()`.
+- **`PostController.show()`/`update()` returned a bare `PostResource`** while
+  `store()` returned `.response()` — the same controller shaping its JSON two
+  different ways. Both now go through `.response()`.
+- **Three config keys nothing ever read.** `APP_URL` is now honoured by the new
+  `Router.absolute_url_for()`; `auth.defaults.guard` and each guard's
+  `provider` key now actually select the user model, via the new
+  `AuthManager.provider_name()` (the model was previously read straight from
+  `auth.providers.users.model`, so both keys were decorative). `APP_TIMEZONE`
+  and `auth.password_timeout` were **removed** rather than left as knobs with
+  no wiring: Craft writes every timestamp in UTC by design, and there is no
+  confirm-password window to time out. Covered in
+  `tests/test_placebo_regressions.py`.
+- **`Auth.once()` authenticated nobody.** It was `validate(...) is not None`,
+  so after a `True` return `Auth.check()` was still False, `Auth.user()` still
+  None and `@auth` still saw a guest — `validate()` under a name that promises
+  a login. It now sets the user for the current request while still writing
+  nothing to the session, which is what "without persisting" means. The test
+  covering it had asserted `guest() is True` afterwards, pinning the bug
+  rather than the contract.
+- **`@yield("title", "default")` leaked its quotes into the HTML.** The default
+  was emitted raw, so the literal rendered as `"default"`, quotes included —
+  `@section` already unwrapped literals correctly; `@yield` did not.
+- **HTML form method spoofing never worked.** The framework emitted the hidden
+  `_method` field from two places — the `@method("PUT")` view directive and
+  every edit/delete form the CRUD builder generates — and read it back from
+  none. Browsers only send GET and POST, so a `Route.resource()` update (PUT)
+  or destroy (DELETE) received a POST and returned 405: the directive produced
+  decorative HTML and generated admin forms did not work at all. The override
+  is now applied at the ASGI layer, before Starlette matches on the method,
+  since anything later is already too late. Only PUT/PATCH/DELETE may be
+  spoofed — allowing `GET` would turn a write into a read and skip CSRF
+  verification — and only for form encodings, so a JSON API cannot have its
+  verb rewritten by a field that happens to carry that name.
+- **`url_for()` invented URLs for routes that do not exist.** An unknown name
+  returned the literal path `/{name}`, so `route("posts.index")` rendered the
+  dead link `/posts.index`; the template helper then caught the failure and
+  returned `"/"`, turning a typo into a link to the homepage. Both now raise.
+- **`craft.support.view()` turned every template error into a fake success.**
+  It caught all exceptions and returned `"View {name} rendered"` with HTTP
+  200, so a missing template, a syntax error or an undefined variable produced
+  a page that looked like it had worked. The same placebo had already been
+  removed from `Controller.view` and the view engine; this copy was missed,
+  and `DocsController` routed through it. Errors now reach the exception
+  handler.
+- **`Model.roles()/permissions()/has_role()/has_permission()` lived on the base
+  model**, hardwired to `role_user.user_id` — so `Post.find(1).roles()`
+  returned the roles of *user* 1: wrong data, no error. They moved to the
+  models they describe (`User`, `Role`), which also removes the framework's
+  import of `app.Models.Role`.
+- **`Schema.table()` silently discarded indexes and constraints.** Only the
+  `ADD COLUMN` was compiled, so `.indexed()`, `index()` and `unique_index()`
+  were accepted on an existing table and never created — the migration read
+  correctly and the index did not exist.
+- **`enum()` enforced nothing.** It emitted a plain `VARCHAR(255)` and stored
+  the allowed values in `Column.comment`, which no grammar reads. It now
+  compiles a `CHECK (col IN (…))` constraint, portable across all three
+  supported drivers.
+- **A failed column probe was cached forever.** `table_has_column()` memoised
+  an exception as "this table has no columns" for the life of the process,
+  which quietly switched off every column-conditional feature — including the
+  public UUID the ORM advertises, whose backfill simply stopped.
+- **`SoftDeletes` listed after `Model` now raises instead of silently hard
+  deleting.** The base order was a documentation footnote, but getting it
+  wrong makes `delete()` destroy rows through a call the developer believes is
+  reversible.
+- **`SettingManager.set()` reported nothing.** It returned `None` whether the
+  value was persisted or fell through to an in-memory dict that dies with the
+  process; it now returns whether the write landed, and warns when it did not.
+- **The admin dashboard rendered healthy with the database down.** Each query
+  was wrapped in `except: []`, so an unreachable database produced a dashboard
+  reporting zero of everything — indistinguishable from a correct answer.
+- **`QueryBuilder` fell back to a default `DatabaseManager()`** when the
+  container failed, running queries against a different connection than the
+  application's rather than failing.
+- **The task scheduler was a placebo.** `schedule` resolved to a nested stub
+  class whose `hourly()`/`daily()` returned `self` and which never executed
+  anything, while the `Schedule` facade was public and `CRAFT_DESIGN.md`
+  documented a full cron-style scheduler. Replaced by a real
+  `engine/schedule/` — a cron-expression matcher backing every frequency
+  helper (`hourly`, `daily_at`, `every_fifteen_minutes`, `weekdays`, `cron`,
+  …), `when`/`skip` constraints, and `without_overlapping()` locking so a task
+  slower than its interval cannot stack copies of itself. Run it with
+  `dev.py schedule run` from cron, or `dev.py schedule work` in the foreground;
+  `dev.py schedule list` shows the registry.
+- **Scheduled tasks were never registered.** Nothing called
+  `register_console()`, so every task declared in `routes/console.py` was dead
+  on arrival — the scheduler could not have run them even once it worked. The
+  framework now imports it at boot, logging rather than silencing a broken
+  console file.
+- **Debug mode never turned on.** `ExceptionHandler` read `app.debug` and
+  `dev.py about` read `app.env`/`app.debug`, but the config repository keys
+  entries by the module attribute name, so those never resolved and both
+  silently reported the default. They now read `app.APP_DEBUG` / `app.APP_ENV`,
+  the names the kernel already used correctly.
+- **The cache degraded silently.** An unrecognised `CACHE_DRIVER` (the shipped
+  default, `memory`, was not one of the two names the resolver knew) and an
+  unreachable Redis both fell back to an in-memory store with no signal —
+  making rate limiting per-process, so a brute-force limit quietly multiplied
+  by the worker count. `memory`/`array` are now recognised explicitly, and both
+  fallbacks warn.
+- **`dev.py schedule work` skipped the first minute**, sleeping before its
+  first evaluation instead of after.
+
+### Added
+
+- **`ruff check .` now fails the build.** CI ran it as `ruff check . || true`,
+  the same placebo pattern applied to the pipeline: the lint could never
+  reprove anything. The nine findings it had been hiding are fixed (six
+  `raise ... from None` in the CLI, an unused loop variable, a constant
+  `getattr`, and a `zip()` without `strict=`), so the guard is now on with a
+  clean base. The `zip(..., strict=True)` in `engine/orm/connection.py` is
+  deliberate: a row whose arity disagrees with `cursor.description` is a driver
+  bug, and pairing them off silently would drop columns. Validated on SQLite
+  and on real PostgreSQL.
+- **`documentation/orm.md` gained the eager-loading and soft-deletes sections**
+  the index had been promising, plus many-to-many. `resources.md:133` already
+  linked to `orm.md#eager-loading`, which did not exist. The sections state the
+  current limit explicitly (one level; no nested `with_("posts.comments")`, no
+  `collection.load()`, no `with_count()`) and document the `SoftDeletes` MRO
+  trap that now raises `TypeError`. `crud-builder.md` was an orphan — it is in
+  the index now, and the broken `orm.md#query-builder` anchor was corrected.
+- **The event bus and the plugin hook system now actually run.** Both were
+  fully implemented and unit-tested, but nothing in the framework ever emitted
+  an event or triggered a hook — in a running application both subsystems were
+  inert. Three things closed the gap:
+  - `engine/events/lifecycle.py` (new) defines the framework's own events —
+    `model.created` / `model.updated` / `model.deleted`, and `auth.login` /
+    `auth.failed` / `auth.logout` — plus a `fire()` helper that no-ops when no
+    container is bound (models are used in unit tests with no booted app) and
+    logs rather than raises when a listener misbehaves, so a third-party
+    listener cannot turn a successful INSERT into a request error.
+  - `engine/orm/model.py` and `engine/auth/manager.py` emit them at the write
+    and authentication points. `UserLoginFailed` carries the identifier only —
+    never the submitted password, which would otherwise reach every listener
+    and plugin and anything they log.
+  - `PluginManager.bridge_events()` registers the manager as a *wildcard*
+    listener and forwards each event to hooks registered under its `name`, so
+    there is one emission point per lifecycle event rather than two dispatch
+    paths to keep in sync. `PluginManager.load_enabled()` imports enabled
+    plugins and calls their `register(app)` — previously nothing ever imported
+    a plugin's code, so no hook could ever be added.
+- **Bundled `audit-log` plugin** (`plugins/audit-log/`) — the first plugin with
+  real logic, writing an audit trail of model writes and authentication to
+  `system_logs`. It skips its own table: auditing `system_logs` would make each
+  write emit `model.created`, which writes another row, forever. Any plugin
+  persisting from inside a model hook needs the same guard.
+
+### Changed
+
+- **The framework package was renamed `services/` → `engine/`.** The public
+  import alias is unchanged: application code still writes `from craft.…`,
+  which `engine/__init__.py` installs via its meta path finder. Only the
+  on-disk directory moved. Every internal import, `pyproject.toml`
+  (`dev = "engine.cli.app:main"`, packaging and ruff includes), the CI
+  coverage target (`--cov=engine`), the entrypoints (`dev.py`,
+  `bootstrap/app.py`, `public/index.py`, `config/app.py`), the test suite,
+  and the documentation were updated to match. The rename had left the tree
+  in a non-booting state — files were moved but no import followed them.
+
+### Fixed
+
+- **The 3 seeded demo accounts were all created as identical non-admin
+  users.** `UserSeeder` created them through `Model.create()`, which enforces
+  `fillable`; since `type` and `is_admin` are deliberately excluded from
+  `User.fillable` (so request input can never escalate privileges), both
+  columns were silently dropped. `admin@craft.local` had `is_admin = False`
+  and `tenant@craft.local` had `type = "user"`, which meant the admin surface
+  and `TenantMiddleware` never saw the accounts the docs describe as the
+  framework's official demo ladder. The seeder now uses the trusted
+  `force_create` path, and password hashing moved from `User.create` to
+  `User.force_create` so *every* insert path hashes rather than only the
+  mass-assignment-filtered one. Regression test asserts `type`, `is_admin`,
+  and that the documented password authenticates
+  (`tests/test_rbac.py::test_demo_users_get_their_privilege_columns`) — the
+  previous test asserted roles only, which is why this went unnoticed.
 
 - **Hero background was boxed inside a box, still not full width.**
   `layouts/app.forge.py` wraps every public page's content in `max-w-7xl

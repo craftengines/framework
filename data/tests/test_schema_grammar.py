@@ -5,7 +5,7 @@
 
 import pytest
 
-from services.migrations.schema import Blueprint, Grammar
+from craft.migrations.schema import Blueprint, Grammar
 
 
 def build(callback) -> Blueprint:

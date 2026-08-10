@@ -7,7 +7,7 @@
 > uses `psycopg2`/`sqlite3`/`PyMySQL` directly, and has its own query
 > builder — no SQLAlchemy, no Pydantic, no FastAPI. For what is actually
 > implemented and how to use it today, see [`documentation/`](documentation/README.md)
-> for guides and `services/` (exposed as `craft.*`) for source of truth.
+> for guides and `engine/` (exposed as `craft.*`) for source of truth.
 > Treat this file as a roadmap/vision doc, not a spec to code against.
 >
 > A expressive backend framework built in pure Python on FastAPI, with PostgreSQL as the native database.
@@ -260,35 +260,36 @@ project/
 │   ├── Feature/                        # Feature tests (HTTP endpoints)
 │   └── Unit/                           # Unit tests (models, services)
 │
-├── services/                           # Framework core engine (mapped to `craft.*`)
-│   ├── container/                      # DI container (bind, singleton, make)
-│   ├── config/                         # Config repository & env()
-│   ├── http/                           # HTTP kernel, router, middleware, response
-│   ├── orm/                            # Craft ORM & QueryBuilder
-│   ├── validation/                     # Validator, FormRequest, Rule
+├── engine/                             # Framework core engine (mapped to `craft.*`)
 │   ├── auth/                           # Guards, gates, policies
-│   ├── events/                         # Event dispatcher
-│   ├── queue/                          # Queue manager, jobs
-│   ├── view/                           # Forge templating (directive parser)
-│   ├── facades/                        # Facade base + concrete facades (FacadeMeta)
-│   ├── providers/                      # Framework service providers
-│   ├── exceptions/                     # Exception handler
-│   ├── security/                       # PQC (Post-Quantum Security) & Captcha
-│   ├── modules/                        # Dynamic module manager
-│   ├── plugins/                        # Plugin manager
-│   └── support/                        # Helpers (__(), view(), Collection)
-│   ├── exceptions/                     # Exception handler, base exceptions
-│   ├── cli/                            # CLI application + generators
-│   ├── resources/                      # API Resource base classes
-│   ├── seeding/                        # Seeder base
-│   ├── factories/                      # Factory base
 │   ├── cache/                          # Cache manager
-│   ├── schedule/                       # Task scheduler
-│   ├── broadcast/                      # Broadcasting (websockets)
-│   ├── filesystem/                    # Filesystem manager
-│   ├── mail/                           # Mail manager
-│   ├── notification/                  # Notification channels
-│   └── support/                        # Helper functions
+│   ├── cli/                            # CLI application + generators
+│   ├── config/                         # Config repository & env()
+│   ├── container/                      # DI container (bind, singleton, make)
+│   ├── events/                         # Event dispatcher
+│   ├── exceptions/                     # Exception handler, base exceptions
+│   ├── facades/                        # Facade base + concrete facades (FacadeMeta)
+│   ├── factories/                      # Factory base
+│   ├── http/                           # HTTP kernel, router, middleware, response
+│   ├── migrations/                     # Migrator + schema builder
+│   ├── modules/                        # Dynamic module manager
+│   ├── orm/                            # Craft ORM & QueryBuilder
+│   ├── plugins/                        # Plugin manager
+│   ├── providers/                      # Framework service providers
+│   ├── queue/                          # Queue manager, jobs
+│   ├── resources/                      # API Resource base classes
+│   ├── security/                       # PQC (Post-Quantum Security) & Captcha
+│   ├── seeding/                        # Seeder base
+│   ├── support/                        # Helpers (__(), view(), Collection)
+│   ├── validation/                     # Validator, FormRequest, Rule
+│   └── view/                           # Forge templating (directive parser)
+│
+│   # Planned, not yet implemented:
+│   #   schedule/      Task scheduler
+│   #   broadcast/     Broadcasting (websockets)
+│   #   filesystem/    Filesystem manager
+│   #   mail/          Mail manager
+│   #   notification/  Notification channels
 │
 ├── dev.py                          # CLI entry point (python dev.py)
 ├── bootstrap.py                        # Bootstrap helper

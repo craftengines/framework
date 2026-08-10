@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from bootstrap.app import app, asgi_app
 from craft.facades import DB, Route
-from services.http.middleware import Authenticate
+from craft.http.middleware import Authenticate
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -153,14 +153,14 @@ class _FakeApp:
 
 class TestAppKeyEnforcement:
     def test_empty_app_key_in_production_fails_loudly(self):
-        from services.http.session import make_store
+        from craft.http.session import make_store
 
         app = _FakeApp(_FakeConfig({"app.APP_KEY": "", "app.APP_ENV": "production"}))
         with pytest.raises(RuntimeError):
             make_store(app)
 
     def test_empty_app_key_outside_production_falls_back_to_ephemeral(self):
-        from services.http.session import make_store
+        from craft.http.session import make_store
 
         app = _FakeApp(_FakeConfig({"app.APP_KEY": "", "app.APP_ENV": "testing"}))
         # Must not raise — the ephemeral per-process key is fine outside prod.
@@ -278,7 +278,7 @@ class TestAuthenticationAcrossRequests:
 class TestAuthMiddlewareUnits:
     def test_session_key_is_what_the_manager_writes(self, migrated_database, user):
         auth = migrated_database.make("auth")
-        from services.http.session import Session
+        from craft.http.session import Session
 
         session = Session()
         auth.set_session(session)
@@ -291,7 +291,7 @@ class TestAuthMiddlewareUnits:
 
     def test_reset_clears_memory_without_ending_the_session(self, migrated_database, user):
         auth = migrated_database.make("auth")
-        from services.http.session import Session
+        from craft.http.session import Session
 
         session = Session()
         auth.set_session(session)

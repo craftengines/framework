@@ -27,8 +27,13 @@ Route.post("/logout", [AuthController, "logout"]).name("logout")
 
 # Admin Route with auth middleware
 Route.get("/admin", [HomeController, "admin"]).middleware("auth").name("admin.dashboard")
-Route.get("/admin/crud-builder", [CrudBuilderController, "index"]).middleware("auth").name("admin.crud_builder.index")
-Route.post("/admin/crud-builder", [CrudBuilderController, "store"]).middleware("auth").name("admin.crud_builder.store")
+
+# The CRUD builder writes real `.py` files into app/ and database/migrations/
+# and rewrites routes/api.py and routes/web.py. Behind `auth` alone that is
+# remote code execution for any registered user, so it carries `role:admin`
+# like the rest of the admin surface.
+Route.get("/admin/crud-builder", [CrudBuilderController, "index"]).middleware("auth", "role:admin").name("admin.crud_builder.index")
+Route.post("/admin/crud-builder", [CrudBuilderController, "store"]).middleware("auth", "role:admin").name("admin.crud_builder.store")
 
 # RBAC admin UI — the first real usage of the `role:<slug>` route middleware.
 Route.get("/admin/roles", [RoleController, "index"]).middleware("auth", "role:admin").name("admin.roles.index")

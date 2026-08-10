@@ -157,6 +157,110 @@ post = Post.find("post-uuid")
 author = post.user().first()
 ```
 
+### Many-to-Many (`belongs_to_many`)
+
+```python
+class Author(Model):
+    def tags(self):
+        return self.belongs_to_many(
+            Tag,
+            pivot_table="author_tag",
+            foreign_pivot_key="author_id",
+            related_pivot_key="tag_id",
+        )
+```
+
+The pivot is managed with `attach()`, `detach()` and `sync()`:
+
+```python
+author.tags().attach(tag_id)
+author.tags().detach(tag_id)
+author.tags().sync([1, 2, 3])   # exactly these, nothing else
+```
+
+---
+
+## Eager loading
+
+Reading a relation inside a loop issues one query per row — the N+1 problem.
+`with_()` loads the relation for the whole result set up front, one query per
+relation, no matter how many rows came back:
+
+```python
+# 1 query for the posts + 1 for all their authors
+posts = Post.query().with_("user").get()
+for post in posts:
+    post.user().first()   # already loaded — no query
+
+# Several relations at once
+posts = Post.query().with_("user", "comments").get()
+
+# Model shortcut, same thing
+posts = Post.with_("user").where("published", True).get()
+```
+
+`without("user")` drops a relation from the eager list again — useful when a
+query is built up in layers.
+
+The relation names are the model's own relation *method* names. A name that is
+not a relation raises `RelationNotFoundError` instead of quietly loading
+nothing.
+
+**Current limit:** eager loading covers one level. Nested notation
+(`with_("posts.comments")`), loading after the fact (`collection.load(...)`)
+and `with_count()` are not implemented — do not write them expecting them to
+work.
+
+The suite proves this by *counting the SQL issued*
+(`tests/test_eager_loading.py`); asserting on the results alone would pass with
+lazy loading too, which is the whole bug being prevented.
+
+---
+
+## Soft deletes
+
+A model that mixes in `SoftDeletes` stamps a `deleted_at` column instead of
+removing the row, and hides trashed rows from ordinary queries:
+
+```python
+from craft.orm import Model, SoftDeletes
+
+
+class Note(SoftDeletes, Model):     # mixin FIRST — see the warning below
+    __table__ = "notes"
+    fillable = ["body"]
+```
+
+The migration needs the column — the schema builder has a helper for it:
+
+```python
+t.soft_deletes()            # nullable `deleted_at`
+t.soft_deletes("archived_at")   # or a custom name
+```
+
+A custom column name goes on the model too, as
+`deleted_at_column = "archived_at"`.
+
+Then:
+
+```python
+note.delete()             # stamps deleted_at; the row stays
+note.trashed()            # True
+note.restore()            # clears deleted_at
+note.force_delete()       # real DELETE, gone for good
+
+Note.query().get()        # excludes trashed rows
+Note.with_trashed().get() # includes them
+Note.only_trashed().get() # just the trashed ones
+```
+
+> **Order the bases as `(SoftDeletes, Model)`.** Written the other way round,
+> `Model.delete()` wins the MRO, so `delete()` destroys the row while the model
+> advertises soft deletes — data lost to a call the developer believed was
+> reversible. Craft refuses that class outright: defining
+> `class Note(Model, SoftDeletes)` raises `TypeError` at import time with the
+> corrected declaration in the message. It is not a footnote you can miss.
+
 ---
 
 ## Read/Write Database Replicas

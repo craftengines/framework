@@ -3,14 +3,14 @@
 A batteries-included Python web framework, built on **Starlette**. This repository is the **base skeleton** for
 building new applications — the skeleton you copy to start an app.
 
-The core lives in `services/` and is exposed publicly as `craft.*`.
+The core lives in `engine/` and is exposed publicly as `craft.*`.
 
 ```python
 from craft.facades import Route, DB, Auth
 from craft.orm.model import Model
 ```
 
-**596 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
+**775 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
 
 ---
 
@@ -90,7 +90,7 @@ database/                migrations/ seeders/ factories/
 public/index.py          Front controller (`application = asgi_app`)
 resources/views/         Forge templates
 routes/                  web.py, api.py, console.py
-services/                The framework (exposed as craft.*)
+engine/                  The framework (exposed as craft.*)
 storage/                 logs, cache, sessions
 tests/                   pytest suite
 dev.py                   CLI

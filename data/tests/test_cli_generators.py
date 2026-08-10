@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from services.cli import generators
+from craft.cli import generators
 
 
 class TestNaming:

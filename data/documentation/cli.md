@@ -120,7 +120,7 @@ python dev.py db ping && python dev.py migrate
 ## Adding a command
 
 `dev` is built with [Typer](https://typer.tiangolo.com/). Add commands in
-`services/cli/app.py`:
+`engine/cli/app.py`:
 
 ```python
 @cli.command("stats")

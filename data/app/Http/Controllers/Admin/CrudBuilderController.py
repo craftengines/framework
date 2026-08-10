@@ -56,8 +56,8 @@ class CrudBuilderController(Controller):
                 "fields_json": raw_rows_json,
             })
 
-        from services.cli import crud_builder
-        from services.cli.app import base_path
+        from craft.cli import crud_builder
+        from craft.cli.app import base_path
 
         try:
             result = crud_builder.build_crud(entity, fields, base_path())

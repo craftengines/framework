@@ -50,7 +50,7 @@ class PostController(Controller):
         if not post:
             return Response("Not found", 404)
         if request.expects_json():
-            return PostResource(post)
+            return PostResource(post).response()
         return self.view("posts.show", {"post": post})
 
     def edit(self, request, posts):
@@ -75,7 +75,7 @@ class PostController(Controller):
 
         post.update_attributes(form.validated())
         if request.expects_json():
-            return PostResource(post)
+            return PostResource(post).response()
         return redirect(route="posts.index")
 
     def destroy(self, request, posts):

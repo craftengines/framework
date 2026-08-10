@@ -15,7 +15,7 @@ Ensure that core libraries (container, ORM, router, queues, view engine, validat
 ## 1. Subsystem Responsibilities
 
 * **`craft.container`**: Manages class binding and dependency resolution. Scoped services must use `contextvars` to ensure thread-safety.
-* **`craft.orm`**: Implements Active Record on a **custom query builder** over `sqlite3`/`psycopg2`/`PyMySQL` — no SQLAlchemy, no Pydantic. (`CRAFT_DESIGN.md` describes a SQLAlchemy/asyncpg/Pydantic target vision; it is explicitly marked aspirational, not the current implementation — verify against `services/orm/` before trusting either doc.)
+* **`craft.orm`**: Implements Active Record on a **custom query builder** over `sqlite3`/`psycopg2`/`PyMySQL` — no SQLAlchemy, no Pydantic. (`CRAFT_DESIGN.md` describes a SQLAlchemy/asyncpg/Pydantic target vision; it is explicitly marked aspirational, not the current implementation — verify against `engine/orm/` before trusting either doc.)
 * **`craft.queue`**: Dispatches and runs queued tasks. Payloads must be strictly serialized as **JSON**; never use `pickle`.
 * **`craft.view`**: Preprocesses Forge directive syntax into standard Jinja2 syntax and caches compiled templates.
 
@@ -28,7 +28,7 @@ Ensure that core libraries (container, ORM, router, queues, view engine, validat
   * Before adding a file under `data/`, and before finishing any change that touches one, check it doesn't reintroduce non-English text outside i18n: `Select-String -Pattern "[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]"` (or the Linux/macOS equivalent `grep -RP '[à-üÀ-Ü]'`) over the changed files, excluding `resources/lang/`, `TranslationSeeder.py`, and `documentation/localization.md`. A non-empty match is a defect, not a style nit — it directly degrades the next agent's ability to work in this codebase without guessing at meaning.
 * Enforce strict type hints and docstrings on every public function and class.
 * Do not import modules from the `app/` folder into the `craft/` framework package (avoid circular dependencies).
-* New files under `services/` (and edits to existing ones) carry the `Category/Relations/References` header docstring — see `services/plugins/manager.py` for the shape.
+* New files under `engine/` (and edits to existing ones) carry the `Category/Relations/References` header docstring — see `engine/plugins/manager.py` for the shape.
 
 ---
 

@@ -5,10 +5,10 @@
 
 import pytest
 
-from services.auth.gate import GateManager
-from services.auth.manager import AuthManager
-from services.auth.password import Hash
-from services.exceptions.handler import AuthorizationException
+from craft.auth.gate import GateManager
+from craft.auth.manager import AuthManager
+from craft.auth.password import Hash
+from craft.exceptions.handler import AuthorizationException
 
 
 class TestHash:
@@ -100,11 +100,46 @@ class TestAuthManager:
         assert auth.login_using_id(user.get_attribute("id")) is not None
         assert auth.check() is True
 
-    def test_once_authenticates_without_persisting(self, auth, user):
+    def test_once_authenticates_for_this_request(self, auth, user):
+        """`once()` logs the user in for the current request.
+
+        This previously asserted `guest() is True` afterwards, which pinned
+        the bug rather than the contract: authenticating nobody makes `once()`
+        an exact alias of `validate()` under a name that promises a login.
+        """
         assert auth.once(
             {"email": "auth-test@craft.local", "password": "correct-horse"}
         ) is True
-        assert auth.guest() is True
+        assert auth.check() is True
+        assert auth.user().get_attribute("email") == "auth-test@craft.local"
+
+    def test_once_does_not_persist_to_the_session(self, auth, user):
+        """"Without persisting" is about the session, not about the request:
+        nothing is written, so the login does not survive to the next one."""
+        class RecordingSession:
+            def __init__(self):
+                self.writes = []
+
+            def put(self, key, value):
+                self.writes.append(key)
+
+            def get(self, key, default=None):
+                return default
+
+            def forget(self, key):
+                self.writes.append(("forget", key))
+
+        session = RecordingSession()
+        auth.set_session(session)
+        auth.once({"email": "auth-test@craft.local", "password": "correct-horse"})
+
+        assert session.writes == []
+
+    def test_once_rejects_bad_credentials(self, auth, user):
+        assert auth.once(
+            {"email": "auth-test@craft.local", "password": "wrong"}
+        ) is False
+        assert auth.check() is False
 
     def test_check_password_on_the_model(self, user):
         assert user.check_password("correct-horse") is True

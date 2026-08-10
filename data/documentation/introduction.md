@@ -24,18 +24,30 @@ project/
 │   │   ├── Middleware/         # HTTP request/response middleware
 │   │   ├── Requests/           # Typed validation requests (FormRequest)
 │   │   └── Resources/          # API JSON transformers
-│   ├── Models/                  # ActiveRecord database entities (Craft ORM)
-│   ├── Policies/                # Gate authorization policy classes
-│   ├── Providers/               # Service Providers for DI binding
+│   ├── Models/                 # ActiveRecord database entities (Craft ORM)
+│   ├── Policies/               # Gate authorization policy classes
+│   ├── Providers/              # Service Providers for DI binding
 │   └── Services/               # Custom business logic layer
-├── config/                      # Configuration Files (env merged)
-├── database/                    # Migrations, Seeders, and Factories
+├── bootstrap/app.py            # Builds the container, registers providers
+├── config/                     # Configuration Files (env merged)
+├── database/                   # Migrations, Seeders, and Factories
+├── engine/                     # The framework itself — imported as craft.*
+├── plugins/                    # Installed plugins
+├── public/index.py             # Front controller (ASGI entrypoint)
 ├── resources/
-│   └── views/                   # HTML templates (Forge)
-├── routes/                      # Route maps (web.py, api.py, console.py)
-├── storage/                     # File uploads, cache, logs
-└── dev.py                    # CLI command runner
+│   ├── lang/                   # Translation catalog
+│   └── views/                  # HTML templates (Forge)
+├── routes/                     # Route maps (web.py, api.py, console.py)
+├── storage/                    # File uploads, cache, logs
+├── tests/                      # pytest suite
+└── dev.py                      # CLI command runner
 ```
+
+> **`engine/` vs `craft.*`** — the framework lives on disk in `engine/`, but you
+> never import it by that name. It registers `craft` as its public import alias
+> at startup, so application code always writes `from craft.orm.model import
+> Model`. Treat `engine/` as internal: read it to understand the framework,
+> import `craft.*` to use it.
 
 ---
 

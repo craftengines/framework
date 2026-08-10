@@ -29,7 +29,7 @@ project, regenerate `.env`, verify the live mount, what never to nest inside
 ## For AI agents working in this repository
 
 - `.agents/skills/framework/craft-development/SKILL.md` — framework internals
-  (`services/`, exposed as `craft.*`): what each subsystem owns, what must
+  (`engine/`, exposed as `craft.*`): what each subsystem owns, what must
   stay framework-agnostic.
 - `.agents/skills/project/scaffolding/SKILL.md` — local commands, Docker
   service/port/mount reference.
@@ -38,4 +38,4 @@ project, regenerate `.env`, verify the live mount, what never to nest inside
 - `.agents/docs/backlog.md` — what's done, what's next, decisions still open.
 - Inside `data/`: `documentation/` is the framework reference, `tests/` is the
   executable specification. **Code wins over documentation** — verify in
-  `services/` before trusting a doc page or your own memory of the framework.
+  `engine/` before trusting a doc page or your own memory of the framework.

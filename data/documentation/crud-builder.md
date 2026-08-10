@@ -47,7 +47,7 @@ request when nobody ended up authenticated — `AuthenticateApiToken` alone
 never blocks a missing/invalid token, it just continues unauthenticated.
 The generated `StoreProductRequest.authorize()` also checks for an
 authenticated user by default (see the `request_stub` template in
-`services/cli/generators.py`). `PostController` additionally calls
+`engine/cli/generators.py`). `PostController` additionally calls
 `Gate.authorize(...)` in `store`/`update`/`destroy` to deny non-owner
 writes; the generated CRUD controller does **not** add that call, since
 there's no policy to authorize against for an arbitrary entity — add an
@@ -102,10 +102,10 @@ registration — Craft's CRUD builder no longer stops at a JSON API.
 
 ## Programmatic use
 
-Both the CLI and the admin controller call into `services/cli/crud_builder.py`:
+Both the CLI and the admin controller call into `engine/cli/crud_builder.py`:
 
 ```python
-from services.cli import crud_builder
+from craft.cli import crud_builder
 
 result = crud_builder.build_crud(
     "Product",

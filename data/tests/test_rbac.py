@@ -56,7 +56,7 @@ class TestHasRole:
 
 class TestGatePermissionFallback:
     def test_gate_falls_back_to_the_permission_system(self, rbac_user):
-        from services.auth.gate import GateManager
+        from craft.auth.gate import GateManager
 
         gate = GateManager()
         # No ability closure, no policy registered for "edit-posts" — the
@@ -64,13 +64,13 @@ class TestGatePermissionFallback:
         assert gate.allows("edit-posts", rbac_user) is True
 
     def test_gate_still_denies_unknown_abilities_by_default(self, rbac_user):
-        from services.auth.gate import GateManager
+        from craft.auth.gate import GateManager
 
         gate = GateManager()
         assert gate.allows("nonexistent-ability", rbac_user) is False
 
     def test_ability_closures_still_take_priority(self, rbac_user):
-        from services.auth.gate import GateManager
+        from craft.auth.gate import GateManager
 
         gate = GateManager()
         gate.define("edit-posts", lambda user: False)
@@ -78,7 +78,7 @@ class TestGatePermissionFallback:
         assert gate.allows("edit-posts", rbac_user) is False
 
     def test_gate_tolerates_users_without_has_permission(self):
-        from services.auth.gate import GateManager
+        from craft.auth.gate import GateManager
 
         gate = GateManager()
         assert gate.allows("edit-posts", object()) is False
@@ -86,8 +86,8 @@ class TestGatePermissionFallback:
 
 class TestKernelAliasResolution:
     def test_role_alias_resolves_with_its_parameter(self):
-        from services.http.kernel import Kernel
-        from services.http.middleware import RequireRole
+        from craft.http.kernel import Kernel
+        from craft.http.middleware import RequireRole
 
         kernel = Kernel(app)
         [instance] = kernel.resolve_route_middleware(["role:admin"])
@@ -95,8 +95,8 @@ class TestKernelAliasResolution:
         assert instance.role == "admin"
 
     def test_permission_alias_resolves_with_its_parameter(self):
-        from services.http.kernel import Kernel
-        from services.http.middleware import RequirePermission
+        from craft.http.kernel import Kernel
+        from craft.http.middleware import RequirePermission
 
         kernel = Kernel(app)
         [instance] = kernel.resolve_route_middleware(["permission:manage-users"])
@@ -104,15 +104,15 @@ class TestKernelAliasResolution:
         assert instance.permission == "manage-users"
 
     def test_bare_alias_without_parameter_still_works(self):
-        from services.http.kernel import Kernel
-        from services.http.middleware import RequireAuth
+        from craft.http.kernel import Kernel
+        from craft.http.middleware import RequireAuth
 
         kernel = Kernel(app)
         [instance] = kernel.resolve_route_middleware(["auth"])
         assert isinstance(instance, RequireAuth)
 
     def test_unknown_alias_raises(self):
-        from services.http.kernel import Kernel
+        from craft.http.kernel import Kernel
 
         kernel = Kernel(app)
         with pytest.raises(KeyError):
@@ -261,3 +261,31 @@ class TestSeededDemoAccountsHaveRoles:
         # The ladder: tenant-manager sits strictly between user and admin.
         assert tenant_user.has_permission("manage-users") is True
         assert plain_user.has_permission("manage-users") is False
+
+    def test_demo_users_get_their_privilege_columns(self, migrated_database):
+        """`type` and `is_admin` are excluded from `User.fillable`, so seeding
+        through `create()` drops them silently and yields three identical
+        non-admin accounts. The seeder must use the trusted `force_create`
+        path. Roles alone passing is not enough — `TenantMiddleware` keys off
+        `type`, and `is_admin` gates the admin surface independently.
+        """
+        from database.seeders.UserSeeder import UserSeeder
+        from app.Models.User import User
+
+        DB.statement("DELETE FROM users WHERE email IN "
+                     "('user@craft.local', 'tenant@craft.local', 'admin@craft.local')")
+        UserSeeder().run()
+
+        expected = {
+            "user@craft.local": ("user", False),
+            "tenant@craft.local": ("tenant", False),
+            "admin@craft.local": ("admin", True),
+        }
+        for email, (user_type, is_admin) in expected.items():
+            user = User.query().where("email", email).first()
+            assert user is not None, f"{email} was not seeded"
+            assert user.get_attribute("type") == user_type
+            assert bool(user.get_attribute("is_admin")) is is_admin
+            # The documented demo password must actually authenticate.
+            assert user.check_password("craft") is True
+            assert user.check_password("wrong") is False

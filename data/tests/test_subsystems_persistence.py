@@ -11,8 +11,8 @@ provide was never exercised. These tests read the tables back directly.
 import pytest
 
 from craft.facades import DB, Module, Setting
-from services.modules.manager import ModuleManager
-from services.support.settings import SettingManager
+from craft.modules.manager import ModuleManager
+from craft.support.settings import SettingManager
 
 
 @pytest.fixture(autouse=True)

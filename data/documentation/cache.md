@@ -97,7 +97,7 @@ The array store is the default under `pytest`, and each `CacheManager` holds its
 own store, so tests do not leak cached values into each other. To be explicit:
 
 ```python
-from services.cache.manager import ArrayStore, CacheManager
+from craft.cache.manager import ArrayStore, CacheManager
 
 cache = CacheManager()
 cache._store = ArrayStore()

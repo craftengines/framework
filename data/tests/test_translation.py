@@ -6,7 +6,7 @@
 import pytest
 
 from craft.facades import DB
-from services.support.translation import __, locale_chain, normalize_locale, translate
+from craft.support.translation import __, locale_chain, normalize_locale, translate
 
 
 class TestNormalizeLocale:

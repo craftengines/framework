@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import os
-import services
+import engine  # noqa: F401  installs the `craft.*` import alias
 
 
 from craft.container.application import Application
@@ -47,8 +47,17 @@ def create_app() -> Application:
     app.register_provider(CacheServiceProvider)
     app.register_provider(MigratorServiceProvider)
     app.register_provider(ExceptionServiceProvider)
-    app.register_provider(PQCServiceProvider)
-    app.register_provider(CaptchaServiceProvider)
+
+    # `config/framework.py` ships these as feature flags, but nothing read
+    # them: both providers registered unconditionally, so setting
+    # PQC_SECURITY_ENABLED=false or CAPTCHA_ENABLED=false changed nothing. A
+    # switch that does not switch is worse than no switch.
+    config = app.make("config")
+    if config.get("framework.PQC_SECURITY_ENABLED", True):
+        app.register_provider(PQCServiceProvider)
+    if config.get("framework.CAPTCHA_ENABLED", True):
+        app.register_provider(CaptchaServiceProvider)
+
     app.register_provider(FrameworkSubsystemsServiceProvider)
 
     # Register application service providers
@@ -93,14 +102,21 @@ kernel = Kernel(app)
 # it, before CSRF verification, and before the user is resolved from it.
 # SecurityHeaders goes first so every response — including error responses
 # rendered inside StartSession — carries the baseline headers.
-kernel.with_middleware(
+_global_middleware = [
     SecurityHeaders,
     StartSession,
     SetLocale,
     VerifyCsrfToken,
     Authenticate,
     DatabaseLoggingMiddleware,
-    TenantMiddleware,
-)
+]
+
+# `MULTI_TENANCY_ENABLED` used to be decorative: TenantMiddleware ran on every
+# request whatever the flag said. A single-tenant app now stops paying for the
+# per-request tenant resolution it never wanted.
+if app.make("config").get("framework.MULTI_TENANCY_ENABLED", True):
+    _global_middleware.append(TenantMiddleware)
+
+kernel.with_middleware(*_global_middleware)
 
 asgi_app = kernel.get_starlette_app()

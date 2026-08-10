@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from bootstrap.app import app, asgi_app
 from craft.facades import Route
-from services.http.middleware import SetLocale
+from craft.http.middleware import SetLocale
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -16,7 +16,7 @@ def routes(migrated_database):
     def show_locale(request):
         # Read what the request actually resolved to, not the process-wide
         # config — that distinction is the point of the middleware.
-        from services.support.translation import get_current_locale
+        from craft.support.translation import get_current_locale
 
         return {"locale": get_current_locale()}
 

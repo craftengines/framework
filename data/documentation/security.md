@@ -178,6 +178,7 @@ the code lives in the session, not in a token you pass around.
 
 ```python
 from craft.facades import Captcha
+from craft.http.response import Response
 
 # In the GET handler: generate and render the challenge
 code = Captcha.generate(request)
@@ -185,7 +186,7 @@ html = Captcha.get_obfuscated_html(code)
 
 # In the POST handler: validate what the user typed
 if not Captcha.validate(request, request.input("captcha")):
-    return response("Invalid Captcha Challenge", status=400)
+    return Response("Invalid Captcha Challenge", status=400)
 ```
 
 The stored code is cleared on every validation attempt, whether or not it

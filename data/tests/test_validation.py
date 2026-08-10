@@ -6,8 +6,8 @@
 import pytest
 
 from craft.facades import DB
-from services.exceptions.handler import ValidationException
-from services.validation.validator import Validator
+from craft.exceptions.handler import ValidationException
+from craft.validation.validator import Validator
 
 
 def check(data, rules) -> Validator:

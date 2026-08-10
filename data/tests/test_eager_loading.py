@@ -10,8 +10,8 @@ just as happily with lazy loading, which is the bug being prevented.
 import pytest
 
 from craft.facades import DB
-from services.orm.exceptions import RelationNotFoundError
-from services.orm.model import Model
+from craft.orm.exceptions import RelationNotFoundError
+from craft.orm.model import Model
 
 
 class Comment(Model):

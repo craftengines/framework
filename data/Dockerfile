@@ -11,11 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first so the layer caches across code changes.
-# The framework package is `services/` — `src/` never existed, so the old
-# `COPY src/ ./src/` here failed the build outright.
+# The framework package is `engine/` (imported as `craft.*`) — it was renamed
+# from `services/`, and before that a `COPY src/ ./src/` pointed at a directory
+# that never existed and failed the build outright.
 COPY pyproject.toml .
 COPY README.md .
-COPY services/ ./services/
+COPY engine/ ./engine/
 # `[dev]` brings pytest and httpx — this is the development image, and the
 # suite is meant to be runnable inside it. Dockerfile.prod installs runtime
 # dependencies only.

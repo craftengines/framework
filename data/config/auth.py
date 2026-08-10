@@ -3,8 +3,6 @@
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-from craft.config import env
-
 defaults = {
     "guard": "web",
 }
@@ -27,4 +25,6 @@ providers = {
     },
 }
 
-password_timeout = 10800
+# NOTE: no `password_timeout` here. It described a confirm-password window
+# that Craft does not implement, and nothing read it — a knob with no wiring.
+

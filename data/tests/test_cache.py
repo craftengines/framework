@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from services.cache.manager import ArrayStore, CacheManager, FileStore
+from craft.cache.manager import ArrayStore, CacheManager, FileStore
 
 
 @pytest.fixture(params=["array", "file"])

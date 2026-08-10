@@ -6,10 +6,10 @@
 import pytest
 
 from craft.facades import DB
-from services.orm.model import Model
-from services.orm.exceptions import ModelNotFoundError
-from services.orm.relationships import BelongsTo, BelongsToMany, HasMany
-from services.orm.soft_deletes import SoftDeletes
+from craft.orm.model import Model
+from craft.orm.exceptions import ModelNotFoundError
+from craft.orm.relationships import BelongsTo, BelongsToMany, HasMany
+from craft.orm.soft_deletes import SoftDeletes
 
 
 class Gadget(Model):
@@ -271,3 +271,25 @@ class TestSoftDeletes:
         note = Note.create({"body": "gone"})
         note.force_delete()
         assert DB.statement("SELECT COUNT(*) AS n FROM notes").fetchone()["n"] == 0
+
+
+class TestPackageExports:
+    """`documentation/orm.md` teaches `from craft.orm import Model`.
+
+    The package `__init__` was empty, so every import taught by the docs raised
+    ImportError — the one subpackage in the engine that exported nothing.
+    """
+
+    def test_package_root_exports_the_documented_names(self):
+        import craft.orm as orm
+
+        from craft.orm import Model as ExportedModel
+        from craft.orm import ModelNotFoundError as ExportedNotFound
+        from craft.orm import SoftDeletes as ExportedSoftDeletes
+
+        assert ExportedModel is Model
+        assert ExportedNotFound is ModelNotFoundError
+        assert ExportedSoftDeletes is SoftDeletes
+        # Every name promised by __all__ actually resolves.
+        for name in orm.__all__:
+            assert getattr(orm, name, None) is not None, name

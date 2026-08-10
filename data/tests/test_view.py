@@ -6,7 +6,7 @@
 import pytest
 from jinja2 import TemplateNotFound, UndefinedError
 
-from services.view.forge import Forge, compile_directives, resolve_view_path
+from craft.view.forge import Forge, compile_directives, resolve_view_path
 
 
 class TestViewPathResolution:
@@ -144,23 +144,23 @@ class TestRendering:
 
 class TestHelpers:
     def test_config_helper_reads_app_config(self, migrated_database):
-        from services.view.forge import config_value
+        from craft.view.forge import config_value
 
         assert config_value("app.APP_NAME", "fallback") is not None
 
     def test_config_helper_falls_back(self, migrated_database):
-        from services.view.forge import config_value
+        from craft.view.forge import config_value
 
         assert config_value("nothing.here", "fallback") == "fallback"
 
     def test_csrf_token_is_empty_without_a_session(self):
-        from services.view.forge import csrf_token
+        from craft.view.forge import csrf_token
 
         assert csrf_token() == ""
 
     def test_csrf_token_reads_the_current_session(self):
-        from services.http.session import Session, current_session
-        from services.view.forge import csrf_token
+        from craft.http.session import Session, current_session
+        from craft.view.forge import csrf_token
 
         session = Session()
         token = current_session.set(session)

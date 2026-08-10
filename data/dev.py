@@ -17,9 +17,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import services  # noqa: F401,E402  installs the `craft.*` import alias
+import engine  # noqa: F401,E402  installs the `craft.*` import alias
 
-from services.cli.app import cli  # noqa: E402
+from craft.cli.app import cli  # noqa: E402
 
 #: Commands that are a single name containing a colon, not `group:subcommand`.
 _ATOMIC_COMMANDS = {"key:generate"}

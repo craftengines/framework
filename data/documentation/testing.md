@@ -51,7 +51,7 @@ exercises your migrations rather than a parallel fixture that can drift.
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database():
     from bootstrap.app import app
-    from services.migrations.migrator import Migrator
+    from craft.migrations.migrator import Migrator
 
     migrator = Migrator(app)
     migrator.run()

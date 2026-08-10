@@ -9,8 +9,8 @@ import uuid as uuid_module
 import pytest
 
 from craft.facades import DB
-from services.orm.exceptions import ModelNotFoundError
-from services.orm.model import Model
+from craft.orm.exceptions import ModelNotFoundError
+from craft.orm.model import Model
 
 UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -87,7 +87,7 @@ def tables(migrated_database):
 
 class TestSchemaBuilder:
     def test_uuid_key_is_unique(self, migrated_database):
-        from services.migrations.schema import Blueprint, Grammar
+        from craft.migrations.schema import Blueprint, Grammar
 
         blueprint = Blueprint("t")
         blueprint.uuid_key()
@@ -95,21 +95,21 @@ class TestSchemaBuilder:
         assert "UNIQUE" in sql
 
     def test_uuid_key_uses_the_native_type_on_postgres(self):
-        from services.migrations.schema import Blueprint, Grammar
+        from craft.migrations.schema import Blueprint, Grammar
 
         blueprint = Blueprint("t")
         blueprint.uuid_key()
         assert "UUID" in Grammar("postgresql").compile_create(blueprint)[0]
 
     def test_uuid_key_falls_back_to_varchar_elsewhere(self):
-        from services.migrations.schema import Blueprint, Grammar
+        from craft.migrations.schema import Blueprint, Grammar
 
         blueprint = Blueprint("t")
         blueprint.uuid_key()
         assert "VARCHAR(36)" in Grammar("sqlite").compile_create(blueprint)[0]
 
     def test_uuid_primary_is_the_key(self):
-        from services.migrations.schema import Blueprint, Grammar
+        from craft.migrations.schema import Blueprint, Grammar
 
         blueprint = Blueprint("t")
         blueprint.uuid_primary()

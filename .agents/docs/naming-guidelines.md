@@ -28,7 +28,7 @@ Esses nomes **não devem ser usados**.
 
 | Conceito | Laravel | Craft | Onde vive |
 |---|---|---|---|
-| CLI / Console | Artisan | `dev.py` | `services/cli` |
+| CLI / Console | Artisan | `dev.py` | `engine/cli` |
 | ORM | Eloquent | Craft ORM | `craft.orm` |
 | Template engine | Blade | Forge | `craft.view` |
 | Container / IoC | `Illuminate\Container` | — | `craft.container` |
@@ -119,5 +119,5 @@ de uso é diferente — Laravel Forge é infraestrutura, Craft Forge é motor de
 template — o que reduz o risco de confusão, mas não o elimina.
 
 Isto não é aconselhamento jurídico. Se a decisão for trocar, o custo hoje é
-baixo: o nome está concentrado em `services/view/forge.py`, na extensão
+baixo: o nome está concentrado em `engine/view/forge.py`, na extensão
 `.forge.py` e nas menções em documentação.

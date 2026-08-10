@@ -32,12 +32,12 @@ jobs:
       - name: Lint (ruff)
         working-directory: data
         run: |
-          ruff check . || true
+          ruff check .
 
       - name: Run Pytest Suite (SQLite, with coverage)
         working-directory: data
         run: |
-          python -m pytest --cov=services --cov-report=term-missing
+          python -m pytest --cov=engine --cov-report=term-missing
 
   test-postgres:
     name: Pytest (PostgreSQL) — Python 3.11
@@ -82,7 +82,7 @@ jobs:
           DB_USERNAME: craft
           DB_PASSWORD: secretpassword
         run: |
-          python -m pytest --cov=services --cov-report=term-missing
+          python -m pytest --cov=engine --cov-report=term-missing
 
   docker-build:
     name: Build Production Docker Image

@@ -285,12 +285,21 @@ def _test_ai_native_subsystems_body(__, Config, DB, Route):
     DB.statement("CREATE TABLE modules (slug text, enabled integer)")
     DB.statement("INSERT INTO modules (slug, enabled) VALUES ('inventory', 0)")
 
+    # The router reads module state through the ModuleManager, which caches it
+    # for `cache_ttl` seconds. Writing the table with raw SQL goes behind the
+    # manager's back — exactly the "another process changed it" case — so the
+    # cache has to be dropped explicitly. `enable()`/`disable()` do it on their
+    # own.
+    modules = app.make("module")
+    modules.forget_cached_state("inventory")
+
     # Disabled in DB
     response = client.get("/test-dynamic-module")
     assert response.status_code == 404
 
     # Enabled in DB
     DB.statement("UPDATE modules SET enabled = 1 WHERE slug = 'inventory'")
+    modules.forget_cached_state("inventory")
     response = client.get("/test-dynamic-module")
     assert response.status_code == 200
     assert response.text == "active"

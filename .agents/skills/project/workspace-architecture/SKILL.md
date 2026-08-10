@@ -27,7 +27,7 @@ data/                        Everything a running Craft app needs. Mounted 1:1
                               into the container as /app. This is the directory
                               you would deploy — it IS production, locally.
   app/  bootstrap/  config/  database/  documentation/
-  public/  resources/  routes/  services/  storage/  tests/
+  public/  resources/  routes/  engine/  storage/  tests/
   dev.py  pyproject.toml  Dockerfile  Dockerfile.prod
   docker-compose.yml  docker-compose.prod.yml
   .env  .env.example  README.md
@@ -70,7 +70,7 @@ When an AI agent (or a human) copies this workspace to bootstrap a new app:
    projects can run side by side without colliding.
 4. **Update `pyproject.toml`** (`[project].name`) and `PYTHONPATH`/package
    references only if the internal package layout changes — the framework
-   package itself (`services/`, exposed as `craft.*`) is meant to be reused
+   package itself (`engine/`, exposed as `craft.*`) is meant to be reused
    as-is.
 5. **Regenerate `.env`** from `.env.example` — never copy a real `.env` (or
    `APP_KEY`) between projects.

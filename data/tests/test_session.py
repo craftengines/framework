@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from services.http.session import (
+from craft.http.session import (
     CookieSessionStore,
     FileSessionStore,
     Session,

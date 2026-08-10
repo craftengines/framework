@@ -83,7 +83,7 @@ semantically-keyed catalog lives in `resources/lang/catalog.json`.
 
 Version is `MAJOR.MINOR.PATCH` plus a release counter (`rNNNNN`), both tracked
 in two places that must stay in sync: `pyproject.toml` (`[project].version`)
-and `services/__init__.py` (`__version__`, `__release__`).
+and `engine/__init__.py` (`__version__`, `__release__`).
 
 **The release counter always increments by exactly 1 on every cut release —
 never reset, never skipped, regardless of what `MAJOR.MINOR.PATCH` does.**
@@ -95,7 +95,7 @@ To cut a release:
 1. Update `CHANGELOG.md`: rename `## [Unreleased]` to
    `## [X.Y.Z] rNNNNN — YYYY-MM-DD`, then add a fresh empty `## [Unreleased]`
    above it for whatever comes next.
-2. Bump `pyproject.toml` and `services/__init__.py` to match.
+2. Bump `pyproject.toml` and `engine/__init__.py` to match.
 3. Commit, then tag: `git tag -a vX.Y.Z-rNNNNN -m "..."`.
 
 ### Every change gets a CHANGELOG entry — no exceptions
@@ -136,7 +136,7 @@ Building requires **setuptools 77+** — the project uses PEP 639 metadata
 (`license` as an SPDX string plus `license-files`), which older versions reject.
 
 Verify the artifact by installing it somewhere the source tree is not
-importable, or you end up testing `services/` on disk rather than the wheel:
+importable, or you end up testing `engine/` on disk rather than the wheel:
 
 ```bash
 unset PYTHONPATH            # a venv does not override it
