@@ -99,13 +99,18 @@ class ExceptionHandler:
         return int(getattr(exception, "status_code", 500))
 
     def to_payload(self, exception: BaseException) -> dict:
+        status = self.status_for(exception)
         payload: dict = {
             "message": str(exception) or type(exception).__name__,
-            "status": self.status_for(exception),
+            "status": status,
         }
         if isinstance(exception, ValidationException):
             payload["errors"] = exception.errors
-        if self._debug():
+        # A trace belongs to a *failure*. A 403 or a 404 is the framework
+        # working: the visitor asked for something they may not have, and
+        # answering that with a stack dump is noise at best and a map of the
+        # internals at worst. Traces are for 5xx, and only with debug on.
+        if self._debug() and status >= 500:
             payload["exception"] = type(exception).__name__
             payload["trace"] = traceback.format_exception(
                 type(exception), exception, exception.__traceback__
@@ -123,17 +128,101 @@ class ExceptionHandler:
 
             return JSONResponse(payload, status_code=status)
 
-        from html import escape
-
         from starlette.responses import HTMLResponse
 
-        detail = ""
-        if self._debug():
-            detail = "<pre>" + escape("".join(payload.get("trace", []))) + "</pre>"
+        # An application view wins, so an error page can be branded like the
+        # rest of the site: `resources/views/errors/403.forge.py`, falling back
+        # to `errors/error.forge.py`. Neither is required — the built-in page
+        # below is a complete answer on its own.
+        rendered = self._render_error_view(status, payload)
+        if rendered is not None:
+            return HTMLResponse(rendered, status_code=status)
+
         return HTMLResponse(
-            f"<h1>{status}</h1><p>{escape(str(payload['message']))}</p>{detail}",
-            status_code=status,
+            self._default_error_page(status, payload), status_code=status
         )
+
+    #: What each status actually means to the person reading it. A 403 is not a
+    #: crash and should not read like one.
+    TITLES = {
+        400: "Bad request",
+        401: "You need to sign in",
+        403: "You do not have access to this page",
+        404: "Page not found",
+        419: "Your session expired",
+        422: "Some of that did not check out",
+        429: "Too many requests",
+        500: "Something went wrong on our side",
+    }
+
+    HINTS = {
+        401: "Sign in and try again.",
+        403: "Your account is signed in, but it is not allowed to open this "
+             "page. If you think it should be, ask an administrator to grant "
+             "your account the access it needs.",
+        404: "The address may be mistyped, or the page may have moved.",
+        419: "Refresh the page and submit the form again.",
+        429: "Wait a moment before trying again.",
+    }
+
+    def _render_error_view(self, status: int, payload: dict):
+        """Try the application's own error template, if it has one."""
+        if self.app is None:
+            return None
+        for template in (f"errors.{status}", "errors.error"):
+            try:
+                view = self.app.make("view")
+                return view.render(template, {
+                    "status": status,
+                    "message": payload.get("message", ""),
+                    "title": self.TITLES.get(status, "Error"),
+                    "hint": self.HINTS.get(status, ""),
+                    "trace": payload.get("trace"),
+                    "show_sidebar": False,
+                })
+            except Exception:
+                # No such template (or it failed): fall through to the next
+                # candidate and finally to the built-in page. An error page
+                # that itself errors must never replace the original problem.
+                continue
+        return None
+
+    def _default_error_page(self, status: int, payload: dict) -> str:
+        """A self-contained, readable error page — no template needed."""
+        from html import escape
+
+        title = self.TITLES.get(status, "Error")
+        hint = self.HINTS.get(status, "")
+        message = escape(str(payload.get("message", "")))
+
+        detail = ""
+        trace = payload.get("trace")
+        if trace:
+            detail = (
+                '<pre style="text-align:left;overflow:auto;background:#0f172a;'
+                'color:#e2e8f0;padding:1rem;border-radius:.75rem;font-size:12px;'
+                'line-height:1.5">' + escape("".join(trace)) + "</pre>"
+            )
+
+        return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{status} — {escape(title)}</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;
+justify-content:center;background:#f8fafc;color:#0f172a;
+font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
+  <main style="max-width:34rem;padding:2rem;text-align:center">
+    <p style="font-family:ui-monospace,monospace;font-size:.75rem;
+       letter-spacing:.1em;text-transform:uppercase;color:#f97316;
+       font-weight:700;margin:0 0 .5rem">Error {status}</p>
+    <h1 style="font-size:1.75rem;font-weight:800;margin:0 0 .75rem">{escape(title)}</h1>
+    <p style="color:#475569;line-height:1.6;margin:0 0 1.5rem">{escape(hint) or message}</p>
+    <a href="/" style="display:inline-block;background:#ea580c;color:#fff;
+       font-weight:700;padding:.7rem 1.5rem;border-radius:.75rem;
+       text-decoration:none">Back to safety</a>
+    {detail}
+  </main>
+</body></html>"""
 
 
 __all__ = [

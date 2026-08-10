@@ -64,9 +64,16 @@
                 
                 @auth
                     <span class="text-xs text-slate-400 font-mono hidden md:inline">Profile: <strong class="text-slate-600">{{ auth().get_attribute('name') }}</strong></span>
-                    <a href="/admin" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-lg shadow-md transition duration-150 font-sans">
-                        {{ __('dashboard') }}
-                    </a>
+                    {# Only offer the dashboard to someone who can actually open it.
+                       This button was shown to every authenticated user, so an
+                       ordinary account was invited to click straight into a 403.
+                       `@can` asks the same Gate ability the controller authorizes
+                       with, so the menu and the guard can never drift apart. #}
+                    @can("access-admin-dashboard")
+                        <a href="/admin" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-lg shadow-md transition duration-150 font-sans">
+                            {{ __('dashboard') }}
+                        </a>
+                    @endcan
                     <form action="/logout" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="text-xs font-bold text-rose-500 hover:text-rose-600">Logout</button>

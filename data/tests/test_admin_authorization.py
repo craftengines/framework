@@ -145,6 +145,53 @@ class TestAdministratorsStillGetIn:
         assert broken == [], f"admin pages not rendering for an administrator: {broken}"
 
 
+class TestWhatADeniedUserActuallySees:
+    """A refusal is the framework working, not a crash.
+
+    The first report of the fixed `/admin` guard was a screenshot of a raw
+    stack trace: an ordinary user clicked the Dashboard button — which the
+    layout offered to everyone — and got a wall of Python. Both halves of that
+    are bugs of their own.
+    """
+
+    def test_a_denial_does_not_leak_a_stack_trace(self, client, accounts):
+        login(client, "plain-admintest@craft.local")
+
+        response = client.get("/admin", follow_redirects=False)
+
+        assert response.status_code == 403
+        body = response.text
+        assert "Traceback" not in body
+        assert "engine/http/middleware.py" not in body
+        assert "AuthorizationException" not in body
+
+    def test_a_denial_explains_itself_and_offers_a_way_back(self, client, accounts):
+        login(client, "plain-admintest@craft.local")
+
+        body = client.get("/admin", follow_redirects=False).text
+
+        assert "do not have access" in body
+        assert 'href="/"' in body
+
+    def test_json_callers_still_get_the_message_without_the_trace(self, client, accounts):
+        login(client, "plain-admintest@craft.local")
+
+        response = client.get("/admin", headers={"Accept": "application/json"})
+
+        assert response.status_code == 403
+        assert "trace" not in response.json()
+
+    def test_the_navigation_does_not_offer_what_the_user_cannot_open(
+        self, client, accounts
+    ):
+        """Inviting someone to click into a 403 is a UI bug, not a guard bug."""
+        login(client, "plain-admintest@craft.local")
+        assert 'href="/admin"' not in client.get("/").text
+
+        login(client, "admin-admintest@craft.local")
+        assert 'href="/admin"' in client.get("/").text
+
+
 class TestEveryAdminRouteIsAuthorized:
     """The structural guard.
 
