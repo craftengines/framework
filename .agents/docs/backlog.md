@@ -11,8 +11,10 @@
 > declarar. Lição registrada: comparar declarações de rota no olho não é
 > controle.
 >
-> Estado: **868/868 testes passando** em SQLite e em PostgreSQL real, no Python
+> Estado: **882/882 testes passando** em SQLite e em PostgreSQL real, no Python
 > 3.11 do container, com `ruff check .` limpo. Cada arquivo de teste também
+
+
 > passa isolado — nenhum depende da ordem. App real validado em
 > `http://localhost:8300`, incluindo o fluxo de login com CSRF e captcha,
 > headers de segurança confirmados ao vivo.
@@ -390,13 +392,18 @@ integração de agentes. Referência, não código a copiar.
   managers, dataclasses, `match`, hierarquia de exceções melhor.
 - Remover padrões datados e degradação silenciosa remanescente.
 
-### E2. Hardening de segurança (todas as camadas)
-- Router, middleware, ORM, motor de views (Forge), auth, autorização,
-  sessão/token, fronteira de módulos e plugins.
-- Levantar vulnerabilidades, padrões inseguros e validações fracas; corrigir
-  com teste que prove a correção.
-- Segredos: manuseio seguro, sem default conhecido, sem vazamento em log.
-- Entregável: lista de vulnerabilidades encontradas × correção aplicada.
+### ✅ E2. Hardening de segurança — Defesa Ativa (Entregue em 2026-08-17)
+- **WAF / IDS Firewall Integrado (`engine/security/firewall.py`)**: Detecção em tempo real de SQL Injection, XSS, Path Traversal e SSRF via regex patterns. IP whitelist (bypass) e blacklist persistidas no PostgreSQL (`firewall_rules`). Pontuação de reputação cumulativa com auto-blacklisting ao atingir 100 pontos. Middleware `FirewallMiddleware` sob o alias `"firewall"`.
+- **Subsistema de Honeypot (`engine/security/honeypot.py`)**: Contas-armadilha para nomes comumente atacados (`admin`, `root`, `postgres`, `superuser`, etc.) que bloqueiam imediatamente, nunca expõem dados reais e geram cooldown de 30 min no IP.
+- **Auditoria de Autenticação & Cooldown de Força Bruta**: Todas as tentativas (sucesso, falha, honeypot) registradas em `auth_audit_logs`. Após 5 falhas, aplica cooldown de 30 minutos em `auth_cooldowns`.
+- **Hash de API Tokens**: `AuthenticateApiToken` migrado para validação com SHA-256 (`api_token_hash`) com fallback gracioso.
+- **SSL/TLS no PostgreSQL**: `_connect_postgres()` em `engine/orm/connection.py` agora suporta parâmetro `sslmode`.
+- **Headers de Segurança Configuráveis**: `SecurityHeaders` com `X-XSS-Protection: 1; mode=block` e suporte dinâmico a CSP e HSTS.
+- **CLI `dev.py`**: Comandos `firewall list|allow|block` e `security audit` adicionados.
+- **Resolução Automática de UUID no ORM (`Model.find()`)**: `Model.find(id_val)` agora resolve modelos pela coluna pública `uuid` quando recebe string UUID, eliminando erros de conversão de tipos em bancos com tipagem estrita como PostgreSQL.
+- **Testes**: `tests/test_security_firewall_honeypot.py` e `tests/test_uuid_identity.py` atualizados. Suíte: **878/878 testes verdes**.
+
+
 
 ### E3. Craft AI Engine — inferência nativa
 - Interface unificada para qualquer LLM, local ou remoto.

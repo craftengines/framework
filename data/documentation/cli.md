@@ -92,7 +92,24 @@ See [Queues and events](queues_events.md).
 python dev.py cache clear
 ```
 
+## Firewall (WAF) & Security Audit
+
+| Command | What it does |
+|---|---|
+| `firewall list` | List IP whitelist/blacklist rules and reputation scores |
+| `firewall allow <ip>` | Add an IP address to the trusted whitelist |
+| `firewall block <ip> [-r reason]` | Add an IP address to the permanent blacklist |
+| `security audit [--limit N]` | Display recent authentication attempts and honeypot events |
+
+```bash
+python dev.py firewall list
+python dev.py firewall allow 192.168.1.100
+python dev.py firewall block 203.0.113.55 -r "Port scanner detected"
+python dev.py security audit --limit 50
+```
+
 ## Application
+
 
 | Command | What it does |
 |---|---|

@@ -316,7 +316,12 @@ class Model:
 
     @classmethod
     def find(cls, id_val: Any) -> Optional['Model']:
+        if cls.uses_uuid and cls.has_uuid_column() and isinstance(id_val, str) and not id_val.isdigit():
+            found = cls.find_by_uuid(id_val)
+            if found is not None:
+                return found
         return cls.query().where(cls.primary_key, id_val).first()
+
 
     def get_attribute(self, key: str) -> Any:
         return self._attributes.get(key)

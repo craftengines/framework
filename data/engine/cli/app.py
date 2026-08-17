@@ -42,6 +42,8 @@ role_app = typer.Typer(name="role", help="RBAC role management.", no_args_is_hel
 permission_app = typer.Typer(name="permission", help="RBAC permission management.", no_args_is_help=True)
 group_app = typer.Typer(name="group", help="Group management (team-level access).", no_args_is_help=True)
 user_app = typer.Typer(name="user", help="User management.", no_args_is_help=True)
+firewall_app = typer.Typer(name="firewall", help="WAF & IP reputation management.", no_args_is_help=True)
+security_app = typer.Typer(name="security", help="Security audit logs and alerts.", no_args_is_help=True)
 
 cli.add_typer(make_app)
 cli.add_typer(migrate_app)
@@ -55,6 +57,9 @@ cli.add_typer(role_app)
 cli.add_typer(permission_app)
 cli.add_typer(group_app)
 cli.add_typer(user_app)
+cli.add_typer(firewall_app)
+cli.add_typer(security_app)
+
 
 
 # -- application bootstrap ------------------------------------------------------
@@ -94,8 +99,12 @@ def get_migrator() -> Any:
     return Migrator(get_app())
 
 
-def echo(message: str, color: Optional[str] = None) -> None:
-    typer.echo(typer.style(message, fg=color) if color else message)
+def echo(message: str, color: Optional[str] = None, bold: bool = False) -> None:
+    if color or bold:
+        typer.echo(typer.style(message, fg=color, bold=bold))
+    else:
+        typer.echo(message)
+
 
 
 # -- migrate --------------------------------------------------------------------
@@ -336,19 +345,68 @@ def make_crud(
     fields: str = typer.Option(
         "",
         "--fields",
-        help='Field list: "name:type:rule1|rule2,other:type". Defaults to string, nullable.',
+        help='Field list: "name:type:rule1|rule2,other:type". Types: string, text, integer, big_integer, small_integer, float, boolean, decimal, date, datetime, json.',
     ),
-    force: bool = typer.Option(False, "--force"),
+    interactive: bool = typer.Option(False, "--interactive", "-i", help="Run interactive field builder wizard."),
+    pretend: bool = typer.Option(False, "--pretend", "--dry-run", help="Preview generated files without writing."),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
 ) -> None:
-    """Generate a full CRUD slice: migration, model, controller, request, resource, route."""
+    """Generate a full CRUD slice: migration, model, controller, request, resource, views, and routes."""
     from engine.cli import crud_builder
 
-    field_list = crud_builder.parse_fields(fields) if fields else []
-    result = crud_builder.build_crud(entity, field_list, base_path(), force=force)
+    field_list = []
+    if fields:
+        try:
+            field_list = crud_builder.parse_fields(fields)
+        except ValueError as exc:
+            echo(f"Error parsing fields: {exc}", "red")
+            raise typer.Exit(code=1) from None
+    elif interactive:
+        echo(f"Interactive CRUD Wizard for [{entity}]:", bold=True)
+        types_str = ", ".join(crud_builder.FIELD_TYPES.keys())
+        while True:
+            fname = typer.prompt("Field name (leave empty to finish)", default="", show_default=False).strip()
+            if not fname:
+                break
+            ftype = typer.prompt(f"Field type ({types_str})", default="string").strip().lower()
+            if ftype not in crud_builder.FIELD_TYPES:
+                echo(f"Invalid type [{ftype}]. Allowed: {types_str}", "yellow")
+                continue
+            freq = typer.confirm("Is this field required?", default=False)
+            field_list.append({
+                "name": fname,
+                "type": ftype,
+                "nullable": not freq,
+                "rules": ["required"] if freq else ["nullable"],
+            })
 
-    echo(f"CRUD generated for [{result['entity']}]:", "green")
+    try:
+        result = crud_builder.build_crud(
+            entity, field_list, base_path(), force=force, pretend=pretend
+        )
+    except FileExistsError as exc:
+        echo(f"A generated file already exists: {exc}. Use --force to overwrite.", "red")
+        raise typer.Exit(code=1) from None
+    except ValueError as exc:
+        echo(f"CRUD build error: {exc}", "red")
+        raise typer.Exit(code=1) from None
+
+    prefix = "[PREVIEW] Would generate" if pretend else "CRUD generated"
+    color = "yellow" if pretend else "green"
+    echo(f"{prefix} for [{result['entity']}]:", color, bold=True)
     for kind, path in result["files"].items():
-        echo(f"  {kind:<12} {path}", "green")
+        echo(f"  -> {kind:<20} {path}", color)
+
+
+    if not pretend:
+        echo("\nNext steps:", bold=True)
+        echo("  1. Review the generated migration and run:", "cyan")
+        echo("     python dev.py migrate", bold=True)
+        echo("  2. Access the Admin UI at:", "cyan")
+        echo(f"     http://127.0.0.1:8000/admin/{result['entity'].lower()}s", "cyan")
+        echo("  3. Access the JSON REST API at:", "cyan")
+        echo(f"     http://127.0.0.1:8000/api/v1/{result['entity'].lower()}s", "cyan")
+
 
 
 def _simple_generator(kind: str, label: str):
@@ -930,7 +988,81 @@ def user_assign_role(email: str, role_slug: str) -> None:
     echo(f"Assigned role [{role_slug}] to [{email}].", "green")
 
 
+# -- firewall commands ---------------------------------------------------------
+
+@firewall_app.command("list")
+def firewall_list() -> None:
+    """List all configured firewall IP rules and reputation scores."""
+    app = get_app()
+    db = app.make("db")
+    rules = db.table("firewall_rules").get()
+    if not rules:
+        echo("No custom firewall rules configured.", "yellow")
+        return
+
+    echo(f"{'IP Address':<20} {'Status':<15} {'Score':<8} {'Reason'}", bold=True)
+    echo("-" * 70)
+    for r in rules:
+        status_color = "green" if r.get("status") == "whitelist" else ("red" if r.get("status") == "blacklist" else "yellow")
+        echo(
+            f"{r.get('ip_address', ''):<20} "
+            f"{typer.style(r.get('status', ''), fg=status_color):<24} "
+            f"{r.get('reputation_score', 0):<8} "
+            f"{r.get('blocked_reason') or '-'}"
+        )
+
+
+@firewall_app.command("allow")
+def firewall_allow(ip: str) -> None:
+    """Add an IP address to the trusted whitelist."""
+    app = get_app()
+    fw = app.make("firewall")
+    fw.whitelist_ip(ip)
+    echo(f"IP [{ip}] added to firewall whitelist.", "green")
+
+
+@firewall_app.command("block")
+def firewall_block(
+    ip: str,
+    reason: str = typer.Option("Manual administrator block", "--reason", "-r", help="Reason for blacklisting."),
+) -> None:
+    """Add an IP address to the permanent blacklist."""
+    app = get_app()
+    fw = app.make("firewall")
+    fw.blacklist_ip(ip, reason=reason)
+    echo(f"IP [{ip}] blacklisted. Reason: {reason}", "red")
+
+
+
+# -- security audit commands ---------------------------------------------------
+
+@security_app.command("audit")
+def security_audit(limit: int = typer.Option(20, help="Number of audit logs to display.")) -> None:
+    """Display recent authentication audit attempts and honeypot events."""
+    app = get_app()
+    db = app.make("db")
+    logs = db.table("auth_audit_logs").order_by("id", "desc").limit(limit).get()
+    if not logs:
+        echo("No authentication audit logs recorded.", "yellow")
+        return
+
+    echo(f"{'Timestamp':<22} {'IP Address':<18} {'Username':<22} {'Result':<12} {'Reason'}", bold=True)
+
+    echo("-" * 85)
+    for log in logs:
+        res = log.get("result", "")
+        color = "green" if res == "SUCCESS" else ("magenta" if res == "HONEYPOT" else "red")
+        echo(
+            f"{str(log.get('created_at', ''))[:19]:<22} "
+            f"{log.get('ip_address', ''):<18} "
+            f"{log.get('username', ''):<22} "
+            f"{typer.style(res, fg=color):<21} "
+            f"{log.get('reason') or '-'}"
+        )
+
+
 # -- top-level commands ---------------------------------------------------------
+
 
 @cli.command("serve")
 def serve(

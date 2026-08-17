@@ -172,6 +172,13 @@ class TestLookup:
         widget = Widget.create({"name": "by-id"})
         assert Widget.find(widget.get_attribute("id")) is not None
 
+    def test_find_automatically_resolves_uuid_string(self):
+        widget = Widget.create({"name": "by-uuid-string"})
+        found = Widget.find(widget.get_attribute("uuid"))
+        assert found is not None
+        assert found.get_attribute("id") == widget.get_attribute("id")
+
+
 
 class TestRouteKey:
     def test_route_key_is_the_uuid(self):

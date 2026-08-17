@@ -38,8 +38,9 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 
 | Guide | What it covers |
 |---|---|
-| [Security](security.md) | Authentication, authorization, sessions, CSRF |
+| [Security](security.md) | Authentication, authorization, WAF/firewall, honeypot, audit logs, sessions, CSRF |
 | [Authorization (RBAC)](authorization.md) | Roles, permissions, the Gate fallback, `role:`/`permission:` middleware |
+
 | [Sessions](sessions.md) | Drivers, flash data, CSRF tokens |
 | [Cache](cache.md) | Stores, TTL, `remember` |
 | [Queues and events](queues_events.md) | Jobs, workers, listeners |

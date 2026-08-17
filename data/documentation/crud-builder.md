@@ -8,15 +8,23 @@ and from the admin UI.
 ## CLI
 
 ```bash
-python dev.py make crud Product --fields "name:string:required,price:decimal,active:boolean"
+# Standard field generation
+python dev.py make crud Product --fields "name:string:required,price:decimal,metadata:json,active:boolean"
+
+# Dry-run / pretend mode (previews generated files without writing)
+python dev.py make crud Product --fields "name:string:required" --pretend
+
+# Interactive wizard mode
+python dev.py make crud Product --interactive
 ```
 
 `--fields` is a comma-separated list of `name:type[:rule1|rule2|...]`. `type`
-is one of `string`, `text`, `integer`, `boolean`, `decimal`, `date`,
-`datetime` — the same vocabulary `Schema`'s `Blueprint` supports. If a
-field's rules include `required` it becomes a non-nullable column;
+is one of `string`, `text`, `integer`, `big_integer`, `small_integer`, `float`,
+`boolean`, `decimal`, `date`, `datetime`, `json` — the same vocabulary `Schema`'s
+`Blueprint` supports. If a field's rules include `required` it becomes a non-nullable column;
 otherwise it is nullable. Omit `--fields` for a bare entity with no columns
-beyond `id`/`timestamps`.
+beyond `id`/`uuid`/`timestamps`.
+
 
 This creates:
 
@@ -82,11 +90,17 @@ Pass `--force` to overwrite files that already exist.
 ## CRUD builder form (`/admin/crud-builder`)
 
 `GET /admin/crud-builder` (behind the `auth` middleware, like `/admin`) shows
-a form: an entity name plus repeatable field rows (name, type, required).
+an interactive builder UI:
+- **Entity name input**: with slug preview.
+- **Quick Field Presets Toolbar**: One-click append for common fields (Name, Title, Description, Price, Active, Metadata, Due Date).
+- **Interactive Field Rows**: Reorder fields anytime with `▲ Up` and `▼ Down` buttons, change types, and toggle requirements.
+- **Client-Side Validation**: Checks for duplicate field names and valid constraints before submit.
+
 Submitting `POST /admin/crud-builder` runs the same `build_crud()` used by
-the CLI and shows a report listing every file written — migration, model,
-request, resource, both controllers, the three admin views, and both route
+the CLI and shows a report listing every file written — migration with UUID support,
+model, request, resource, both controllers, the three admin views, and both route
 registrations.
+
 
 As with the CLI, migrations are **not** run automatically — review the
 generated migration and run `python dev.py migrate` yourself.

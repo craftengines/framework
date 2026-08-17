@@ -16,11 +16,72 @@ exists to remove. See "Versioning and releases" in `CONTRIBUTING.md` for the
 full policy (categories to use, what counts as security-relevant, how
 `[Unreleased]` gets folded into a release).
 
----
-
 ## [Unreleased]
 
+## [3.12.0] — 2026-08-17 (r00002)
+
+### Fixed
+
+- **Smart Controller Action Parameter Resolution**: In `engine/http/kernel.py`,
+  controller action parameter binding now resolves both named route placeholders
+  and ordered positional fallback parameters. This fixes `TypeError: missing required
+  positional argument` when controller method parameters (e.g. `posts`, `post`,
+  `item`) differed from route parameter names (e.g. `id`), enabling standard REST
+  resource routes like `GET /posts/3` to execute seamlessly.
+- **`PostController` Action Consistency**: Standardized `PostController.show()`,
+  `edit()`, `update()`, and `destroy()` to use `Post.find(id)`, supporting both
+  numeric IDs and UUID lookups natively.
+
+### CLI & CRUD Builder
+
+
+- **Visual & Terminal CRUD Builder Expansion**:
+  - **Extended Column Types**: CRUD Builder now supports `json`, `big_integer`,
+    `small_integer`, `float`, in addition to `string`, `text`, `integer`,
+    `boolean`, `decimal`, `date`, `datetime`.
+  - **Dual-Key / Public UUID Integration**: Generated migrations now declare
+    `t.uuid_key()` automatically alongside `t.id()`, providing public UUID
+    identifiers out-of-the-box for all generated entities.
+  - **Dry-Run Mode (`--pretend`)**: CLI command `dev.py make:crud <Entity> --pretend`
+    allows previewing all files and routes that would be created without disk writes.
+  - **Interactive Terminal Wizard (`--interactive` / `-i`)**: CLI guides
+    developers step-by-step to define fields, types, and constraints interactively.
+  - **Visual Admin Builder Enhancements (`/admin/crud-builder`)**: Added quick field
+    presets toolbar (Name, Title, Description, Price, Active, Metadata, Due Date),
+    interactive row reordering (`▲ Up` and `▼ Down` buttons), client-side duplicate
+    detection and validation, and migration guidance on completion.
+
 ### Security
+
+
+- **Automatic UUID Resolution in `Model.find()`**: `Model.find(id_val)` now
+  automatically resolves models by their public `uuid` column when passed a
+  non-digit UUID string, allowing direct lookups like `User.find("uuid-value")`
+  without type errors on strictly-typed databases like PostgreSQL.
+- **WAF / IDS Firewall Subsystem (`engine/security/firewall.py`)**: Added Web
+
+  Application Firewall with IP whitelist/blacklist, anomaly reputation scoring,
+  automatic threat blacklisting (threshold: 100 points), and deep payload pattern
+  detection for SQL Injection, Cross-Site Scripting (XSS), Path Traversal, and
+  Server-Side Request Forgery (SSRF). Exposed via `Firewall` facade and
+  `FirewallMiddleware` (`firewall` route alias).
+- **Honeypot & Brute-force Defense Subsystem (`engine/security/honeypot.py`)**:
+  Implemented Honeypot service with pre-registered attacker usernames (`admin`,
+  `root`, `administrator`, `postgres`, `superuser`, etc.) that immediately trap
+  and block malicious login attempts, recording incidents to `auth_audit_logs`
+  and `security_events` while assigning 30-minute IP cooldowns via
+  `auth_cooldowns` without exposing real user data.
+- **Hashed API Token Authentication**: `AuthenticateApiToken` now verifies
+  SHA-256 hashed API tokens against the database with backward compatibility for
+  unhashed tokens, mitigating token exposure risks in case of database leaks.
+- **PostgreSQL Connection SSL Mode Support**: `_connect_postgres()` in
+  `engine/orm/connection.py` now supports the `sslmode` parameter (e.g.,
+  `require`, `verify-full`, `prefer`) via database connection configuration.
+- **Configurable Security Headers**: `SecurityHeaders` middleware now applies
+  `X-XSS-Protection: 1; mode=block` by default and dynamically supports custom
+  Content-Security-Policy (CSP) and HSTS (`Strict-Transport-Security`)
+  declarations from configuration.
+
 
 - **The panel showed an ordinary account how access is configured.** Its first
   revision gave every signed-in visitor a "My access" page listing permission

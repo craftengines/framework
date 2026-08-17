@@ -1,9 +1,37 @@
-# Third-party repository kept locally as a learning reference for the AI Engine
-# epic (see `.agents/docs/backlog.md`). ~28 MB of someone else's code — read it,
-# never vendor it into this history.
-.claude/Project Reference/
+# Environment
+.env
+.env.*
+!.env.example
 
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+
+# Storage / Databases
+data/storage/logs/*
+data/storage/framework/cache/*
+data/storage/framework/sessions/*
+data/storage/app/*
+!data/storage/**/.gitkeep
+*.sqlite
+*.sqlite3
+*.log
+
+# Sensitive agent notes / tokens
+.agents/github/
+*.key
+*.pem
+
+# Third-party repository kept locally as a learning reference
+.claude/Project Reference/

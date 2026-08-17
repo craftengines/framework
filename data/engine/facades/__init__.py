@@ -144,3 +144,16 @@ class Schedule(Facade):
     @classmethod
     def get_facade_accessor(cls) -> str:
         return "schedule"
+
+
+class Firewall(Facade):
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "firewall"
+
+
+class Honeypot(Facade):
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "honeypot"
+

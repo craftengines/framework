@@ -191,3 +191,92 @@ if not Captcha.validate(request, request.input("captcha")):
 
 The stored code is cleared on every validation attempt, whether or not it
 succeeded — a captcha is single-use, otherwise one challenge can be brute-forced.
+
+---
+
+## Web Application Firewall (WAF) & Intrusion Detection (IDS)
+
+Craft includes an integrated WAF and threat intelligence subsystem with IP reputation scoring, payload inspection, and automatic blacklisting.
+
+### Protecting Routes via Middleware
+Attach the `firewall` middleware alias to any route or group:
+
+```python
+Route.post("/api/v1/orders", [OrderController, "store"]) \
+    .middleware("firewall", "auth:api")
+```
+
+### Threat Signatures Detected in Real Time
+The firewall inspects URIs, query strings, and payloads against regex threat patterns:
+- **SQL Injection (SQLi)**: keywords (`UNION`, `SELECT`, `DROP`, `ALTER`), comment evasion (`--`, `/*`), and boolean tautologies (`'1'='1'`).
+- **Cross-Site Scripting (XSS)**: script tags, `javascript:` pseudoprotocols, event handlers (`onerror=`, `onload=`), and cookie extraction attempts.
+- **Path Traversal**: directory traversal tokens (`../`, `..\`) and sensitive OS file paths (`/etc/passwd`, `/windows/win.ini`).
+- **Server-Side Request Forgery (SSRF)**: cloud metadata endpoints (`169.254.169.254`), loopback addresses, and internal network hostnames.
+
+### Managing Firewall Rules Programmatically
+Use the `Firewall` facade to manage reputation and rules:
+
+```python
+from craft.facades import Firewall
+
+# Add trusted IP to whitelist (bypasses rate limits and inspection)
+Firewall.whitelist_ip("192.168.1.50")
+
+# Add malicious IP to blacklist (immediately returns 403 Forbidden)
+Firewall.blacklist_ip("203.0.113.88", reason="Automated scanner detected")
+
+# Check reputation score (threshold: 100 points = auto-blacklisted)
+score = Firewall.get_reputation_score("203.0.113.88")
+```
+
+---
+
+## Honeypot & Brute-Force Protection
+
+Craft provides active deception defense and database-backed login cooldowns.
+
+### Pre-Registered Attacker Honeypot
+Commonly abused administrative usernames (`admin`, `root`, `administrator`, `postgres`, `superuser`, `operator`, `master`, `system`, etc.) are pre-configured as **honeypot traps**:
+1. Any login attempt targeting these usernames is **blocked immediately**.
+2. Never exposes real user models or query errors.
+3. Records a `HONEYPOT` security event in `auth_audit_logs` and `security_events`.
+4. Automatically assigns a **30-minute cooldown** to the attacking IP address.
+
+### Brute-Force Cooldown (30 Minutes)
+On normal user accounts, 5 consecutive failed login attempts activate a **30-minute cooldown** stored in PostgreSQL (`auth_cooldowns`). Subsequent attempts during cooldown are refused before credentials are checked. A successful login clears the failed attempt counter.
+
+### Using Auth with Audit Tracking
+Pass the client IP and User-Agent to `Auth.attempt()` to enable automatic auditing and cooldown enforcement:
+
+```python
+if Auth.attempt(
+    {"email": email, "password": password},
+    ip=request.ip(),
+    user_agent=request.headers.get("user-agent"),
+):
+    return redirect(route="dashboard")
+```
+
+---
+
+## API Token Hashing & Database SSL
+
+### Hashed API Tokens
+API tokens provided in `Authorization: Bearer <token>` are verified against SHA-256 hashes (`api_token_hash` or `api_token` column) with automatic backward compatibility. Raw tokens are never required to reside in plaintext in the database.
+
+### PostgreSQL SSL Mode
+Configure SSL enforcement in `config/database.py` or `.env` via `DB_SSLMODE`:
+
+```python
+# config/database.py
+"pgsql": {
+    "driver": "postgresql",
+    "host": env("DB_HOST", "127.0.0.1"),
+    "port": env("DB_PORT", 5432),
+    "database": env("DB_DATABASE", "craft_db"),
+    "username": env("DB_USERNAME", "craft"),
+    "password": env("DB_PASSWORD", ""),
+    "sslmode": env("DB_SSLMODE", "prefer"),  # 'require', 'verify-full', 'prefer'
+}
+```
+

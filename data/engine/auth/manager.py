@@ -201,21 +201,56 @@ class AuthManager:
             return None
         return user
 
-    def attempt(self, credentials: Dict[str, Any]) -> bool:
+    def attempt(
+        self,
+        credentials: Dict[str, Any],
+        ip: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> bool:
         """Validate credentials and log the user in on success."""
         from engine.events.lifecycle import UserAuthenticated, UserLoginFailed, fire
 
+        identifier = str((credentials or {}).get("email") or (credentials or {}).get("username") or "")
+
+        # Check honeypot & cooldown if service is available
+        honeypot = None
+        if self.app is not None:
+            try:
+                honeypot = self.app.make("honeypot")
+            except Exception:
+                pass
+
+        client_ip = ip or "127.0.0.1"
+        if honeypot is not None:
+            is_blocked, _, _ = honeypot.check_cooldown(client_ip, identifier)
+            if is_blocked:
+                fire(UserLoginFailed(identifier))
+                return False
+
         user = self.validate(credentials)
         if user is None:
-            # The identifier only — never the submitted password. Whatever
-            # goes in here reaches every listener and plugin, and anything
-            # they log.
-            identifier = (credentials or {}).get("email")
+            if honeypot is not None:
+                honeypot.record_attempt(
+                    ip=client_ip,
+                    username=identifier,
+                    user_agent=user_agent,
+                    success=False,
+                )
             fire(UserLoginFailed(identifier))
             return False
+
+        if honeypot is not None:
+            honeypot.record_attempt(
+                ip=client_ip,
+                username=identifier,
+                user_agent=user_agent,
+                success=True,
+            )
+
         self.login(user)
         fire(UserAuthenticated(user))
         return True
+
 
     def once(self, credentials: Dict[str, Any]) -> bool:
         """Authenticate for this request only, without touching the session.

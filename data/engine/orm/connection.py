@@ -411,14 +411,18 @@ class Connection:
                 "PostgreSQL driver not installed. Run `pip install psycopg2-binary`."
             ) from exc
 
-        conn = psycopg2.connect(
-            host=self.config.get("host", "127.0.0.1"),
-            port=int(self.config.get("port", 5432) or 5432),
-            dbname=self.config.get("database"),
-            user=self.config.get("username"),
-            password=self.config.get("password") or None,
-            connect_timeout=int(self.config.get("timeout", 10) or 10),
-        )
+        connect_kwargs = {
+            "host": self.config.get("host", "127.0.0.1"),
+            "port": int(self.config.get("port", 5432) or 5432),
+            "dbname": self.config.get("database"),
+            "user": self.config.get("username"),
+            "password": self.config.get("password") or None,
+            "connect_timeout": int(self.config.get("timeout", 10) or 10),
+        }
+        if "sslmode" in self.config:
+            connect_kwargs["sslmode"] = self.config["sslmode"]
+
+        conn = psycopg2.connect(**connect_kwargs)
         conn.autocommit = False
         search_path = self.config.get("search_path") or self.config.get("schema")
         if search_path:
@@ -427,6 +431,7 @@ class Connection:
                 cursor.execute(f'SET search_path TO "{search_path}", public')
             conn.commit()
         return conn
+
 
     def _connect_mysql(self) -> Any:
         try:

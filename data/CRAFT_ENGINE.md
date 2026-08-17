@@ -13,7 +13,7 @@ from craft.facades import Route, DB, Auth, Cache, Queue, Event, Gate
 from craft.orm import Model
 ```
 
-Version 3.11.0 · **787 tests**, green on SQLite and on real PostgreSQL, Python
+Version 3.11.0 · **878 tests**, green on SQLite and on real PostgreSQL, Python
 3.11+ · MIT.
 
 ---
@@ -39,9 +39,10 @@ other.
 | `events/` | Dispatcher with framework lifecycle events (model created/updated/deleted, auth login/failed/logout) |
 | `schedule/` | Cron-style scheduled tasks with overlap locking |
 | `modules/`, `plugins/` | DB-backed feature modules and discoverable plugins with hooks |
-| `security/` | Captcha, throttling, security headers |
+| `security/` | WAF / IDS firewall, Honeypot traps, Login audit logs, Brute-force cooldowns, Captcha, PQC, Throttling, Security headers |
 | `resources/` | JSON transformers for API output |
-| `cli/` | The `dev` console, including 14 generators and a full CRUD builder |
+| `cli/` | The `dev` console, including 14 generators, full CRUD builder, firewall/security tools |
+
 
 Three database drivers with one SQL dialect: **SQLite**, **PostgreSQL**,
 **MySQL**. `?` and `:name` placeholders are translated per driver, and the

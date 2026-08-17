@@ -158,6 +158,18 @@ class CaptchaServiceProvider(ServiceProvider):
         self.app.singleton("captcha", lambda c: Captcha())
 
 
+class FirewallServiceProvider(ServiceProvider):
+    def register(self):
+        from engine.security.firewall import Firewall
+        self.app.singleton("firewall", lambda c: Firewall(c))
+
+
+class HoneypotServiceProvider(ServiceProvider):
+    def register(self):
+        from engine.security.honeypot import HoneypotService
+        self.app.singleton("honeypot", lambda c: HoneypotService(c))
+
+
 class FrameworkSubsystemsServiceProvider(ServiceProvider):
     def register(self):
         from engine.modules.manager import ModuleManager

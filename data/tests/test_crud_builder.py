@@ -62,7 +62,9 @@ class TestBuildCrudFileShapes:
         assert 't.decimal("price").nullable()' in source
         assert 't.boolean("active").nullable()' in source
         assert "t.id()" in source
+        assert "t.uuid_key()" in source
         assert "t.timestamps()" in source
+
 
     def test_model_fillable_reflects_fields(self, tmp_path):
         _make_routes_file(str(tmp_path))
@@ -280,6 +282,23 @@ class TestParseFields:
         assert fields[1]["nullable"] is True
         assert fields[2]["type"] == "boolean"
 
+    def test_parses_extended_field_types(self):
+        fields = crud_builder.parse_fields("metadata:json,count:big_integer,ratio:float")
+        assert fields[0]["type"] == "json"
+        assert fields[1]["type"] == "big_integer"
+        assert fields[2]["type"] == "float"
+
+
     def test_unknown_type_raises(self):
         with pytest.raises(ValueError):
             crud_builder.parse_fields("name:not_a_type")
+
+
+class TestPretendMode:
+    def test_pretend_mode_does_not_write_files(self, tmp_path):
+        _make_routes_file(str(tmp_path))
+        result = crud_builder.build_crud("Article", FIELDS, str(tmp_path), pretend=True)
+        assert result["pretend"] is True
+        assert not os.path.exists(result["files"]["model"])
+        assert not os.path.exists(result["files"]["controller"])
+

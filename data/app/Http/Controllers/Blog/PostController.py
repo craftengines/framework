@@ -45,23 +45,23 @@ class PostController(Controller):
             return PostResource(post).response(status=201)
         return redirect(route="posts.index")
 
-    def show(self, request, posts):
-        post = Post.query().where("id", posts).first()
+    def show(self, request, id):
+        post = Post.find(id)
         if not post:
             return Response("Not found", 404)
         if request.expects_json():
             return PostResource(post).response()
         return self.view("posts.show", {"post": post})
 
-    def edit(self, request, posts):
-        post = Post.query().where("id", posts).first()
+    def edit(self, request, id):
+        post = Post.find(id)
         if not post:
             return Response("Not found", 404)
         Gate.authorize("update", Auth.user(), post)
         return self.view("posts.edit", {"post": post, "show_sidebar": True, "errors": {}})
 
-    def update(self, request, posts):
-        post = Post.query().where("id", posts).first()
+    def update(self, request, id):
+        post = Post.find(id)
         if not post:
             return Response("Not found", 404)
         Gate.authorize("update", Auth.user(), post)
@@ -78,8 +78,9 @@ class PostController(Controller):
             return PostResource(post).response()
         return redirect(route="posts.index")
 
-    def destroy(self, request, posts):
-        post = Post.query().where("id", posts).first()
+    def destroy(self, request, id):
+        post = Post.find(id)
+
         if not post:
             return Response("Not found", 404) if not request.expects_json() else self.no_content()
         Gate.authorize("delete", Auth.user(), post)

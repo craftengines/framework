@@ -10,7 +10,8 @@ from craft.facades import Route, DB, Auth
 from craft.orm.model import Model
 ```
 
-**868 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
+**878 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
+
 
 > New here — or an AI agent picking this up? Read
 > [**`CRAFT_ENGINE.md`**](CRAFT_ENGINE.md): what the engine contains, the build

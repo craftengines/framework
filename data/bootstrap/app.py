@@ -34,6 +34,8 @@ def create_app() -> Application:
         ExceptionServiceProvider,
         PQCServiceProvider,
         CaptchaServiceProvider,
+        FirewallServiceProvider,
+        HoneypotServiceProvider,
         FrameworkSubsystemsServiceProvider,
     )
 
@@ -47,6 +49,8 @@ def create_app() -> Application:
     app.register_provider(CacheServiceProvider)
     app.register_provider(MigratorServiceProvider)
     app.register_provider(ExceptionServiceProvider)
+    app.register_provider(FirewallServiceProvider)
+    app.register_provider(HoneypotServiceProvider)
 
     # `config/framework.py` ships these as feature flags, but nothing read
     # them: both providers registered unconditionally, so setting
@@ -57,6 +61,7 @@ def create_app() -> Application:
         app.register_provider(PQCServiceProvider)
     if config.get("framework.CAPTCHA_ENABLED", True):
         app.register_provider(CaptchaServiceProvider)
+
 
     app.register_provider(FrameworkSubsystemsServiceProvider)
 

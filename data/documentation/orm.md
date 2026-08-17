@@ -55,12 +55,14 @@ the guard entirely.
 
 ### Read
 ```python
-# Find a model by its primary key (honours a custom `primary_key`)
-post = Post.find("some-uuid")
+# Find a model by its integer primary key or public UUID string
+post = Post.find(1)
+post = Post.find("3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
 # Find a model or raise a ModelNotFoundError (from craft.orm exceptions)
-post = Post.find_or_fail("some-uuid")
+post = Post.find_or_fail("3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 ```
+
 
 ### Update
 ```python
@@ -295,6 +297,8 @@ product = Product.create({"name": "Desk"})
 product.get_attribute("id")     # 1
 product.get_attribute("uuid")   # '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
 
+# Both find() and find_by_uuid() resolve UUID strings transparently
+Product.find("3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 Product.find_by_uuid(value)
 Product.find_by_uuid_or_fail(value)
 ```
@@ -313,14 +317,20 @@ A table with no `uuid` column is untouched — nothing is inserted that the sche
 does not declare. Opt a model out with `uses_uuid = False`, or rename the column
 with `uuid_column`.
 
-For a UUID as the primary key itself, with no integer at all:
+For a table where UUID is the primary key itself, with no integer at all:
 
 ```python
-Schema.create_table("events", lambda t: (t.uuid_primary(), t.timestamps()))
+Schema.create_table("events", lambda t: (
+    t.uuid_primary(),  # native UUID primary key
+    t.string("title"),
+    t.timestamps(),
+))
 
 class Event(Model):
+    __table__ = "events"
     key_type = "uuid"
 ```
+
 
 ## Multi-Tenant Database Schema Isolation
 

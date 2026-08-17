@@ -181,7 +181,9 @@ class Kernel:
             "role": mw.RequireRole,
             "permission": mw.RequirePermission,
             "group": mw.RequireGroup,
+            "firewall": mw.FirewallMiddleware,
         }
+
 
     def alias_middleware(self, name: str, middleware_class: Any) -> "Kernel":
         """Register an extra route-middleware alias."""
@@ -324,18 +326,25 @@ class Kernel:
                     method = getattr(controller_inst, method_name)
 
                     path_params = dict(req.path_params)
-                    kwargs = {"request": req}
-                    kwargs.update(path_params)
+                    unused_values = list(path_params.values())
 
                     sig = inspect.signature(method)
                     call_kwargs = {}
-                    for param_name in sig.parameters.keys():
-                        if param_name in kwargs:
-                            call_kwargs[param_name] = kwargs[param_name]
-                        elif param_name == "request":
-                            call_kwargs["request"] = req
+                    for param_name, param in sig.parameters.items():
+                        if param_name == "request" or (param.annotation and getattr(param.annotation, "__name__", "") in ("Request", "StarletteRequest")):
+                            call_kwargs[param_name] = req
+                        elif param_name in path_params:
+                            call_kwargs[param_name] = path_params[param_name]
+                            if path_params[param_name] in unused_values:
+                                unused_values.remove(path_params[param_name])
+                        elif unused_values:
+                            # Positional fallback when parameter name in signature differs from route placeholder (e.g. 'posts' vs 'id')
+                            call_kwargs[param_name] = unused_values.pop(0)
+                        elif param.default is not inspect.Parameter.empty:
+                            call_kwargs[param_name] = param.default
 
                     result = method(**call_kwargs)
+
                 elif callable(action):
                     sig = inspect.signature(action)
                     if len(sig.parameters) == 0:

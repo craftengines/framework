@@ -17,5 +17,8 @@ from engine.providers.service_providers import (
     ExceptionServiceProvider,
     PQCServiceProvider,
     CaptchaServiceProvider,
+    FirewallServiceProvider,
+    HoneypotServiceProvider,
     FrameworkSubsystemsServiceProvider,
 )
+

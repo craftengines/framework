@@ -462,13 +462,20 @@ class AuthenticateApiToken(Middleware):
         user = None
 
         if token:
+            import hashlib
+
             try:
                 column = self.column or app.make("config").get(
                     "auth.guards.api.token_name", "api_token"
                 )
             except Exception:
                 column = self.column or "api_token"
-            user = auth.user_model().query().where(column, token).first()
+
+            # Check hashed token first (SHA-256) or fallback to plain token
+            token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+            user = auth.user_model().query().where(column, token_hash).first()
+            if user is None:
+                user = auth.user_model().query().where(column, token).first()
 
         if user is None:
             from engine.exceptions.handler import AuthorizationException
@@ -482,15 +489,10 @@ class AuthenticateApiToken(Middleware):
 
 
 class SecurityHeaders(Middleware):
-    """Set the baseline response headers every app should ship with.
+    """Set baseline and configurable security response headers."""
 
-    Deliberately minimal and safe to enable everywhere by default:
-    `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` never
-    break a working app. HSTS and a Content-Security-Policy are *not* set
-    here on purpose — both need per-app tuning (HSTS is dangerous to enable
-    before HTTPS is confirmed everywhere; a CSP has to be built from the
-    app's actual script/style/asset origins). Add them per-app once tuned.
-    """
+    def __init__(self, app: Any = None):
+        self.app = app
 
     def handle(self, request: Any, next_callable: Callable) -> Any:
         response = next_callable(request)
@@ -503,6 +505,19 @@ class SecurityHeaders(Middleware):
         starlette_response.headers.setdefault(
             "Referrer-Policy", "strict-origin-when-cross-origin"
         )
+        starlette_response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+
+        try:
+            config = _container(self.app).make("config")
+            csp = config.get("security.csp") or config.get("app.CSP")
+            if csp:
+                starlette_response.headers.setdefault("Content-Security-Policy", str(csp))
+            hsts = config.get("security.hsts") or config.get("app.HSTS")
+            if hsts:
+                starlette_response.headers.setdefault("Strict-Transport-Security", str(hsts))
+        except Exception:
+            pass
+
         return starlette_response
 
 
@@ -543,6 +558,8 @@ class ThrottleRequests(Middleware):
         return next_callable(request)
 
 
+from engine.security.firewall import FirewallMiddleware
+
 __all__ = [
     "Middleware",
     "StartSession",
@@ -556,4 +573,6 @@ __all__ = [
     "AuthenticateApiToken",
     "SecurityHeaders",
     "ThrottleRequests",
+    "FirewallMiddleware",
 ]
+

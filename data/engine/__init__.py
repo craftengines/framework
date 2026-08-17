@@ -20,8 +20,8 @@ import sys
 from types import ModuleType
 from typing import Optional, Sequence
 
-__version__ = "3.11.0"
-__release__ = "r00001"
+__version__ = "3.12.0"
+__release__ = "r00002"
 __author__ = "Antonio Santos"
 __email__ = "snarthost@gmail.com"
 __license__ = "MIT"

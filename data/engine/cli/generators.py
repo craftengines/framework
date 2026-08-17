@@ -252,9 +252,12 @@ class {name}(Resource):
 #: rendered as a checkbox or textarea.
 _HTML_INPUT_TYPES: Dict[str, str] = {
     "integer": "number",
+    "big_integer": "number",
+    "small_integer": "number",
+    "float": "number",
     "decimal": "number",
     "date": "date",
-    "datetime": "date",
+    "datetime": "datetime-local",
 }
 
 
@@ -287,7 +290,7 @@ def _field_input_html(field: dict, value_expr: str) -> str:
             '        </div>'
         )
 
-    if type_ == "text":
+    if type_ in ("text", "long_text"):
         return (
             '        <div class="space-y-2">\n'
             f'            <label for="{name}" class="block text-sm font-semibold text-slate-700">{label}</label>\n'
@@ -296,14 +299,26 @@ def _field_input_html(field: dict, value_expr: str) -> str:
             '        </div>'
         )
 
+    if type_ == "json":
+        return (
+            '        <div class="space-y-2">\n'
+            f'            <label for="{name}" class="block text-sm font-semibold text-slate-700">{label}</label>\n'
+            f'            <textarea name="{name}" id="{name}" rows="4" placeholder=\'{{"key": "value"}}\' '
+            f'class="{input_classes} font-mono text-xs"{required_attr}>{{{{ {value_expr} }}}}</textarea>\n'
+            '            <p class="text-xs text-slate-400">JSON formatted data.</p>\n'
+            '        </div>'
+        )
+
     html_type = _HTML_INPUT_TYPES.get(type_, "text")
+    step_attr = ' step="any"' if type_ in ("float", "decimal") else ""
     return (
         '        <div class="space-y-2">\n'
         f'            <label for="{name}" class="block text-sm font-semibold text-slate-700">{label}</label>\n'
-        f'            <input type="{html_type}" name="{name}" id="{name}" value="{{{{ {value_expr} }}}}" '
+        f'            <input type="{html_type}" name="{name}" id="{name}" value="{{{{ {value_expr} }}}}"{step_attr} '
         f'class="{input_classes}"{required_attr}>\n'
         '        </div>'
     )
+
 
 
 def admin_index_stub(entity: str, slug: str, fields: Optional[List[dict]] = None) -> str:

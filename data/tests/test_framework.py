@@ -629,3 +629,32 @@ def test_framework_subsystems_modules_plugins_settings():
     assert Setting.get("site_title") == "My Craft Application"
 
 
+def test_post_controller_show_and_parameter_binding():
+    client = TestClient(asgi_app, raise_server_exceptions=False)
+    
+    # Create author and post
+    user = User.create({
+        "name": "Show Tester",
+        "email": "showtester@example.com",
+        "password": "secret_password",
+        "is_admin": False
+    })
+    post = Post.create({
+        "title": "Post Show Test",
+        "body": "Post body for parameter binding test",
+        "user_id": user.get_attribute("id"),
+        "published": True
+    })
+    post_id = post.get_attribute("id")
+
+    # Access GET /posts/{id}
+    res = client.get(f"/posts/{post_id}")
+    assert res.status_code == 200
+    assert "Post Show Test" in res.text
+
+    # Access non-existent post
+    res_404 = client.get("/posts/999999")
+    assert res_404.status_code == 404
+
+
+

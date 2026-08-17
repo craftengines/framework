@@ -9,7 +9,11 @@ import re
 from craft.http.controller import Controller
 from app.Http.Requests.CrudBuilderRequest import CrudBuilderRequest
 
-FIELD_TYPES = ("string", "text", "integer", "boolean", "decimal", "date", "datetime")
+FIELD_TYPES = (
+    "string", "text", "integer", "big_integer", "small_integer",
+    "float", "boolean", "decimal", "date", "datetime", "json"
+)
+
 FIELD_NAME_RE = re.compile(r"^field_name_(\d+)$")
 
 
