@@ -15,9 +15,15 @@ Ensure that core libraries (container, ORM, router, queues, view engine, validat
 ## 1. Subsystem Responsibilities
 
 * **`craft.container`**: Manages class binding and dependency resolution. Scoped services must use `contextvars` to ensure thread-safety.
-* **`craft.orm`**: Implements Active Record on a **custom query builder** over `sqlite3`/`psycopg2`/`PyMySQL` — no SQLAlchemy, no Pydantic. (`CRAFT_DESIGN.md` describes a SQLAlchemy/asyncpg/Pydantic target vision; it is explicitly marked aspirational, not the current implementation — verify against `engine/orm/` before trusting either doc.)
-* **`craft.queue`**: Dispatches and runs queued tasks. Payloads must be strictly serialized as **JSON**; never use `pickle`.
+* **`craft.orm`**: Implements Active Record on a **custom query builder** over `sqlite3`/`psycopg2`/`PyMySQL` — no SQLAlchemy, no Pydantic. Supports native **Vector & Semantic Search** (`where_vector_similar`, `order_by_vector_similarity`, `similarity_score` calculation).
+* **`craft.ai` (Facade `AI`)**: Unified AI SDK and Autonomous Agent Orchestrator. Supports Gemini, OpenAI, Claude, Ollama, and Mock drivers for chat, text generation, vector embeddings, and multi-turn function calling (`AI.agent(tools=[...])`).
+* **`craft.agents` / `craft.mcp` (Facades `Agent`, `MCP`)**: Declarative `AgentTool` definitions with JSON Schema inference and strict RBAC authorization checks. Features a JSON-RPC 2.0 Model Context Protocol (`MCPServer`) for AI assistants and IDE integrations.
+* **`craft.storage` (Facade `Storage`)**: Multi-disk object storage abstraction supporting `local`, `public`, and S3-compatible cloud disks (`s3` for AWS S3, MinIO, Cloudflare R2, Google Cloud Storage) with signed temporary URLs.
+* **`craft.queue` (Facade `Queue`)**: Dispatches and runs queued tasks. Supported drivers: `sync`, `database`, `redis`. Payloads must be strictly serialized as **JSON**; never use `pickle`. Supports delayed jobs via Redis ZSETs and atomic pop claiming.
+* **`craft.mail` (Facade `Mail`)**: Fluent email and notification delivery supporting `smtp` (TLS/SSL), `log`, and `array` transports. Supports `Mail.to().send()`, `Mail.raw()`, and declarative `Mailable` classes integrated with Forge templates.
+* **`craft.media` (Facades `Image`, `Media`)**: Fluent image manipulation engine (Pillow-backed) supporting WebP/AVIF export, watermarking, filters, geometry transformations, video metadata extraction, and database-tracked media models.
 * **`craft.view`**: Preprocesses Forge directive syntax into standard Jinja2 syntax and caches compiled templates.
+* **`craft.security`**: WAF/IDS firewall, honeypot traps, brute-force throttling, login audit logs, Captcha, and Post-Quantum Cryptography (PQC) readiness.
 
 ---
 
