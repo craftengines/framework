@@ -235,3 +235,21 @@ class MediaServiceProvider(ServiceProvider):
 
         self.app.singleton("image", lambda c: ImageManager(c))
         self.app.singleton("media", lambda c: MediaManager(c))
+
+
+class AIServiceProvider(ServiceProvider):
+    """Register AI SDK and Agent Orchestrator in the application container."""
+
+    def register(self):
+        from engine.ai.manager import AIManager
+
+        self.app.singleton("ai", lambda c: AIManager(c))
+
+
+class AgentServiceProvider(ServiceProvider):
+    """Register Agent Manager and MCP Server in the application container."""
+
+    def register(self):
+        from engine.agents.manager import AgentManager
+
+        self.app.singleton("agent", lambda c: AgentManager(c))

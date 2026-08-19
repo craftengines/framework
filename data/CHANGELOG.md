@@ -20,6 +20,18 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **Unified AI SDK & Autonomous Agent Orchestrator (`craft.ai`, Facade `AI`)**:
+  - **Provider-Agnostic Engine**: Seamlessly integrates Google Gemini (`gemini-2.0-flash`), OpenAI (`gpt-4o`), Anthropic Claude, Ollama (local LLMs), and a deterministic Mock driver for unit tests.
+  - **Text Generation & Chat**: Multi-turn chat completions (`AI.chat()`) and one-shot prompt generations (`AI.generate()`).
+  - **Vector Embeddings**: Generates single and batch float embeddings (`AI.embed()`) for semantic search.
+  - **Multi-Turn Autonomous Agents**: `AI.agent(tools=[...])` loop executes multi-step reasoning and function calling with automated feedback loop.
+- **Native Vector & Semantic Search in ORM & QueryBuilder**:
+  - Added `where_vector_similar(column, vector, min_similarity=0.7)` for cosine-similarity semantic filtering directly on Models and QueryBuilder instances.
+  - Added `order_by_vector_similarity(column, vector)` to rank records by relevance score (`item.similarity_score`).
+- **AI Agents & Model Context Protocol (MCP) Subsystem (`craft.agents`, Facades `Agent` & `MCP`)**:
+  - **Declarative Agent Tools (`AgentTool`)**: Structured tool definitions with automatic JSON Schema inference and strict RBAC / Permission authorization guards.
+  - **Native MCP Server (`MCPServer`)**: JSON-RPC 2.0 compliant server supporting `initialize`, `tools/list`, and `tools/call` for direct integration with AI coding assistants, autonomous agents, and IDEs.
+  - **Documentation & Tests**: Guides in `documentation/ai.md`, `documentation/vector_search.md`, `documentation/agents_mcp.md`, and 13 unit tests in `tests/test_ai_sdk.py`, `tests/test_vector_search.py`, and `tests/test_mcp_agents.py`.
 - **Fluent Image & Multimedia Manipulation Subsystem (`craft.media`, Facades `Image` & `Media`)**:
   - **Fluent Image Engine** (`engine/media/image.py`): Chainable image processor backed by Pillow. Supports `resize()`, `scale()`, `crop()` with positional anchors (`center`, `top-left`, `bottom-right`, etc.), `cover()`, `contain()`, `thumbnail()`, `rotate()`, `flip()`, and filters (`greyscale()`, `blur()`, `sharpen()`, `brightness()`, `contrast()`, `invert()`).
   - **Modern Image Compression & WebP/AVIF**: Native export and optimization to `WebP`, `JPEG`, `PNG`, `AVIF`, and `GIF` with configurable quality, metadata stripping (`optimize()`), binary streaming, base64 data URIs, and direct Starlette HTTP `Response` generation.

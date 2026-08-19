@@ -288,6 +288,27 @@ class Model:
         return cls.query().where(column, operator_or_value, value)
 
     @classmethod
+    def where_vector_similar(
+        cls,
+        column: str,
+        vector: Any,
+        min_similarity: float = 0.7,
+        metric: str = "cosine",
+    ) -> QueryBuilder:
+        """Filter records by vector similarity (semantic search)."""
+        return cls.query().where_vector_similar(column, vector, min_similarity=min_similarity, metric=metric)
+
+    @classmethod
+    def order_by_vector_similarity(
+        cls,
+        column: str,
+        vector: Any,
+        ascending: bool = False,
+    ) -> QueryBuilder:
+        """Sort records by vector similarity."""
+        return cls.query().order_by_vector_similarity(column, vector, ascending=ascending)
+
+    @classmethod
     def with_(cls, *relations: str) -> QueryBuilder:
         """Start a query that eager loads the given relations."""
         return cls.query().with_(*relations)

@@ -173,3 +173,27 @@ class Media(Facade):
     def get_facade_accessor(cls) -> str:
         return "media"
 
+
+class AI(Facade):
+    """Unified AI SDK and Agent Orchestrator facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "ai"
+
+
+class Agent(Facade):
+    """Agent Tool registration and discovery facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "agent"
+
+
+class MCP(Facade):
+    """Model Context Protocol server facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "agent"
+

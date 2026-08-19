@@ -106,6 +106,8 @@ class QueryBuilder:
         self._scopes: List[str] = []
         self._distinct = False
         self._eager: List[str] = []
+        self._vector_searches: List[Dict[str, Any]] = []
+        self._vector_orders: List[Dict[str, Any]] = []
 
     # -- selection -------------------------------------------------------------
 
@@ -214,6 +216,38 @@ class QueryBuilder:
 
     def order_by_desc(self, column: str) -> "QueryBuilder":
         return self.order_by(column, "desc")
+
+    def order_by_vector_similarity(
+        self,
+        column: str,
+        vector: Sequence[float],
+        ascending: bool = False,
+    ) -> "QueryBuilder":
+        """Sort results by vector similarity (nearest neighbors)."""
+        _assert_identifier(column)
+        self._vector_orders.append({
+            "column": column,
+            "vector": list(vector),
+            "ascending": ascending,
+        })
+        return self
+
+    def where_vector_similar(
+        self,
+        column: str,
+        vector: Sequence[float],
+        min_similarity: float = 0.7,
+        metric: str = "cosine",
+    ) -> "QueryBuilder":
+        """Filter records by vector similarity."""
+        _assert_identifier(column)
+        self._vector_searches.append({
+            "column": column,
+            "vector": list(vector),
+            "min_similarity": float(min_similarity),
+            "metric": metric.lower(),
+        })
+        return self
 
     def latest(self, column: str = "created_at") -> "QueryBuilder":
         return self.order_by(column, "desc")
@@ -366,6 +400,86 @@ class QueryBuilder:
         for row in rows:
             row_dict = dict(row)
             results.append(self.model_class(row_dict) if self.model_class else row_dict)
+
+        # Vector semantic filtering and similarity ranking
+        if self._vector_searches or self._vector_orders:
+            import json
+
+            filtered = []
+            for item in results:
+                include = True
+                sim_score = 0.0
+
+                for v_search in self._vector_searches:
+                    col = v_search["column"]
+                    target_vec = v_search["vector"]
+                    min_sim = v_search["min_similarity"]
+
+                    raw_val = item.get_attribute(col) if hasattr(item, "get_attribute") else item.get(col)
+                    if isinstance(raw_val, (list, tuple)):
+                        row_vec = [float(x) for x in raw_val]
+                    elif isinstance(raw_val, str):
+                        try:
+                            parsed = json.loads(raw_val)
+                            row_vec = [float(x) for x in parsed] if isinstance(parsed, (list, tuple)) else None
+                        except Exception:
+                            row_vec = None
+                    else:
+                        row_vec = None
+
+                    if row_vec is None:
+                        include = False
+                        break
+
+                    # Cosine similarity calculation
+                    dot = sum(a * b for a, b in zip(row_vec, target_vec))
+                    norm_a = sum(a * a for a in row_vec) ** 0.5
+                    norm_b = sum(b * b for b in target_vec) ** 0.5
+                    sim = (dot / (norm_a * norm_b)) if (norm_a > 0 and norm_b > 0) else 0.0
+                    sim_score = sim
+                    if sim < min_sim:
+                        include = False
+                        break
+
+                if not include:
+                    continue
+
+                for v_order in self._vector_orders:
+                    col = v_order["column"]
+                    target_vec = v_order["vector"]
+                    raw_val = item.get_attribute(col) if hasattr(item, "get_attribute") else item.get(col)
+                    if isinstance(raw_val, (list, tuple)):
+                        row_vec = [float(x) for x in raw_val]
+                    elif isinstance(raw_val, str):
+                        try:
+                            parsed = json.loads(raw_val)
+                            row_vec = [float(x) for x in parsed] if isinstance(parsed, (list, tuple)) else None
+                        except Exception:
+                            row_vec = None
+                    else:
+                        row_vec = None
+
+                    if row_vec is not None and len(row_vec) == len(target_vec):
+                        dot = sum(a * b for a, b in zip(row_vec, target_vec))
+                        norm_a = sum(a * a for a in row_vec) ** 0.5
+                        norm_b = sum(b * b for b in target_vec) ** 0.5
+                        sim_score = (dot / (norm_a * norm_b)) if (norm_a > 0 and norm_b > 0) else 0.0
+
+                if hasattr(item, "set_attribute"):
+                    item.similarity_score = sim_score
+                elif isinstance(item, dict):
+                    item["similarity_score"] = sim_score
+
+                filtered.append(item)
+
+            if self._vector_orders:
+                asc = self._vector_orders[0]["ascending"]
+                filtered.sort(
+                    key=lambda x: getattr(x, "similarity_score", 0.0) if hasattr(x, "similarity_score") else x.get("similarity_score", 0.0),
+                    reverse=not asc,
+                )
+
+            results = filtered
 
         self._eager_load(results)
 
