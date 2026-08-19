@@ -253,3 +253,21 @@ class AgentServiceProvider(ServiceProvider):
         from engine.agents.manager import AgentManager
 
         self.app.singleton("agent", lambda c: AgentManager(c))
+
+
+class StorageServiceProvider(ServiceProvider):
+    """Register Storage filesystem manager in the application container."""
+
+    def register(self):
+        from engine.storage.manager import StorageManager
+
+        self.app.singleton("storage", lambda c: StorageManager(c))
+
+
+class MailServiceProvider(ServiceProvider):
+    """Register Mail and notification manager in the application container."""
+
+    def register(self):
+        from engine.mail.manager import MailManager
+
+        self.app.singleton("mail", lambda c: MailManager(c))

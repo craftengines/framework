@@ -39,6 +39,8 @@ def create_app() -> Application:
         MediaServiceProvider,
         AIServiceProvider,
         AgentServiceProvider,
+        StorageServiceProvider,
+        MailServiceProvider,
         FrameworkSubsystemsServiceProvider,
     )
 
@@ -57,6 +59,8 @@ def create_app() -> Application:
     app.register_provider(MediaServiceProvider)
     app.register_provider(AIServiceProvider)
     app.register_provider(AgentServiceProvider)
+    app.register_provider(StorageServiceProvider)
+    app.register_provider(MailServiceProvider)
 
     # `config/framework.py` ships these as feature flags, but nothing read
     # them: both providers registered unconditionally, so setting

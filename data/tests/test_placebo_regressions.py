@@ -103,15 +103,15 @@ class TestQueueDriverHonesty:
         return Container.getInstance().make("queue")
 
     def test_an_unimplemented_driver_does_not_masquerade_as_working(self, queue, monkeypatch):
-        """`QUEUE_CONNECTION=redis` used to fall through to the database
-        driver, writing to SQL while every doc said Redis."""
+        """Unimplemented driver (e.g. SQS) warns and falls back to database driver."""
         from craft.container.application import Container
 
         config = Container.getInstance().make("config")
-        monkeypatch.setitem(config._items["queue"], "default", "redis")
+        monkeypatch.setitem(config._items["queue"], "default", "sqs")
 
         assert queue.driver() == "database"
-        assert "redis" not in queue.SUPPORTED_DRIVERS
+        assert "sqs" not in queue.SUPPORTED_DRIVERS
+        assert "redis" in queue.SUPPORTED_DRIVERS
 
     def test_retry_after_comes_from_config(self, queue):
         """It was hardcoded to 90, so the declared knob did nothing."""

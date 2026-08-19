@@ -108,11 +108,23 @@ class QueueManager:
     def db(self) -> Any:
         return self._container().make("db")
 
-    #: Drivers this manager can actually run. `redis` is declared in
-    #: `config/queue.py` but has no implementation here, and used to fall
-    #: through to the database driver — so `QUEUE_CONNECTION=redis` wrote to
-    #: SQL while every dashboard and doc said Redis.
-    SUPPORTED_DRIVERS = ("sync", "database")
+    #: Drivers this manager can actually run.
+    SUPPORTED_DRIVERS = ("sync", "database", "redis")
+
+    def _redis_client(self) -> Any:
+        import redis
+
+        try:
+            cfg = self._container().make("config").get("queue.connections.redis", {})
+        except Exception:
+            cfg = {}
+        return redis.Redis(
+            host=cfg.get("host", "127.0.0.1"),
+            port=int(cfg.get("port", 6379)),
+            password=cfg.get("password") or None,
+            db=int(cfg.get("db", 0)),
+            decode_responses=True,
+        )
 
     def driver(self) -> str:
         try:
@@ -143,12 +155,7 @@ class QueueManager:
 
     @property
     def retry_after(self) -> int:
-        """Seconds after which a reserved job is considered hung and re-claimable.
-
-        Read from `queue.connections.database.retry_after`, which the config
-        file has always declared and nothing ever consulted — changing it had
-        no effect.
-        """
+        """Seconds after which a reserved job is considered hung and re-claimable."""
         try:
             configured = self._container().make("config").get(
                 "queue.connections.database.retry_after"
@@ -162,10 +169,25 @@ class QueueManager:
     def push(self, job: Any, queue: Optional[str] = None) -> Any:
         """Dispatch a job. Runs inline on the `sync` driver."""
         queue_name = queue or getattr(job, "queue", "default")
+        active_driver = self.driver()
 
-        if self.driver() == "sync":
+        if active_driver == "sync":
             job.handle()
             return None
+
+        if active_driver == "redis":
+            import uuid
+
+            client = self._redis_client()
+            record = {
+                "id": str(uuid.uuid4()),
+                "queue": queue_name,
+                "payload": serialize_job(job),
+                "attempts": 0,
+                "created_at": _now(),
+            }
+            client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
+            return record["id"]
 
         return self.db.statement(
             "INSERT INTO jobs (queue, payload, attempts, available_at, created_at) "
@@ -176,8 +198,12 @@ class QueueManager:
     def later(self, delay_seconds: int, job: Any, queue: Optional[str] = None) -> Any:
         """Dispatch a job that only becomes available after `delay_seconds`."""
         from datetime import timedelta
+        import time
 
-        if self.driver() == "sync":
+        active_driver = self.driver()
+        queue_name = queue or getattr(job, "queue", "default")
+
+        if active_driver == "sync":
             import logging
 
             logging.getLogger("craft").warning(
@@ -187,6 +213,21 @@ class QueueManager:
             job.handle()
             return None
 
+        if active_driver == "redis":
+            import uuid
+
+            client = self._redis_client()
+            record = {
+                "id": str(uuid.uuid4()),
+                "queue": queue_name,
+                "payload": serialize_job(job),
+                "attempts": 0,
+                "created_at": _now(),
+            }
+            score = time.time() + delay_seconds
+            client.zadd(f"craft_queues_delayed:{queue_name}", {json.dumps(record): score})
+            return record["id"]
+
         available_at = (
             datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=delay_seconds)
         ).isoformat()
@@ -194,7 +235,7 @@ class QueueManager:
             "INSERT INTO jobs (queue, payload, attempts, available_at, created_at) "
             "VALUES (?, ?, ?, ?, ?)",
             [
-                queue or getattr(job, "queue", "default"),
+                queue_name,
                 serialize_job(job),
                 0,
                 available_at,
@@ -203,6 +244,11 @@ class QueueManager:
         )
 
     def size(self, queue: str = "default") -> int:
+        active_driver = self.driver()
+        if active_driver == "redis":
+            client = self._redis_client()
+            return int(client.llen(f"craft_queues:{queue}")) + int(client.zcard(f"craft_queues_delayed:{queue}"))
+
         row = self.db.statement(
             "SELECT COUNT(*) AS total FROM jobs WHERE queue = ?", [queue], read=True
         ).fetchone()
@@ -211,12 +257,33 @@ class QueueManager:
     # -- processing ------------------------------------------------------------
 
     def pop(self, queue: str = "default") -> Optional[Dict[str, Any]]:
-        """Atomically claim the next available job on the queue.
+        """Atomically claim the next available job on the queue."""
+        active_driver = self.driver()
 
-        Claiming sets `reserved_at` (and bumps `attempts`) so two workers never
-        run the same job; a reservation older than `retry_after` is treated as a
-        hung worker and the job becomes claimable again.
-        """
+        if active_driver == "redis":
+            import time
+
+            client = self._redis_client()
+            # 1. Migrate mature delayed jobs to main queue
+            now_ts = time.time()
+            delayed_key = f"craft_queues_delayed:{queue}"
+            ready_items = client.zrangebyscore(delayed_key, 0, now_ts)
+            if ready_items:
+                for item in ready_items:
+                    client.rpush(f"craft_queues:{queue}", item)
+                    client.zrem(delayed_key, item)
+
+            # 2. Pop next ready job from queue
+            raw = client.lpop(f"craft_queues:{queue}")
+            if not raw:
+                return None
+            try:
+                record = json.loads(raw)
+                record["attempts"] = int(record.get("attempts") or 0) + 1
+                return record
+            except Exception:
+                return None
+
         from datetime import timedelta
 
         stale = (
@@ -245,7 +312,6 @@ class QueueManager:
             if claimed.rowcount == 1:
                 record["attempts"] = int(record.get("attempts") or 0) + 1
                 return record
-            # Another worker claimed it between SELECT and UPDATE; try the next.
 
     def work(self, queue_name: str = "default", max_attempts: int = 3) -> bool:
         """Process a single job. Returns True when a job was handled."""
@@ -261,23 +327,29 @@ class QueueManager:
         try:
             job.handle()
         except Exception as exc:
-            # `pop` already incremented `attempts` when it claimed the job.
             attempts = int(record.get("attempts") or 0)
             if attempts >= max_attempts:
                 self.fail(record, str(exc))
             else:
-                self.db.statement(
-                    "UPDATE jobs SET reserved_at = NULL WHERE id = ?",
-                    [record["id"]],
-                )
+                if self.driver() == "redis":
+                    # Re-queue on redis
+                    client = self._redis_client()
+                    client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
+                else:
+                    self.db.statement(
+                        "UPDATE jobs SET reserved_at = NULL WHERE id = ?",
+                        [record["id"]],
+                    )
             return False
 
-        self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
+        if self.driver() == "database":
+            self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
         return True
 
     def fail(self, record: Dict[str, Any], reason: str) -> None:
         """Remove a job from the queue and report the failure."""
-        self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
+        if self.driver() == "database":
+            self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
         try:
             self._container().make("log").error(
                 "Job failed permanently (queue=%s): %s", record.get("queue"), reason
@@ -286,4 +358,10 @@ class QueueManager:
             pass
 
     def clear(self, queue: str = "default") -> int:
+        if self.driver() == "redis":
+            client = self._redis_client()
+            q_len = client.llen(f"craft_queues:{queue}")
+            client.delete(f"craft_queues:{queue}")
+            client.delete(f"craft_queues_delayed:{queue}")
+            return int(q_len)
         return self.db.statement("DELETE FROM jobs WHERE queue = ?", [queue]).rowcount

@@ -197,3 +197,19 @@ class MCP(Facade):
     def get_facade_accessor(cls) -> str:
         return "agent"
 
+
+class Storage(Facade):
+    """Local and Cloud Object Storage facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "storage"
+
+
+class Mail(Facade):
+    """Email and Notification delivery facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "mail"
+

@@ -35,7 +35,9 @@ other.
 | `validation/` | ~30 rules, `FormRequest` with authorization attached |
 | `view/` | Forge template engine — layouts, sections, directives |
 | `cache/` | array · file · redis, with `remember()` and TTL |
-| `queue/` | sync · database drivers, JSON payloads, retry with backoff |
+| `queue/` | sync · database · redis drivers, JSON payloads, delayed tasks, retry with backoff |
+| `storage/` | Local & S3-compatible cloud object storage, signed URLs, public disks |
+| `mail/` | Fluent email delivery, SMTP with TLS/SSL, Log & Array mailers, Mailable classes |
 | `events/` | Dispatcher with framework lifecycle events (model created/updated/deleted, auth login/failed/logout) |
 | `schedule/` | Cron-style scheduled tasks with overlap locking |
 | `modules/`, `plugins/` | DB-backed feature modules and discoverable plugins with hooks |

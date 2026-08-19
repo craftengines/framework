@@ -20,6 +20,16 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **Cloud & Local Storage Subsystem (`craft.storage`, Facade `Storage`)**:
+  - **Multi-Disk Engine**: Unified abstraction supporting `local`, `public`, and `s3` disks (AWS S3, MinIO, Cloudflare R2, Google Cloud Storage S3-compatible).
+  - **Operations**: `Storage.put()`, `get()`, `get_text()`, `exists()`, `delete()`, `size()`, `mime_type()`, `url()`, `temporary_url()`, and disk switching `Storage.disk('s3')`.
+- **High-Throughput Redis Queue Driver (`craft.queue`, Facade `Queue`)**:
+  - Full Redis queue backend supporting `push()`, `later()` delayed jobs with zset timestamps, atomic `pop()` claiming, `work()`, and `clear()`.
+- **Mail & Notifications Subsystem (`craft.mail`, Facade `Mail`)**:
+  - **Fluent Email Dispatch**: `Mail.to().send()`, `Mail.raw()`, and declarative `Mailable` classes with automatic Forge template rendering.
+  - **Transports**: `smtp` with TLS/SSL authentication, `log` for local debugging, and `array` for in-memory testing.
+  - **Documentation & Tests**: Guides in `documentation/storage.md` and `documentation/mail.md`, with unit tests in `tests/test_storage.py`, `tests/test_mail.py`, and `tests/test_queue_redis.py`.
+
 - **Unified AI SDK & Autonomous Agent Orchestrator (`craft.ai`, Facade `AI`)**:
   - **Provider-Agnostic Engine**: Seamlessly integrates Google Gemini (`gemini-2.0-flash`), OpenAI (`gpt-4o`), Anthropic Claude, Ollama (local LLMs), and a deterministic Mock driver for unit tests.
   - **Text Generation & Chat**: Multi-turn chat completions (`AI.chat()`) and one-shot prompt generations (`AI.generate()`).
