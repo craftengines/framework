@@ -28,6 +28,7 @@ class PanelPage:
         user = Auth.user()
         context = {
             "current_user": user,
+            "request": request,
             "nav_sections": Nav.for_user(user, self.current_path(request)),
             # The panel layout owns its own sidebar; the marketing layout's
             # rail must never be switched on underneath it.

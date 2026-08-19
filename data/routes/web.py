@@ -62,6 +62,8 @@ Route.post("/admin/groups/permissions", [GroupController, "grant_permission"]).m
 # filtered by the very same guards, so an account never sees a link into a 403.
 Route.get("/panel", [PanelController, "index"]).middleware("auth").name("panel.index")
 Route.get("/panel/profile", [PanelController, "profile"]).middleware("auth").name("panel.profile")
+Route.post("/panel/profile", [PanelController, "update_profile"]).middleware("auth").name("panel.profile.update")
+Route.post("/panel/profile/password", [PanelController, "update_password"]).middleware("auth").name("panel.profile.password")
 Route.get("/panel/posts", [PanelController, "posts"]).middleware("auth").name("panel.posts")
 
 # The access audit exposes permission slugs, the path each grant arrives by and
@@ -70,6 +72,11 @@ Route.get("/panel/posts", [PanelController, "posts"]).middleware("auth").name("p
 # revision; it is admin-only now.
 Route.get("/panel/access", [PanelController, "access"]).middleware("auth", "role:admin").name("panel.access")
 Route.get("/panel/users", [PanelController, "users"]).middleware("auth", "role:admin").name("panel.users")
+Route.post("/panel/users", [PanelController, "store_user"]).middleware("auth", "role:admin").name("panel.users.store")
+Route.post("/panel/users/roles/assign", [PanelController, "assign_role"]).middleware("auth", "role:admin").name("panel.users.roles.assign")
+Route.post("/panel/users/roles/revoke", [PanelController, "revoke_role"]).middleware("auth", "role:admin").name("panel.users.roles.revoke")
+Route.post("/panel/users/groups/assign", [PanelController, "assign_group"]).middleware("auth", "role:admin").name("panel.users.groups.assign")
+Route.post("/panel/users/groups/revoke", [PanelController, "revoke_group"]).middleware("auth", "role:admin").name("panel.users.groups.revoke")
 Route.get("/panel/modules", [PanelController, "modules"]).middleware("auth", "role:admin").name("panel.modules")
 Route.post("/panel/modules/toggle", [PanelController, "toggle_module"]).middleware("auth", "role:admin").name("panel.modules.toggle")
 Route.get("/panel/plugins", [PanelController, "plugins"]).middleware("auth", "role:admin").name("panel.plugins")

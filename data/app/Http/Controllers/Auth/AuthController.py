@@ -43,10 +43,21 @@ class AuthController(Controller):
         return self.view("auth.register", {})
 
     def register(self, request):
+        name = (request.get_input("name") or "").strip()
+        email = (request.get_input("email") or "").strip()
+        password = request.get_input("password") or ""
+
+        from app.Services.Identity.DomainValidator import DomainValidator
+        if not DomainValidator.is_allowed_email(email, allow_system_domains=True):
+            return self.view("auth.register", {
+                "error": "Email domain is not authorized for registration.",
+                "old": {"name": name, "email": email}
+            })
+
         user = User.create({
-            "name": request.get_input("name"),
-            "email": request.get_input("email"),
-            "password": request.get_input("password"),
+            "name": name,
+            "email": email,
+            "password": password,
         })
         Auth.login(user)
         return redirect(route="home")

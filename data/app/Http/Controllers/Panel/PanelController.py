@@ -23,7 +23,7 @@ alone click, what they may not have.
 # Licensed under the MIT License. See LICENSE in the project root.
 
 from app.Http.Controllers.Panel.PanelPage import PanelPage
-from craft.facades import Auth
+from craft.facades import Auth, DB, Hash
 from craft.http.controller import Controller
 from craft.http.response import redirect
 
@@ -105,6 +105,61 @@ class PanelController(PanelPage, Controller):
             "is_admin": self.is_admin(user),
         })
 
+    def update_profile(self, request):
+        """Update authenticated user profile information."""
+        from app.Services.Identity.DomainValidator import DomainValidator
+
+        user = Auth.user()
+        if not user:
+            return redirect(url="/login", status=302)
+
+        name = (request.post("name") or "").strip()
+        email = (request.post("email") or "").strip().lower()
+
+        if not name or len(name) < 2:
+            return redirect(url="/panel/profile?error=invalid_name", status=302)
+
+        if not DomainValidator.is_allowed_email(email, allow_system_domains=True):
+            return redirect(url="/panel/profile?error=invalid_email", status=302)
+
+        existing = DB.statement(
+            "SELECT id FROM users WHERE email = ? AND id != ?",
+            [email, user.get_attribute("id")],
+            read=True,
+        ).fetchone()
+        if existing:
+            return redirect(url="/panel/profile?error=email_taken", status=302)
+
+        user.set_attribute("name", name)
+        user.set_attribute("email", email)
+        user.save()
+
+        return redirect(url="/panel/profile?success=profile_updated", status=302)
+
+    def update_password(self, request):
+        """Rotate authenticated user password."""
+        user = Auth.user()
+        if not user:
+            return redirect(url="/login", status=302)
+
+        current_password = request.post("current_password") or ""
+        new_password = request.post("new_password") or ""
+        new_password_confirmation = request.post("new_password_confirmation") or ""
+
+        if not user.check_password(current_password):
+            return redirect(url="/panel/profile?error=invalid_current_password", status=302)
+
+        if len(new_password) < 8:
+            return redirect(url="/panel/profile?error=password_too_short", status=302)
+
+        if new_password != new_password_confirmation:
+            return redirect(url="/panel/profile?error=password_mismatch", status=302)
+
+        user.set_attribute("password", Hash.make(new_password))
+        user.save()
+
+        return redirect(url="/panel/profile?success=password_updated", status=302)
+
     def access(self, request):
         """Access audit — **administrators only** (`role:admin` on the route).
 
@@ -166,8 +221,10 @@ class PanelController(PanelPage, Controller):
     # -- administration --------------------------------------------------------
 
     def users(self, request):
-        """The account directory. Admin-only, and the route says so too."""
+        """The account directory and RBAC assignment. Admin-only."""
         from app.Models.User import User
+        from app.Models.Role import Role
+        from app.Models.Group import Group
 
         access = self.app_access()
         users = User.query().order_by_desc("created_at").limit(100).get()
@@ -175,17 +232,104 @@ class PanelController(PanelPage, Controller):
         rows = [
             {
                 "user": user,
-                "roles": access.roles(user),
-                "groups": access.groups(user),
+                "roles": [r["slug"] if isinstance(r, dict) else r for r in access.roles(user)],
+                "groups": [g["slug"] if isinstance(g, dict) else g for g in access.groups(user)],
             }
             for user in users
         ]
+
+        roles = Role.query().order_by("name").get()
+        groups = Group.query().order_by("name").get()
 
         return self.panel(request, "panel.users", {
             "heading": "Users",
             "subheading": f"{len(rows)} accounts.",
             "rows": rows,
+            "roles": roles,
+            "groups": groups,
         })
+
+    def store_user(self, request):
+        """Provision a new user account with initial role and group."""
+        from app.Models.User import User
+
+        name = (request.post("name") or "").strip()
+        email = (request.post("email") or "").strip().lower()
+        password = request.post("password") or ""
+        is_admin = request.post("is_admin") in ("1", "true", "True", True)
+        role_id = request.post("role_id")
+        group_id = request.post("group_id")
+
+        if not name or not email or not password:
+            return redirect(url="/panel/users?error=missing_fields", status=302)
+
+        existing = DB.statement("SELECT id FROM users WHERE email = ?", [email], read=True).fetchone()
+        if existing:
+            return redirect(url="/panel/users?error=email_taken", status=302)
+
+        user = User.force_create({
+            "name": name,
+            "email": email,
+            "password": password,
+            "is_admin": is_admin,
+        })
+
+        if role_id:
+            DB.statement(
+                "INSERT INTO role_user (user_id, role_id) VALUES (?, ?)",
+                [user.get_attribute("id"), int(role_id)],
+            )
+        if group_id:
+            DB.statement(
+                "INSERT INTO group_user (user_id, group_id) VALUES (?, ?)",
+                [user.get_attribute("id"), int(group_id)],
+            )
+
+        return redirect(url="/panel/users?success=user_created", status=302)
+
+    def assign_role(self, request):
+        """Assign a role to a user."""
+        user_id = request.post("user_id")
+        role_id = request.post("role_id")
+        if user_id and role_id:
+            already = DB.statement(
+                "SELECT 1 FROM role_user WHERE user_id = ? AND role_id = ?",
+                [user_id, role_id],
+                read=True,
+            ).fetchone()
+            if not already:
+                DB.statement("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)", [user_id, role_id])
+        return redirect(url="/panel/users?success=role_assigned", status=302)
+
+    def revoke_role(self, request):
+        """Revoke a role from a user."""
+        user_id = request.post("user_id")
+        role_id = request.post("role_id")
+        if user_id and role_id:
+            DB.statement("DELETE FROM role_user WHERE user_id = ? AND role_id = ?", [user_id, role_id])
+        return redirect(url="/panel/users?success=role_revoked", status=302)
+
+    def assign_group(self, request):
+        """Assign a group to a user."""
+        user_id = request.post("user_id")
+        group_id = request.post("group_id")
+        if user_id and group_id:
+            already = DB.statement(
+                "SELECT 1 FROM group_user WHERE user_id = ? AND group_id = ?",
+                [user_id, group_id],
+                read=True,
+            ).fetchone()
+            if not already:
+                DB.statement("INSERT INTO group_user (user_id, group_id) VALUES (?, ?)", [user_id, group_id])
+        return redirect(url="/panel/users?success=group_assigned", status=302)
+
+    def revoke_group(self, request):
+        """Revoke a group from a user."""
+        user_id = request.post("user_id")
+        group_id = request.post("group_id")
+        if user_id and group_id:
+            DB.statement("DELETE FROM group_user WHERE user_id = ? AND group_id = ?", [user_id, group_id])
+        return redirect(url="/panel/users?success=group_revoked", status=302)
 
     def modules(self, request):
         """Feature modules, with their live enabled state."""
