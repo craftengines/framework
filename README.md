@@ -1,9 +1,9 @@
-# Craft Framework — Workspace
+# Craft Engine — Workspace
 
 This is the **orchestration root**, not the application. If you are looking
-for the framework's own README (install, CLI, ORM, HTTP, docs index), that
+for the engine's own README (install, CLI, ORM, HTTP, docs index), that
 lives one level down at [`data/README.md`](data/README.md) — everything a
-running Craft app needs is there.
+running Craft Engine app needs is there.
 
 ## Layout
 

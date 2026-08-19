@@ -1,4 +1,4 @@
-# Craft
+# Craft Engine
 
 A batteries-included Python web framework, built on **Starlette**. This repository is the **base skeleton** for
 building new applications — the skeleton you copy to start an app.

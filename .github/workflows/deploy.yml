@@ -1,4 +1,4 @@
-name: Craft CI/CD Production Build & Test
+name: Craft Engine CI/CD Production Build & Test
 
 on:
   push:
@@ -101,4 +101,4 @@ jobs:
           context: ./data
           file: ./data/Dockerfile.prod
           push: false
-          tags: craft-framework:latest
+          tags: craft-engine:latest
