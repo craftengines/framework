@@ -40,6 +40,7 @@ other.
 | `schedule/` | Cron-style scheduled tasks with overlap locking |
 | `modules/`, `plugins/` | DB-backed feature modules and discoverable plugins with hooks |
 | `security/` | WAF / IDS firewall, Honeypot traps, Login audit logs, Brute-force cooldowns, Captcha, PQC, Throttling, Security headers |
+| `media/` | Fluent Image manipulation, WebP/AVIF compression, Watermarking, Video metadata & thumbnails, DB media tracking |
 | `resources/` | JSON transformers for API output |
 | `cli/` | The `dev` console, including 14 generators, full CRUD builder, firewall/security tools |
 

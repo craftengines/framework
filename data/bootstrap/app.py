@@ -36,6 +36,7 @@ def create_app() -> Application:
         CaptchaServiceProvider,
         FirewallServiceProvider,
         HoneypotServiceProvider,
+        MediaServiceProvider,
         FrameworkSubsystemsServiceProvider,
     )
 
@@ -51,6 +52,7 @@ def create_app() -> Application:
     app.register_provider(ExceptionServiceProvider)
     app.register_provider(FirewallServiceProvider)
     app.register_provider(HoneypotServiceProvider)
+    app.register_provider(MediaServiceProvider)
 
     # `config/framework.py` ships these as feature flags, but nothing read
     # them: both providers registered unconditionally, so setting

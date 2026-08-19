@@ -225,3 +225,13 @@ class FrameworkSubsystemsServiceProvider(ServiceProvider):
                 "register_console() raised; scheduled tasks may be incomplete",
                 exc_info=True,
             )
+
+
+class MediaServiceProvider(ServiceProvider):
+    """Register Image and Media services in the application container."""
+
+    def register(self):
+        from engine.media.manager import ImageManager, MediaManager
+
+        self.app.singleton("image", lambda c: ImageManager(c))
+        self.app.singleton("media", lambda c: MediaManager(c))

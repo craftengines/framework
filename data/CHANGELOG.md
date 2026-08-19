@@ -18,6 +18,16 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **Fluent Image & Multimedia Manipulation Subsystem (`craft.media`, Facades `Image` & `Media`)**:
+  - **Fluent Image Engine** (`engine/media/image.py`): Chainable image processor backed by Pillow. Supports `resize()`, `scale()`, `crop()` with positional anchors (`center`, `top-left`, `bottom-right`, etc.), `cover()`, `contain()`, `thumbnail()`, `rotate()`, `flip()`, and filters (`greyscale()`, `blur()`, `sharpen()`, `brightness()`, `contrast()`, `invert()`).
+  - **Modern Image Compression & WebP/AVIF**: Native export and optimization to `WebP`, `JPEG`, `PNG`, `AVIF`, and `GIF` with configurable quality, metadata stripping (`optimize()`), binary streaming, base64 data URIs, and direct Starlette HTTP `Response` generation.
+  - **Alpha Watermarking**: Overlay watermarks with precise anchor alignment, padding, and opacity blending.
+  - **Video Metadata & Thumbnails** (`engine/media/video.py`): Extract video resolution, duration, FPS, codecs, and capture video frames as fluent `Image` instances.
+  - **Database-Backed Media Tracking**: Added migration `2026_08_19_000001_create_media_table.py` and Model `app/Models/Media.py` supporting polymorphic associations, collections, and JSON conversions.
+  - **Documentation & Tests**: Created comprehensive guide in `documentation/media.md` and added 30 unit tests in `tests/test_media_image.py`, `tests/test_media_video.py`, and `tests/test_media_facades.py`.
+
 ### Changed
 
 - **Database-First Translation Resolution**: In `engine/support/translation.py`,

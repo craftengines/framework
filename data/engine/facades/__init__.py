@@ -157,3 +157,19 @@ class Honeypot(Facade):
     def get_facade_accessor(cls) -> str:
         return "honeypot"
 
+
+class Image(Facade):
+    """Fluent image manipulation and optimization facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "image"
+
+
+class Media(Facade):
+    """Multimedia processing and video thumbnail facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "media"
+
