@@ -18,7 +18,21 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-08-20
+
 ### Added
+
+- **Identity Decoupling & Domain Validation Subsystem (`app.Services.Identity`, `DomainValidator`)**:
+  - Decoupled core `User` model from rigid organizational constraints, enabling seamless provisioning of test, demo, and administrative accounts.
+  - Contextual domain validation with configurable allowed domains and system override domain rules.
+- **Authenticated Self-Service Profile & Credential Management**:
+  - Implemented endpoints `POST /panel/profile` and `POST /panel/profile/password` in `PanelController`.
+  - Upgraded `resources/views/panel/profile.forge.py` with interactive forms for updating personal information and secure password rotation with hash verification.
+- **Administrative User Provisioning & Dynamic RBAC Management**:
+  - Implemented `store_user`, `assign_role`, `revoke_role`, `assign_group`, and `revoke_group` endpoints guarded by `role:admin`.
+  - Upgraded `resources/views/panel/users.forge.py` with inline account provisioning and role/group assignment controls.
+- **Identity & RBAC Lifecycle Test Suite (`tests/test_identity_and_rbac_lifecycle.py`)**:
+  - 11 comprehensive automated tests validating domain decoupling, self-service profile and password changes, admin user management, and 4-tier AccessResolver authorization.
 
 - **Cloud & Local Storage Subsystem (`craft.storage`, Facade `Storage`)**:
   - **Multi-Disk Engine**: Unified abstraction supporting `local`, `public`, and `s3` disks (AWS S3, MinIO, Cloudflare R2, Google Cloud Storage S3-compatible).

@@ -102,3 +102,34 @@ jobs:
           file: ./data/Dockerfile.prod
           push: false
           tags: craft-engine:latest
+
+  release:
+    name: Automated GitHub Release & Tag
+    needs: [test-sqlite, test-postgres, docker-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version Tag
+        id: get_version
+        run: |
+          VERSION=$(grep -m1 '^version =' data/pyproject.toml | cut -d'"' -f2)
+          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Craft Engine ${{ steps.get_version.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
