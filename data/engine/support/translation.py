@@ -95,13 +95,7 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
         fallback = config.get("app.APP_FALLBACK_LOCALE") or config.get("app.fallback_locale") or "en"
 
         for candidate in locale_chain(active, fallback):
-            # 1. Config-defined translations, e.g. config/lang.py
-            value = config.get(f"lang.{candidate}.{key}")
-            if value:
-                text = str(value)
-                break
-
-            # 2. The translations table
+            # 1. Database-backed dynamic translation (Primary source of truth)
             try:
                 row = app.make("db").statement(
                     "SELECT value FROM translations WHERE key = ? AND locale = ?",
@@ -109,10 +103,16 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
                     read=True,
                 ).fetchone()
             except Exception:
-                row = None  # no database yet — config-only translation still works
+                row = None  # DB offline or not yet migrated — fallback to config
 
             if row is not None and row["value"]:
                 text = str(row["value"])
+                break
+
+            # 2. Config-defined fallback translations (e.g. config/lang.py)
+            value = config.get(f"lang.{candidate}.{key}")
+            if value:
+                text = str(value)
                 break
     except Exception:
         text = None

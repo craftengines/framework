@@ -48,3 +48,20 @@ exposure, not just the patch), **Deprecated**, **Removed**. Full policy,
 including how a release gets cut and why the release counter (`rNNNNN`)
 always increments by exactly 1, is in `data/CONTRIBUTING.md` under
 "Versioning and releases" — read it before your first change, not after.
+
+---
+
+## 4. Database-Driven Architecture: Zero Hardcoding
+
+**All application state, security, internationalization, and feature toggles must be backed by the database.**
+
+* **Translations (`translations` table)**:
+  * Text displayed to users must be resolved dynamically via the translation engine (`__()`), which prioritizes database entries in `translations` with fallback to config.
+  * Never hardcode UI labels, validation messages, or notifications.
+* **Authorization (`roles`, `permissions`, `groups`, `group_role`, etc.)**:
+  * Never hardcode access control logic like `if user.is_admin` or `if user.id == 1`.
+  * Use Gate, policies, and database permissions.
+* **Modules & Feature Toggles (`modules` table)**:
+  * Features subject to activation/deactivation must query the `modules` table (`enabled=True/False`).
+* **Dynamic Configuration (`settings` table)**:
+  * System-wide parameters that administrators can adjust at runtime belong in the `settings` database table, keeping `.env` strictly for environment/driver infrastructure config.

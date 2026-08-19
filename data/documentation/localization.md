@@ -64,25 +64,27 @@ Store the canonical form; the helper accepts the rest.
 
 ## Where translations live
 
-Two sources, checked in this order per locale in the chain:
+Translations are dynamically resolved per locale in the chain with a **database-first** priority:
 
-**1. Configuration** — for values that ship with the code:
-
-```python
-# config/lang.py
-pt_BR = {"greeting": "Olá"}
-```
-
-```python
-Config.set("lang.pt-BR.greeting", "Olá")
-```
-
-**2. The `translations` table** — for values that change without a deploy:
+**1. The `translations` table (Database — Primary Source of Truth)** — enables real-time updates via admin panels, migrations, and seeders without code redeployment:
 
 | key | locale | value |
 |---|---|---|
 | `login` | `pt-BR` | Entrar |
 | `login` | `pt` | Iniciar sessão |
+
+Seed them in `database/seeders/TranslationSeeder.py`:
+
+```bash
+python dev.py db seed
+```
+
+**2. Configuration (Fallback)** — for bootstrap values or environments before database initialization:
+
+```python
+# config/lang.py
+pt_BR = {"greeting": "Olá"}
+```
 
 Seed them in `database/seeders/TranslationSeeder.py`:
 

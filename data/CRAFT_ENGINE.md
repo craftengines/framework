@@ -59,7 +59,7 @@ schema builder emits DDL per dialect.
 2. **Generators emit working code, not stubs.** `dev.py make crud` writes a
    migration, model, form request, resource, JSON API controller, an admin UI
    controller with list/create/edit, and registers the routes.
-3. **`tests/` is the executable specification.** 787 tests describe what the
+3. **`tests/` is the executable specification.** 880+ tests describe what the
    framework promises. When documentation and code disagree, the tests settle
    it — and an agent can run them in under a minute.
 4. **Failures are loud.** An unknown middleware alias raises at boot. An unknown
@@ -67,10 +67,33 @@ schema builder emits DDL per dialect.
    raises at import. `Gate` denies unknown abilities. The framework is built so
    that a mistake stops you rather than producing something that looks like it
    worked.
-5. **No silent degradation.** This codebase went through four sweeps that
-   removed ~30 "placebos" — methods that returned a fixed value, config that
-   nothing read, exceptions swallowed to fake success. See `CHANGELOG.md`. What
+5. **No silent degradation.** This codebase went through sweeps that
+   removed placebos — methods that returned a fixed value, config that
+   nothing read, exceptions swallowed to fake success. What
    the framework advertises, it does.
+
+---
+
+## 🏛️ Fundamental Architectural Rule: Database-First & Zero Hardcoding
+
+**Craft Engine is built for real production applications, not toy demos. Everything that represents state, authorization, internationalization, or togglable features MUST be stored and resolved from the database.**
+
+Developers and AI agents creating applications with Craft Engine must follow these non-negotiable rules:
+
+1. **Internationalization & Copy (`translations` table)**:
+   - All human-facing text must use `__('key')` or `translate('key', locale)`.
+   - Never hardcode user strings in templates or controllers.
+   - The database (`translations` table) is the **primary dynamic source of truth**. Dynamic translations can be updated in real time via seeders, migrations, or admin panels without code deploys.
+2. **Authorization & RBAC/ABAC (`roles`, `permissions`, `groups`, pivots)**:
+   - Never hardcode role checks (`if user.id == 1` or `if user.role == 'admin'`).
+   - Use `Gate.allows()`, `@can()`, middleware `role:`, `permission:`, `group:`.
+   - All grants, relations, and ABAC conditions live in the database.
+3. **Feature Toggles & Modules (`modules` table)**:
+   - Dynamic features are controlled by the `modules` table (`enabled=True/False`), never static booleans or commented code.
+4. **Application Settings (`settings` table)**:
+   - Dynamic configurations that administrators can tune live in the `settings` table, with `.env` reserved strictly for environment-level infrastructure credentials.
+5. **Dynamic Navigation (`Nav` facade)**:
+   - Menus and dashboards are data-driven, filtering items based on dynamic database permissions rather than hardcoded template HTML.
 
 ---
 

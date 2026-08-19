@@ -98,13 +98,18 @@ class TestTranslationLookup:
     def test_placeholders_work_on_the_key_fallback(self):
         assert translate("missing_{n}", "pt-BR", n=3) == "missing_3"
 
-    def test_config_translations_take_precedence(self, migrated_database):
+    def test_database_translations_override_config_and_config_acts_as_fallback(self, migrated_database):
         config = migrated_database.make("config")
-        config.set("lang.pt-BR.greeting", "Salve")
+        config.set("lang.pt-BR.greeting", "Config Greeting")
+        config.set("lang.pt-BR.fallback_only_key", "Config Fallback Value")
         try:
-            assert __("greeting", "pt-BR") == "Salve"
+            # DB has "Oi" for greeting in pt-BR, so DB overrides config
+            assert __("greeting", "pt-BR") == "Oi"
+            # DB does not have fallback_only_key, so config is used as fallback
+            assert __("fallback_only_key", "pt-BR") == "Config Fallback Value"
         finally:
             config.set("lang.pt-BR.greeting", None)
+            config.set("lang.pt-BR.fallback_only_key", None)
 
 
 class TestSeededLocales:

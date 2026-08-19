@@ -18,7 +18,17 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
-## [3.12.0] — 2026-08-17 (r00002)
+### Changed
+
+- **Database-First Translation Resolution**: In `engine/support/translation.py`,
+  the `translate()` and `__()` helpers now query the dynamic `translations` database
+  table as the primary source of truth, falling back to configuration (`lang.{locale}.{key}`)
+  only when a database record is absent or the database is uninitialized. This guarantees
+  that runtime database translation changes (via admin panel, seeders, or migrations) take
+  immediate effect dynamically without requiring code redeployments.
+- **Architectural Policy**: Explicitly documented and enforced zero-hardcoding rules across
+  `CRAFT_ENGINE.md`, documentation, and agent skills: state, internationalization,
+  authorization (RBAC/ABAC), modules, and settings must be database-backed.
 
 ### Fixed
 
