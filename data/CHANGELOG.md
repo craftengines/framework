@@ -74,6 +74,16 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Changed
 
+- **`MULTI_TENANCY_ENABLED` now defaults to off.** Multi-tenancy is an
+  architectural decision with a cost — a tenant bound on every request, an
+  isolation policy on every table, and a database that can enforce one — and
+  not something an application should acquire by accident. With the default on,
+  the out-of-the-box experience depended on the driver: a single-tenant app on
+  SQLite worked only until somebody signed in as the seeded `type = "tenant"`
+  user, at which point the request was refused because SQLite cannot isolate
+  anything. Turning it on is now the deliberate act, which is what makes the
+  refusal that follows on a driver without isolation correct rather than a
+  surprise. A tenanted deployment sets `MULTI_TENANCY_ENABLED=true`.
 - **PostgreSQL 18.4+ is now the recommended and provisioned version**
   (`docker-compose.yml`, `docker-compose.prod.yml`), up from 15. 14 remains the
   supported minimum. Two things change together on upgrade and doing only one

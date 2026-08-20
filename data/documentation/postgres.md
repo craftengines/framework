@@ -92,6 +92,24 @@ def up():
 
 ## Multi-tenancy
 
+Off by default. `MULTI_TENANCY_ENABLED=true` turns it on, and that is meant to
+be a deliberate act: multi-tenancy costs a tenant bound on every request, an
+isolation policy on every table, and a database that can enforce one. A
+single-tenant application — most personal projects, and plenty of commercial
+ones — should not acquire any of that by accident, and pays for none of it
+while the flag is off.
+
+Once it *is* on, everything below applies, including the refusals. A driver
+that cannot isolate stops the request rather than serving it, because at that
+point the application has declared that tenant boundaries matter.
+
+Two strategies, selected with `MULTI_TENANCY_STRATEGY`:
+
+| Strategy | What it does | When |
+|---|---|---|
+| `rls` | Shared tables, `tenant_id`, row-level security policy | The default choice. Migrates once, scales to many tenants |
+| `schema` | One PostgreSQL schema per tenant, via `search_path` | A handful of tenants that need physical separation |
+
 ### The model
 
 Tenant rows live in shared tables with a `tenant_id` column, and a **row-level
