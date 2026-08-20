@@ -4,7 +4,33 @@ name: framework
 
 services:
   db:
-    image: postgres:15-alpine
+    # PostgreSQL 18 is what the framework is developed and validated against:
+    # `uuidv7()` is a built-in there, so a time-ordered primary key can be a
+    # column DEFAULT instead of something the application generates.
+    #
+    # Two things change together when moving up from 15, and doing only one of
+    # them leaves the container restart-looping:
+    #
+    #   1. The data directory format. A major version writes a different
+    #      on-disk layout, so an 18 server refuses to start on a 15 directory.
+    #      The data has to be dumped and restored (or pg_upgrade'd).
+    #   2. The mount point. From 18 the official image stores data in a
+    #      major-version subdirectory of /var/lib/postgresql, and refuses to
+    #      start if it finds a volume mounted at the old
+    #      /var/lib/postgresql/data. The mount below moves up one level to
+    #      match — this is not cosmetic.
+    #
+    # The upgrade, from a working 15 container:
+    #
+    #   docker compose exec db pg_dumpall -p 5499 -U craft > backup.sql
+    #   docker compose down
+    #   docker volume rm framework_framework_db_data
+    #   docker compose up -d db
+    #   docker compose exec -T db psql -p 5499 -U craft -d postgres < backup.sql
+    #
+    # For vector search use `pgvector/pgvector:pg18` instead — the official
+    # postgres image does not carry pgvector.
+    image: postgres:18-alpine
     container_name: framework-db
     ports:
       - "5499:5499"
@@ -15,7 +41,13 @@ services:
       PGPORT: 5499
     volumes:
       # Named volume so recreating the container does not wipe the database.
-      - framework_db_data:/var/lib/postgresql/data
+      # One level above the data directory — see the note on the image tag.
+      #
+      # The name carries the major version deliberately. Reusing the old
+      # `framework_db_data` would mount a 15 data directory at the path 18
+      # expects to own, which fails at boot; a distinct name means the upgrade
+      # creates a new volume and leaves the old one intact to roll back to.
+      - framework_db_data_pg18:/var/lib/postgresql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -p 5499 -U ${DB_USERNAME:-craft} -d ${DB_DATABASE:-craft_db}"]
@@ -46,4 +78,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  framework_db_data:
+  # `framework_db_data` (PostgreSQL 15 and earlier) is deliberately not
+  # declared here any more. An existing one is left on disk untouched so the
+  # upgrade can be rolled back; remove it by hand once the new one is proven.
+  framework_db_data_pg18:
