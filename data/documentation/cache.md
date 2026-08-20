@@ -102,3 +102,10 @@ from craft.cache.manager import ArrayStore, CacheManager
 cache = CacheManager()
 cache._store = ArrayStore()
 ```
+
+## Atomic put-if-absent
+
+`Cache.add(key, value, ttl)` stores only when the key is absent and returns
+whether this caller won. Reach for it instead of `has()` then `put()`
+whenever the answer decides who does the work: the pair is a race, and every
+guarantee built on it silently does not hold.

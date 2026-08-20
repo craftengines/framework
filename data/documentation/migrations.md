@@ -127,3 +127,10 @@ post = PostFactory.new().create()
 # Generate a list of 5 unsaved post model instances
 posts = PostFactory.new().count(5).make()
 ```
+
+## PostgreSQL schema features
+
+Partial, expression, GIN/GiST/HNSW and `CONCURRENTLY` indexes, `CHECK` and
+`EXCLUDE` constraints, declarative partitioning, managed extensions and
+row-level security policies are covered in
+[PostgreSQL](postgres.md#schema).

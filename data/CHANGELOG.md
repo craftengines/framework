@@ -20,6 +20,119 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Added
 
+- **PostgreSQL-native data layer** — six phases turning PostgreSQL from a row
+  store into the runtime the framework depends on. Every capability is gated by
+  `engine/orm/dialect.py`, so a query written for PostgreSQL fails on another
+  driver with a message naming the driver and the feature, never with a syntax
+  error from the driver or a filter that quietly means something else.
+  - **Expression seam (`engine/orm/expression.py`)**: `Expr` carries
+    framework-authored SQL plus its bindings, and `QueryBuilder.where_expr()` /
+    `select_expr()` / `order_by_expr()` accept it. This is how the PostgreSQL
+    operators (`@>`, `@@`, `<=>`, `#>>`) became reachable **without** widening
+    the identifier and operator allowlists that guard every other clause.
+    `Raw` marks a DDL snippet that must be emitted unquoted
+    (`DEFAULT gen_random_uuid()`).
+  - **Dialect capabilities (`engine/orm/dialect.py`)**: one place answering
+    "can this driver do X?". Extension-gated capabilities (`vector`, `trigram`)
+    are **probed** against `pg_extension` on first use rather than assumed from
+    the server version, and the refusal names the missing extension.
+  - **Tenant isolation on row-level security** (`engine/orm/tenancy.py`,
+    `engine/orm/tenant_scoped.py`, `ScopeTenant` middleware,
+    `Blueprint.tenant_scoped()`, `Tenant` facade): the tenant is bound to the
+    `app.current_tenant_id` session variable through `set_config()` — `SET
+    LOCAL` cannot take a parameter — and read by generated `USING` /
+    `WITH CHECK` policies that fail closed when nothing is bound.
+    `Connection.release()` clears the variable at checkin.
+  - **Transactional queue on `SELECT … FOR UPDATE SKIP LOCKED`**
+    (`engine/queue/drivers/`): batch claims, priority, exponential backoff with
+    full jitter, a `failed_jobs` dead-letter table, stale-reservation
+    reclamation, and per-job tenant rebinding. `engine/queue/listener.py` adds
+    `LISTEN`/`NOTIFY` dispatch and a `Broadcast` facade.
+  - **PostgreSQL types and search** (`engine/orm/casts.py`,
+    `engine/orm/postgres/macros.py`): attribute casting for JSONB, arrays,
+    ranges and vectors, plus query macros for JSONB containment and JSON-path,
+    array containment/overlap, range overlap and adjacency, full-text search
+    over generated `tsvector` columns, trigram similarity, and pgvector
+    distance operators.
+  - **Distributed locks (`engine/orm/locks.py`, `Lock` facade)**: advisory
+    locks, transaction-scoped by default so a crashed holder cannot strand
+    them. `Cache.add()` was added as an atomic put-if-absent for the fallback
+    path.
+  - **Migration DSL**: partial, expression, GIN/GiST/HNSW and `CONCURRENTLY`
+    indexes; `CHECK` and `EXCLUDE` constraints; declarative range/list/hash
+    partitioning with `Schema.partition()` and `Schema.ensure_partitions()`;
+    managed extensions via `Schema.extension()`.
+  - **New commands**: `db:audit-rls`, `db:extensions`, `db:partitions`,
+    `db:locks`, `queue failed`, `queue retry`, `queue reclaim`, and
+    `queue work --listen`.
+- **Server version awareness.** The dialect reads the live server version and
+  gates version-specific capabilities on it, the same way extension-gated ones
+  are probed. `uuidv7()` — a built-in from PostgreSQL 18 — is refused with a
+  message naming the version on older servers rather than emitted and left to
+  fail at insert time. `dev.py db:show` reports the version and advises when it
+  is below the recommended one.
+
+### Changed
+
+- **PostgreSQL 18.4+ is now the recommended and provisioned version**
+  (`docker-compose.yml`, `docker-compose.prod.yml`), up from 15. 14 remains the
+  supported minimum. Two things change together on upgrade and doing only one
+  leaves the container restart-looping: the data directory format (dump and
+  restore, or `pg_upgrade`), and the **mount point** — from 18 the official
+  image stores data in a major-version subdirectory of `/var/lib/postgresql`
+  and refuses to start if it finds a volume at the old
+  `/var/lib/postgresql/data`. Both compose files move the mount up one level.
+  The procedure is in `documentation/postgres.md`.
+
+### Fixed
+
+- **The queue destroyed failed jobs.** `QueueManager.fail()` issued a `DELETE`
+  and wrote a log line, so a permanently failing job and its payload were gone —
+  nothing to inspect, nothing to retry. Jobs now move to `failed_jobs` in a
+  single transaction and come back with `dev.py queue retry`.
+- **Failed jobs burned every attempt in milliseconds.** A retry cleared
+  `reserved_at` with no delay, so a thirty-second dependency outage killed jobs
+  that one retry would have saved. Retries are now backed off with full jitter.
+- **Vector search read the whole table into the process.** Similarity was
+  computed in a Python loop and — worse — the filter ran *after* `LIMIT`/`OFFSET`
+  and after `paginate()` had counted, so page totals described a different result
+  set than the page contained. It now compiles to pgvector's distance operators;
+  the in-process path remains for drivers without pgvector, with the ordering
+  and pagination corrected.
+- **`without_overlapping()` was a check-then-set race.** `cache.has()` followed
+  by `cache.put()` let two schedulers both see no lock and both run. It now takes
+  an advisory lock, falling back to the new atomic `Cache.add()`.
+- **Migrations were not atomic.** Each statement auto-committed, so a failure
+  partway left a half-built schema and no ledger row. A migration and its ledger
+  row are now one transaction where the driver has transactional DDL, with
+  `transactional = False` to opt out for `CREATE INDEX CONCURRENTLY`.
+- **Workers never released their pooled connection.** Only the HTTP kernel
+  called `db.release()`, so a long-running worker held one connection per thread
+  for its lifetime — the exhaustion the pool exists to prevent.
+- **`Model.new_uuid()` returned a version 4 UUID.** Uniformly random keys
+  scatter every insert across the whole index; it now returns a time-ordered
+  version 7, which is identically opaque in a URL and materially cheaper to
+  index.
+
+### Security
+
+- **Tenant isolation was enforced only in Python.** `TenantMiddleware` switched
+  `search_path` based on `user.type`, so any raw `DB.statement()`, any
+  schema-qualified query and any background job with no tenant bound crossed the
+  boundary with nothing in the database to stop it. Isolation is now a
+  row-level-security policy the application cannot forget.
+- **A driver without isolation used to warn and keep serving.** Multi-tenant
+  traffic on SQLite or MySQL shared one set of tables behind a single log line.
+  `ScopeTenant` now refuses to run rather than degrade.
+- **A pooled connection could carry one tenant's session variable to the next
+  borrower.** `Connection.release()` clears `app.current_tenant_id` at checkin
+  and discards any connection that cannot be cleared.
+- **Policies are inert for a superuser or a `BYPASSRLS` role**, and neither
+  `ENABLE` nor `FORCE ROW LEVEL SECURITY` says so — a table reports itself
+  protected while returning every tenant's rows to everyone. `ScopeTenant` now
+  verifies the connecting role against `pg_roles` and refuses to serve tenant
+  traffic it cannot isolate; `dev.py db:audit-rls` reports it and exits non-zero.
+
 - **Database Safety & Absolute Data Persistence Policy (`documentation/database_safety.md`)**:
   - Established framework-wide Absolute Data Persistence policy forbidding destructive schema actions across development, test, demo, staging, and production environments.
   - Documented forward-only migration workflows (`python dev.py migrate`), non-destructive alter patterns, and idempotent seeding.

@@ -2,6 +2,26 @@
 
 Craft Engine natively supports **Vector / Semantic Search** directly within its Active Record query builder.
 
+> **Where the arithmetic happens.** On PostgreSQL with the `vector` extension
+> installed, these calls compile to pgvector's distance operators, so an HNSW
+> index answers the query and the process never sees a row it did not ask for.
+> Everywhere else the same calls fall back to scoring in Python, which reads the
+> whole candidate set into the process — correct, and fine for development or a
+> few thousand rows, but not a way to search a real corpus.
+>
+> Install the extension and index the column:
+>
+> ```python
+> Schema.extension("vector")
+> Schema.create_table("articles", lambda t: (
+>     t.id(),
+>     t.vector("embedding", 1536),
+>     t.hnsw_index("embedding"),
+> ))
+> ```
+>
+> See [PostgreSQL](postgres.md#vectors).
+
 ## 🔎 Semantic Search with `where_vector_similar`
 
 Filter database records by vector embedding similarity:

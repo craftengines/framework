@@ -365,3 +365,10 @@ DB.set_tenant_schema(None)
 > request's tenant. Set it inside the request that needs it (which is what
 > `TenantMiddleware` does); setting it at boot will not reach the worker
 > threads.
+
+## PostgreSQL-native features
+
+Tenant isolation enforced by the database, attribute casting for JSONB,
+arrays, ranges and vectors, and query macros for containment, JSON-path,
+full-text search, trigram matching and vector distance all live in
+[PostgreSQL](postgres.md).

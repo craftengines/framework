@@ -119,3 +119,10 @@ job. A reservation older than 90 seconds (`retry_after`) is treated as a hung
 worker and the job becomes claimable again. A job that raises is released for
 retry; once it has been attempted 3 times (`max_attempts`), it is removed from
 the queue and the failure is logged.
+
+## On PostgreSQL
+
+The queue claims jobs with `SELECT ... FOR UPDATE SKIP LOCKED`, backs off
+failures with jitter, keeps spent jobs in a `failed_jobs` dead-letter table,
+and can wake instantly on `LISTEN`/`NOTIFY` instead of polling. See
+[PostgreSQL](postgres.md#queues).
