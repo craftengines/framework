@@ -44,40 +44,42 @@ The table builder object (`t`) supports the following data type definitions:
 
 ### Running Migrations
 
-Manage database schemas using the `dev.py` CLI:
+Manage database schemas incrementally using the `dev.py` CLI:
 
 ```bash
-# Run all pending migrations
+# Run all pending forward migrations
 python dev.py migrate
 
-# Drop all tables and rerun all migrations from scratch
-python dev.py migrate fresh
+# Preview queries without modifying the database
+python dev.py migrate --pretend
+
+# View migration history and applied batches
+python dev.py migrate:status
 ```
+
+> **Note on Data Persistence**: Destructive migration resets (`migrate:fresh`, `migrate:reset`) are strictly banned in Craft Engine production and automated workflows. All schema evolution must be forward-only. See [Database Safety](database_safety.md).
 
 ---
 
 ## Seeders
 
-Seeders populate your database with dummy or initial system records. They inherit from `craft.seeding.Seeder` and define a `run` method:
+Seeders populate your database with initial reference records and system data. Seeders should be written idempotently so they can run safely without purging or duplicating data. They inherit from `craft.seeding.Seeder` and define a `run` method:
 
 ### Example Seeder
 
 ```python
 from craft.seeding import Seeder
 from app.Models.User import User
-from craft.facades import DB
 
 class DatabaseSeeder(Seeder):
     def run(self):
-        # 1. Clean existing records (Optional)
-        DB.statement("DELETE FROM users")
-
-        # 2. Add records
-        User.create({
-            "name": "Admin User",
-            "email": "admin@craft.io",
-            "password": "hashed-secret-password"
-        })
+        # 1. Idempotent check or creation
+        if not User.query().where("email", "admin@craft.io").exists():
+            User.create({
+                "name": "Admin User",
+                "email": "admin@craft.io",
+                "password": "hashed-secret-password"
+            })
 ```
 
 Execute seeders by running:

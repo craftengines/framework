@@ -18,7 +18,14 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
-## [3.13.0] - 2026-08-20
+### Added
+
+- **Database Safety & Absolute Data Persistence Policy (`documentation/database_safety.md`)**:
+  - Established framework-wide Absolute Data Persistence policy forbidding destructive schema actions across development, test, demo, staging, and production environments.
+  - Documented forward-only migration workflows (`python dev.py migrate`), non-destructive alter patterns, and idempotent seeding.
+  - Documented mandatory soft-delete query and lifecycle patterns (`deleted_at = now()`, `is_active = False`) replacing physical `DELETE` and `TRUNCATE` operations.
+  - Added safety notices and banned command lists to CLI documentation (`documentation/cli.md`) and Migration guides (`documentation/migrations.md`).
+
 
 ### Added
 

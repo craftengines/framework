@@ -18,12 +18,12 @@ Colon-separated commands work, and so does the plain form: `migrate:status` and
 | `migrate:status` | Which migrations ran, and in which batch |
 | `migrate:rollback` | Revert the last batch |
 | `migrate:rollback --step N` | Revert the last N batches |
-| `migrate:reset` | Revert everything |
-| `migrate:refresh` | Reset, then re-run |
-| `migrate:fresh` | Drop every table, then re-run |
+| `migrate:reset` | Revert everything *(Banned in persistence-first & automated agent workflows)* |
+| `migrate:refresh` | Reset, then re-run *(Banned in persistence-first & automated agent workflows)* |
+| `migrate:fresh` | Drop every table, then re-run *(Banned in persistence-first & automated agent workflows)* |
 | `migrate:install` | Create the migrations table only |
 
-`refresh` and `fresh` both accept `--seed`.
+> **Safety Notice**: Craft Engine enforces **Absolute Data Persistence**. Destructive commands (`migrate:fresh`, `migrate:reset`, `migrate:refresh`, `db wipe`) are strictly prohibited in production, test, and automated agent environments. See [Database Safety](database_safety.md).
 
 ## Database
 
@@ -34,7 +34,7 @@ Colon-separated commands work, and so does the plain form: `migrate:status` and
 | `db show` | Connection, driver, host, database |
 | `db tables` | List tables |
 | `db ping` | Verify the connection; non-zero exit on failure |
-| `db wipe --force` | Drop every table |
+| `db wipe --force` | Drop every table *(Banned in persistence-first & automated agent workflows)* |
 
 `db wipe` refuses to run without `--force`.
 

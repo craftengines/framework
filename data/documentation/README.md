@@ -30,6 +30,7 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 | Guide | What it covers |
 |---|---|
 | [Migrations](migrations.md) | Schema builder, batches, rollback |
+| [Database safety](database_safety.md) | Absolute data persistence, banned destructive commands, soft-delete patterns |
 | [ORM](orm.md) | Models, relationships, eager loading, soft deletes |
 | [Query builder](orm.md#querying--filtering) | Filtering, joins, aggregates, pagination |
 | [CRUD builder](crud-builder.md) | Generating a migration, model, request, resource, API and admin UI for an entity |
