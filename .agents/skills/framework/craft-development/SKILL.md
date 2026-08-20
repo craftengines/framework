@@ -71,3 +71,14 @@ always increments by exactly 1, is in `data/CONTRIBUTING.md` under
   * Features subject to activation/deactivation must query the `modules` table (`enabled=True/False`).
 * **Dynamic Configuration (`settings` table)**:
   * System-wide parameters that administrators can adjust at runtime belong in the `settings` database table, keeping `.env` strictly for environment/driver infrastructure config.
+
+---
+
+## 5. Absolute Data Persistence & Database Safety
+
+* **Zero Data Loss Principle**: Never wipe, drop, truncate, or reset database state under any circumstances, in any environment.
+* **Forbidden Commands**: `migrate:reset`, `migrate:refresh`, `migrate:fresh`, `db:wipe`, `db:drop`, `db:seed --fresh`, destructive docker volume removals.
+* **Forward-Only Migrations**: Schema evolution must be forward-only (`python dev.py migrate`).
+* **Soft-Deletes Only**: Enforce soft-delete mutations (`deleted_at = now()`, `is_active = False`) instead of physical `DELETE` or `TRUNCATE`.
+* **Protected Tenancy**: Demo and reference data are permanent. Refer to the `craft-database-safety` skill for full protocols.
+
