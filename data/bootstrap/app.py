@@ -23,6 +23,7 @@ def create_app() -> Application:
     # Register framework service providers
     from craft.providers.service_providers import (
         DatabaseServiceProvider,
+        PostgresServiceProvider,
         RouterServiceProvider,
         ViewServiceProvider,
         AuthServiceProvider,
@@ -45,6 +46,7 @@ def create_app() -> Application:
     )
 
     app.register_provider(DatabaseServiceProvider)
+    app.register_provider(PostgresServiceProvider)
     app.register_provider(RouterServiceProvider)
     app.register_provider(ViewServiceProvider)
     app.register_provider(AuthServiceProvider)

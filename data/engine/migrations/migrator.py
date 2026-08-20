@@ -82,6 +82,17 @@ class MigrationFile:
         method = getattr(module, direction, None)
         return method if callable(method) else None
 
+    @property
+    def transactional(self) -> bool:
+        """Whether this migration may be wrapped in a transaction.
+
+        Set `transactional = False` at module level for DDL PostgreSQL refuses
+        inside a transaction block — `CREATE INDEX CONCURRENTLY`,
+        `ALTER TYPE … ADD VALUE`. Such a migration has to be written to be
+        re-runnable, because a failure leaves it half applied with no rollback.
+        """
+        return bool(getattr(self.module, "transactional", True))
+
     def run(self, direction: str = "up") -> None:
         method = self._resolve(direction)
         if method is None:
@@ -187,11 +198,33 @@ class Migrator:
                 self.notes.append(f"[pretend] would migrate {migration.name}")
                 applied.append(migration.name)
                 continue
-            migration.run("up")
-            self._log(migration.name, batch)
+            self._apply(migration, "up", batch)
             self.notes.append(f"Migrated:  {migration.name}")
             applied.append(migration.name)
         return applied
+
+    def _apply(self, migration: MigrationFile, direction: str, batch: int) -> None:
+        """Run one migration and record it — as a single unit of work.
+
+        A migration is one decision, and its ledger row belongs inside it.
+        Running the statements one at a time (each auto-committing, which is
+        what `Connection.statement` does outside a transaction) meant a failure
+        on statement four of seven left a half-built schema and no ledger row
+        to say so — the worst possible state to recover from. PostgreSQL and
+        SQLite both roll back DDL, so this costs nothing where it works and is
+        skipped where it does not.
+        """
+        def work() -> None:
+            migration.run(direction)
+            if direction == "up":
+                self._log(migration.name, batch)
+            else:
+                self._forget(migration.name)
+
+        if migration.transactional and self.db.dialect.supports("transactional_ddl"):
+            self.db.transaction(work)
+        else:
+            work()
 
     def rollback(self, step: int = 1) -> List[str]:
         """Revert the last `step` batches."""
@@ -218,8 +251,7 @@ class Migrator:
                     # silently strand the schema — keep it and tell the user.
                     self.notes.append(f"Migration file missing, skipped:  {name}")
                     continue
-                migration.run("down")
-                self._forget(name)
+                self._apply(migration, "down", current)
                 self.notes.append(f"Rolled back:  {name}")
                 reverted.append(name)
         return reverted

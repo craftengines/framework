@@ -12,8 +12,13 @@ from craft.facades import DB
 from craft.orm.exceptions import ModelNotFoundError
 from craft.orm.model import Model
 
+#: Version 7, RFC 4122 variant. The framework moved off version 4 because a
+#: uniformly random key scatters every insert across the whole index, while a
+#: v7's 48-bit millisecond prefix keeps them appending to one side of it — same
+#: opacity in a URL, materially cheaper to index. The version digit is asserted
+#: rather than wildcarded so a silent regression back to v4 fails here.
 UUID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 )
 
 

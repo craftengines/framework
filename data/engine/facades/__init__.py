@@ -18,6 +18,46 @@ class DB(Facade):
         return "db"
 
 
+class Lock(Facade):
+    """Distributed locks on database advisory locks.
+
+    `Lock.transaction(key)` is the safe default — the database releases it at
+    COMMIT or ROLLBACK, including when the process dies mid-block.
+    `Lock.key(key)` is the session-scoped form for work that spans statements,
+    and it must be released by the same connection that took it.
+    """
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "lock"
+
+
+class Tenant(Facade):
+    """The current tenant — and the session variable isolation policies read.
+
+    `Tenant.scope(tenant_id)` runs a block as one tenant and restores the
+    previous one after; `Tenant.id_or_fail()` is what `TenantScoped` models
+    call, so a query built with nothing bound refuses instead of silently
+    matching nothing.
+    """
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "tenant"
+
+
+class Broadcast(Facade):
+    """Publish events to listening processes over the database.
+
+    The publish happens inside the transaction that produced the event, so a
+    client cannot be told about a row that then rolls back.
+    """
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "broadcast"
+
+
 class Config(Facade):
     @classmethod
     def get_facade_accessor(cls) -> str:

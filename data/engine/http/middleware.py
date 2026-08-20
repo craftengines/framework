@@ -303,6 +303,75 @@ class Authenticate(Middleware):
         return next_callable(request)
 
 
+class ScopeTenant(Middleware):
+    """Bind the request's tenant, so row-level security can isolate it.
+
+    Register it after `Authenticate` — it may resolve the tenant from the
+    authenticated user — and before anything that reads data.
+
+    It refuses to run on a driver without row-level security rather than
+    warning. The schema-per-tenant middleware this replaces logged a line and
+    kept serving requests against shared tables, which is a data-isolation
+    failure wearing the costume of a working feature. `require_isolation=False`
+    is the explicit opt-out for a single-tenant deployment that still wants the
+    binding, and for the test-suite.
+    """
+
+    def __init__(self, app: Any = None, require_isolation: bool = True):
+        self.app = app
+        self.require_isolation = require_isolation
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        container = _container(self.app)
+        tenant = container.make("tenant")
+
+        if self.require_isolation:
+            container.make("db").dialect.require(
+                "rls", "is what isolates one tenant's rows from another's"
+            )
+            # The driver having policies is not the same as the *role* being
+            # subject to them: a superuser or a BYPASSRLS grant makes every
+            # policy inert, and nothing about the table says so. Checked once
+            # per process; see `TenantManager.enforcement`.
+            tenant.assert_enforced()
+
+        tenant.bind(self.resolve(request, container))
+
+        # No try/finally: the kernel's `db.release()` clears the session
+        # variable at checkin, and the ContextVar dies with the thread's copied
+        # context. A reset here would be a second belt on a holding one.
+        return next_callable(request)
+
+    def resolve(self, request: Any, container: Any) -> Any:
+        """Tenant from the host, then from the authenticated user.
+
+        Host first, because it is the boundary a customer can see and an
+        operator can reason about; the user's own tenant is the fallback for
+        single-domain deployments. Override this method to resolve differently —
+        a header, a path segment, an API token claim.
+        """
+        host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0]
+        subdomain = host.split(".")[0] if host.count(".") >= 2 else None
+        if subdomain and subdomain not in ("www", "app", "api"):
+            resolved = self.tenant_for_subdomain(subdomain)
+            if resolved is not None:
+                return resolved
+
+        try:
+            user = container.make("auth").user()
+        except Exception:
+            user = None
+        return user.get_attribute("tenant_id") if user is not None else None
+
+    def tenant_for_subdomain(self, subdomain: str) -> Any:
+        """Look a subdomain up in the application's own tenants table.
+
+        Left as a hook rather than a query, because the engine must not import
+        from `app/` — the tenant model belongs to the application.
+        """
+        return None
+
+
 class RequireAuth(Middleware):
     """Terminate the request when nobody is authenticated."""
 

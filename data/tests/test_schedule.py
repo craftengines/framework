@@ -179,6 +179,14 @@ class TestOverlapPrevention:
     would otherwise stack copies of itself."""
 
     class FakeCache:
+        """Stands in for the cache store, including its atomicity contract.
+
+        `add()` is what the overlap lock uses now — put-if-absent in one step,
+        because `has()` then `put()` let two schedulers both see no lock and
+        both run. The double has to honour that or it tests a mechanism the
+        framework no longer uses.
+        """
+
         def __init__(self):
             self.store = {}
 
@@ -187,6 +195,12 @@ class TestOverlapPrevention:
 
         def put(self, key, value, ttl=None):
             self.store[key] = value
+
+        def add(self, key, value, ttl=None):
+            if key in self.store:
+                return False
+            self.store[key] = value
+            return True
 
         def forget(self, key):
             self.store.pop(key, None)

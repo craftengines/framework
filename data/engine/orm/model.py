@@ -58,10 +58,61 @@ class Model:
     uses_uuid: bool = True
     uuid_column: str = "uuid"
 
+    #: Column -> cast name, e.g. `{"meta": "jsonb", "tags": "array:str"}`.
+    #: Without one, an attribute holds whatever the driver returned and is
+    #: written straight back — which works for text and numbers and fails for
+    #: every structured PostgreSQL type. See `engine/orm/casts.py`.
+    casts: Dict[str, str] = {}
+
     def __init__(self, attributes: Optional[Dict[str, Any]] = None):
         self._attributes: Dict[str, Any] = attributes or {}
         #: Eager-loaded relations, keyed by relation method name.
         self._relations: Dict[str, Any] = {}
+        if self.casts:
+            self._hydrate()
+
+    # -- attribute casting -----------------------------------------------------
+
+    @classmethod
+    def _driver(cls) -> str:
+        try:
+            from engine.container.application import Container
+
+            return Container.getInstance().make("db").driver
+        except Exception:
+            return "sqlite"
+
+    @classmethod
+    def _cast_for(cls, column: str) -> Any:
+        from engine.orm.casts import resolve_cast
+
+        spec = cls.casts.get(column)
+        return resolve_cast(spec) if spec else None
+
+    def _hydrate(self) -> None:
+        """Turn stored values into Python ones, in place."""
+        driver = self._driver()
+        for column in self.casts:
+            if column in self._attributes:
+                cast = self._cast_for(column)
+                self._attributes[column] = cast.hydrate(self._attributes[column], driver)
+
+    @classmethod
+    def _dehydrate(cls, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Turn Python values into ones the driver will accept.
+
+        A copy, not in place: the model keeps the Python value after a write, so
+        `account.meta["plan"]` still reads as a dict rather than as the JSON
+        wrapper that went to the database.
+        """
+        if not cls.casts:
+            return attributes
+        driver = cls._driver()
+        out = dict(attributes)
+        for column in cls.casts:
+            if column in out:
+                out[column] = cls._cast_for(column).dehydrate(out[column], driver)
+        return out
 
     # -- eager-loaded relation cache -------------------------------------------
 
@@ -113,9 +164,24 @@ class Model:
 
     @staticmethod
     def new_uuid() -> str:
+        """A UUIDv7 — 48-bit millisecond timestamp, then randomness.
+
+        Version 4 is uniformly random, so every insert lands on a different
+        B-tree leaf and the index write set is effectively the whole index. A v7
+        sorts by creation time, so inserts append to one side of it instead of
+        scattering across it — same opacity in a URL, materially cheaper to
+        index. PostgreSQL 18 has `uuidv7()` natively; on 16 and 17 it is
+        generated here.
+        """
+        import os
+        import time
         import uuid
 
-        return str(uuid.uuid4())
+        stamp = int(time.time() * 1000).to_bytes(6, "big")
+        rest = bytearray(os.urandom(10))
+        rest[0] = (rest[0] & 0x0F) | 0x70   # version 7
+        rest[2] = (rest[2] & 0x3F) | 0x80   # RFC 4122 variant
+        return str(uuid.UUID(bytes=bytes(stamp) + bytes(rest)))
 
     @classmethod
     def has_uuid_column(cls) -> bool:
@@ -204,7 +270,9 @@ class Model:
             clean_attrs[cls.uuid_column] = cls.new_uuid()
             inst._attributes[cls.uuid_column] = clean_attrs[cls.uuid_column]
 
-        new_id = db.insert_get_id(cls.get_table_name(), clean_attrs, cls.primary_key)
+        new_id = db.insert_get_id(
+            cls.get_table_name(), cls._dehydrate(clean_attrs), cls.primary_key
+        )
         if new_id is not None:
             inst._attributes[cls.primary_key] = new_id
         elif cls.primary_key not in inst._attributes:
@@ -231,7 +299,11 @@ class Model:
             return self
 
         self._attributes["updated_at"] = now
-        updates = {k: v for k, v in self._attributes.items() if k != key}
+        # Dehydrated for the write only — `self._attributes` keeps the Python
+        # values, so the model reads the same before and after a save.
+        updates = self._dehydrate(
+            {k: v for k, v in self._attributes.items() if k != key}
+        )
         for column in updates:
             _assert_identifier(column)
         assignments = ", ".join(f"{column} = ?" for column in updates)

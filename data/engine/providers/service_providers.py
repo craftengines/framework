@@ -19,6 +19,26 @@ class DatabaseServiceProvider(ServiceProvider):
         self.app.make("db").boot()
 
 
+class PostgresServiceProvider(ServiceProvider):
+    """Bindings whose full behaviour needs PostgreSQL.
+
+    Registered unconditionally on every driver. Each service raises through
+    `Dialect.require` if used where it cannot work, which is deliberately
+    louder than not registering it: a missing binding produces a container
+    error that reads like a framework bug, while `require` names the driver,
+    the capability and the way out.
+    """
+
+    def register(self):
+        from engine.orm.locks import LockManager
+        from engine.orm.tenancy import TenantManager
+        from engine.queue.listener import Broadcaster
+
+        self.app.singleton("lock", lambda c: LockManager(c))
+        self.app.singleton("tenant", lambda c: TenantManager(c))
+        self.app.singleton("broadcast", lambda c: Broadcaster(c))
+
+
 class RouterServiceProvider(ServiceProvider):
     def register(self):
         from engine.http.router import Router

@@ -16,6 +16,7 @@ References:
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import logging
@@ -94,6 +95,8 @@ class QueueManager:
 
     def __init__(self, app: Optional[Any] = None):
         self.app = app
+        #: Lazily built database driver — see `store()`.
+        self._store: Optional[Any] = None
 
     # -- resolution ------------------------------------------------------------
 
@@ -164,52 +167,75 @@ class QueueManager:
         except Exception:
             return 90
 
+    # -- database driver -------------------------------------------------------
+
+    def _driver_config(self) -> Dict[str, Any]:
+        try:
+            return dict(
+                self._container().make("config").get("queue.connections.database", {})
+                or {}
+            )
+        except Exception:
+            return {}
+
+    def store(self) -> Any:
+        """The database-backed driver, chosen by capability rather than name.
+
+        `SKIP LOCKED` is what makes claiming scale, so it is used wherever the
+        dialect has it; everything else falls back to the portable
+        select-then-conditional-update claim. The rest of the driver — push,
+        backoff, dead-letter — is shared, so the two paths cannot drift.
+        """
+        if self._store is None:
+            from engine.queue.drivers.base import DatabaseQueueDriver
+            from engine.queue.drivers.postgres import PostgresQueueDriver
+
+            db = self.db
+            config = self._driver_config()
+            config.setdefault("retry_after", self.retry_after)
+            driver_class = (
+                PostgresQueueDriver
+                if db.dialect.supports("skip_locked")
+                else DatabaseQueueDriver
+            )
+            self._store = driver_class(db, config)
+        return self._store
+
+    def forget_store(self) -> None:
+        """Drop the cached driver — the connection or config may have changed."""
+        self._store = None
+
     # -- pushing ---------------------------------------------------------------
 
     def push(self, job: Any, queue: Optional[str] = None) -> Any:
         """Dispatch a job. Runs inline on the `sync` driver."""
-        queue_name = queue or getattr(job, "queue", "default")
-        active_driver = self.driver()
+        return self.later(0, job, queue)
 
-        if active_driver == "sync":
-            job.handle()
-            return None
+    def later(
+        self,
+        delay_seconds: int,
+        job: Any,
+        queue: Optional[str] = None,
+        *,
+        priority: int = 0,
+    ) -> Any:
+        """Dispatch a job that only becomes available after `delay_seconds`.
 
-        if active_driver == "redis":
-            import uuid
-
-            client = self._redis_client()
-            record = {
-                "id": str(uuid.uuid4()),
-                "queue": queue_name,
-                "payload": serialize_job(job),
-                "attempts": 0,
-                "created_at": _now(),
-            }
-            client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
-            return record["id"]
-
-        return self.db.statement(
-            "INSERT INTO jobs (queue, payload, attempts, available_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            [queue_name, serialize_job(job), 0, _now(), _now()],
-        )
-
-    def later(self, delay_seconds: int, job: Any, queue: Optional[str] = None) -> Any:
-        """Dispatch a job that only becomes available after `delay_seconds`."""
-        from datetime import timedelta
+        `priority` is a PostgreSQL-path nicety: higher wins, and the claim's
+        index is ordered to match, so an urgent job overtakes a backlog rather
+        than queueing behind it.
+        """
         import time
 
         active_driver = self.driver()
         queue_name = queue or getattr(job, "queue", "default")
 
         if active_driver == "sync":
-            import logging
-
-            logging.getLogger("craft").warning(
-                "Queue sync driver ignores the %ss delay; running job inline.",
-                delay_seconds,
-            )
+            if delay_seconds:
+                logging.getLogger("craft").warning(
+                    "Queue sync driver ignores the %ss delay; running job inline.",
+                    delay_seconds,
+                )
             job.handle()
             return None
 
@@ -224,24 +250,39 @@ class QueueManager:
                 "attempts": 0,
                 "created_at": _now(),
             }
-            score = time.time() + delay_seconds
-            client.zadd(f"craft_queues_delayed:{queue_name}", {json.dumps(record): score})
+            if delay_seconds:
+                client.zadd(
+                    f"craft_queues_delayed:{queue_name}",
+                    {json.dumps(record): time.time() + delay_seconds},
+                )
+            else:
+                client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
             return record["id"]
 
-        available_at = (
-            datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=delay_seconds)
-        ).isoformat()
-        return self.db.statement(
-            "INSERT INTO jobs (queue, payload, attempts, available_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            [
-                queue_name,
-                serialize_job(job),
-                0,
-                available_at,
-                _now(),
-            ],
+        return self.store().push(
+            serialize_job(job),
+            queue_name,
+            delay=int(delay_seconds),
+            priority=int(priority),
+            max_attempts=int(getattr(job, "max_attempts", 3) or 3),
+            tenant_id=self._current_tenant(),
         )
+
+    @staticmethod
+    def _current_tenant() -> Optional[str]:
+        """The tenant a job was dispatched under, stored with it.
+
+        A worker binds this back before running the job. Without it a job runs
+        under whatever tenant the previous job left behind — or under none,
+        which once row-level security is in place means the job succeeds
+        against an empty result set and reports success.
+        """
+        try:
+            from engine.orm.tenancy import current_tenant_id
+
+            return current_tenant_id()
+        except Exception:
+            return None
 
     def size(self, queue: str = "default") -> int:
         active_driver = self.driver()
@@ -249,16 +290,17 @@ class QueueManager:
             client = self._redis_client()
             return int(client.llen(f"craft_queues:{queue}")) + int(client.zcard(f"craft_queues_delayed:{queue}"))
 
-        row = self.db.statement(
-            "SELECT COUNT(*) AS total FROM jobs WHERE queue = ?", [queue], read=True
-        ).fetchone()
-        return int(row["total"]) if row is not None else 0
+        return self.store().size(queue)
 
     # -- processing ------------------------------------------------------------
 
     def pop(self, queue: str = "default") -> Optional[Dict[str, Any]]:
         """Atomically claim the next available job on the queue."""
         active_driver = self.driver()
+
+        if active_driver == "database":
+            claimed = self.store().claim(queue, count=1)
+            return claimed[0] if claimed else None
 
         if active_driver == "redis":
             import time
@@ -284,75 +326,105 @@ class QueueManager:
             except Exception:
                 return None
 
-        from datetime import timedelta
+        return None
 
-        stale = (
-            datetime.now(timezone.utc).replace(tzinfo=None)
-            - timedelta(seconds=self.retry_after)
-        ).isoformat()
+    def work(self, queue_name: str = "default", max_attempts: Optional[int] = None) -> bool:
+        """Process a single job. Returns True when a job was handled.
 
-        while True:
-            row = self.db.statement(
-                "SELECT * FROM jobs WHERE queue = ? "
-                "AND (available_at IS NULL OR available_at <= ?) "
-                "AND (reserved_at IS NULL OR reserved_at <= ?) "
-                "ORDER BY id ASC LIMIT 1",
-                [queue, _now(), stale],
-                read=True,
-            ).fetchone()
-            if row is None:
-                return None
-
-            record = dict(row)
-            claimed = self.db.statement(
-                "UPDATE jobs SET reserved_at = ?, attempts = attempts + 1 "
-                "WHERE id = ? AND (reserved_at IS NULL OR reserved_at <= ?)",
-                [_now(), record["id"], stale],
-            )
-            if claimed.rowcount == 1:
-                record["attempts"] = int(record.get("attempts") or 0) + 1
-                return record
-
-    def work(self, queue_name: str = "default", max_attempts: int = 3) -> bool:
-        """Process a single job. Returns True when a job was handled."""
+        `max_attempts` is a ceiling the caller may impose; the job's own
+        `max_attempts` is the default, because how many times a job is worth
+        retrying is a property of the job, not of the worker that happened to
+        pick it up.
+        """
         record = self.pop(queue_name)
         if record is None:
             return False
 
-        job = deserialize_job(record.get("payload"))
-        if job is None:
-            self.fail(record, "Job payload could not be deserialised.")
-            return False
+        limit = int(
+            max_attempts
+            if max_attempts is not None
+            else (record.get("max_attempts") or 3)
+        )
 
         try:
-            job.handle()
+            job = deserialize_job(record.get("payload"))
+            if job is None:
+                self.fail(record, "Job payload could not be deserialised.")
+                return False
+
+            with self._tenant_scope(record.get("tenant_id")):
+                job.handle()
+
+            if self.driver() == "database":
+                # Before the connection goes back, not after: the delete belongs
+                # to the same checkout that ran the job, and on a queue table
+                # under a row-level security policy a released connection would
+                # no longer match the row it just processed.
+                self.store().complete(record)
+
         except Exception as exc:
             attempts = int(record.get("attempts") or 0)
-            if attempts >= max_attempts:
-                self.fail(record, str(exc))
+            if attempts >= limit:
+                self.fail(record, repr(exc))
             else:
-                if self.driver() == "redis":
-                    # Re-queue on redis
-                    client = self._redis_client()
-                    client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
-                else:
-                    self.db.statement(
-                        "UPDATE jobs SET reserved_at = NULL WHERE id = ?",
-                        [record["id"]],
-                    )
+                self.release(record, queue_name, repr(exc))
             return False
 
-        if self.driver() == "database":
-            self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
+        finally:
+            self._release_connection()
+
         return True
 
+    @contextlib.contextmanager
+    def _tenant_scope(self, tenant_id: Optional[str]):
+        """Run the job under the tenant it was dispatched by, if there is one."""
+        try:
+            from engine.orm.tenancy import TenantManager
+        except ImportError:
+            yield
+            return
+
+        with TenantManager(self.app).scope(tenant_id, local=False):
+            yield
+
+    def _release_connection(self) -> None:
+        """Give the pooled connection back between jobs.
+
+        The HTTP kernel does this at the end of every request; a worker never
+        did, so it held one connection per thread for its whole lifetime — the
+        exact exhaustion the pool exists to prevent — and carried any session
+        state set by one job into the next.
+        """
+        try:
+            self.db.release()
+        except Exception:
+            pass
+
+    def release(self, record: Dict[str, Any], queue_name: str, reason: str) -> None:
+        """Return a job to its queue for a later attempt."""
+        if self.driver() == "redis":
+            client = self._redis_client()
+            client.rpush(f"craft_queues:{queue_name}", json.dumps(record))
+            return
+        delay = self.store().retry(record, reason)
+        logging.getLogger("craft").info(
+            "Job %s attempt %s failed; retrying in %.1fs: %s",
+            record.get("uuid") or record.get("id"), record.get("attempts"), delay, reason,
+        )
+
     def fail(self, record: Dict[str, Any], reason: str) -> None:
-        """Remove a job from the queue and report the failure."""
+        """Bury a spent job in the dead-letter table and report the failure.
+
+        This used to DELETE the row and write a log line, which destroyed the
+        payload — nothing left to inspect and nothing left to retry. The job now
+        survives in `failed_jobs` until somebody decides otherwise.
+        """
         if self.driver() == "database":
-            self.db.statement("DELETE FROM jobs WHERE id = ?", [record["id"]])
+            self.store().bury(record, reason)
         try:
             self._container().make("log").error(
-                "Job failed permanently (queue=%s): %s", record.get("queue"), reason
+                "Job failed permanently (queue=%s, uuid=%s): %s",
+                record.get("queue"), record.get("uuid"), reason,
             )
         except Exception:
             pass
@@ -364,4 +436,18 @@ class QueueManager:
             client.delete(f"craft_queues:{queue}")
             client.delete(f"craft_queues_delayed:{queue}")
             return int(q_len)
-        return self.db.statement("DELETE FROM jobs WHERE queue = ?", [queue]).rowcount
+        return self.store().clear(queue)
+
+    # -- dead letter -----------------------------------------------------------
+
+    def failed(self, queue: Optional[str] = None, limit: int = 50) -> list:
+        """Jobs that exhausted their attempts, newest first."""
+        return self.store().failed(queue, limit)
+
+    def retry_failed(self, job_uuid: Optional[str] = None) -> int:
+        """Move failed jobs back onto their queue. Returns how many moved."""
+        return self.store().retry_failed(job_uuid)
+
+    def reclaim(self, retry_after: Optional[int] = None) -> int:
+        """Free reservations held by workers that died. Returns how many."""
+        return self.store().reclaim_stale(retry_after)

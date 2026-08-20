@@ -41,6 +41,17 @@ class Store:
     def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         raise NotImplementedError
 
+    def add(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Store only if the key is absent. True when this caller won.
+
+        Atomic put-if-absent, which `has()` followed by `put()` is not: two
+        callers racing the same key both see it missing and both proceed, so
+        every guarantee built on that pair — the scheduler's overlap lock, most
+        of all — silently does not hold. Each store implements it with whatever
+        primitive it actually has.
+        """
+        raise NotImplementedError
+
     def forget(self, key: str) -> None:
         raise NotImplementedError
 
@@ -69,6 +80,16 @@ class ArrayStore(Store):
     def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         with self._lock:
             self._items[key] = (value, time.time() + ttl if ttl else None)
+
+    def add(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        with self._lock:
+            entry = self._items.get(key)
+            if entry is not None:
+                expires_at = entry[1]
+                if expires_at is None or expires_at >= time.time():
+                    return False
+            self._items[key] = (value, time.time() + ttl if ttl else None)
+            return True
 
     def expires_in(self, key: str) -> Optional[float]:
         with self._lock:
@@ -132,6 +153,37 @@ class FileStore(Store):
         except (TypeError, OSError):
             pass
 
+    def add(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Exclusive create — the filesystem does the arbitration.
+
+        `O_CREAT | O_EXCL` fails if the file exists, atomically, across
+        processes on the same host. An expired entry is removed first so a
+        stale lock file does not block the key forever.
+        """
+        path = self._path(key)
+        if self.get(key) is None:
+            # Either absent or expired; only the expired case needs clearing.
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+        payload = {"value": value, "expires_at": time.time() + ttl if ttl else None}
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            return False
+        except OSError:
+            return False
+
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle)
+        except (TypeError, OSError):
+            self.forget(key)
+            return False
+        return True
+
     def forget(self, key: str) -> None:
         try:
             os.remove(self._path(key))
@@ -176,6 +228,12 @@ class RedisStore(Store):
             self.client.setex(key, int(ttl), payload)
         else:
             self.client.set(key, payload)
+
+    def add(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """`SET key value NX EX ttl` — one round trip, atomic across hosts."""
+        return bool(
+            self.client.set(key, json.dumps(value, default=str), nx=True, ex=ttl or None)
+        )
 
     def forget(self, key: str) -> None:
         self.client.delete(key)
@@ -258,6 +316,15 @@ class CacheManager:
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         self.put(key, value, ttl)
+
+    def add(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Store only if absent. True when this caller won the race.
+
+        Reach for this instead of `has()` then `put()` whenever the answer
+        decides who does the work — a lock, a once-only side effect, a
+        deduplicated dispatch. The pair is not atomic; this is.
+        """
+        return self.store.add(key, value, ttl)
 
     def has(self, key: str) -> bool:
         return self.store.get(key) is not None

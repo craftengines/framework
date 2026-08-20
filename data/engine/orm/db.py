@@ -146,6 +146,11 @@ class DatabaseManager:
     def driver(self) -> str:
         return self.write_connection.driver
 
+    @property
+    def dialect(self) -> Any:
+        """What the active driver can be asked to do (`engine/orm/dialect.py`)."""
+        return self.write_connection.dialect
+
     def connection(self, name: Optional[str] = None) -> Connection:
         """Get (and cache) a named connection from the config."""
         if name is None:

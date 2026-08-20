@@ -20,6 +20,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Type
 
+from engine.orm.postgres.macros import PostgresMacros
+
 #: Sentinel telling `where()` apart from an explicit `None` value.
 _MISSING = object()
 
@@ -69,8 +71,14 @@ def _assert_having_column(column: str) -> str:
     return column
 
 
-class QueryBuilder:
-    """Fluent SQL query builder backed by the application's DatabaseManager."""
+class QueryBuilder(PostgresMacros):
+    """Fluent SQL query builder backed by the application's DatabaseManager.
+
+    The PostgreSQL macros (`where_json_contains`, `where_search`,
+    `order_by_vector_distance`, …) arrive through `PostgresMacros`. They build
+    an `Expr` rather than widening the allowlists below, so the identifier and
+    operator checks that guard every clause here stay exactly as strict.
+    """
 
     def __init__(
         self,
@@ -108,6 +116,12 @@ class QueryBuilder:
         self._eager: List[str] = []
         self._vector_searches: List[Dict[str, Any]] = []
         self._vector_orders: List[Dict[str, Any]] = []
+        self._vector_metric: str = "cosine"
+        #: Framework-authored fragments (`engine/orm/expression.py`) projected
+        #: or ordered by. Kept apart from `_columns` / `_orders` because they
+        #: carry bindings, and bindings must be spliced in clause order.
+        self._select_exprs: List[tuple] = []
+        self._order_exprs: List[tuple] = []
 
     # -- selection -------------------------------------------------------------
 
@@ -174,6 +188,57 @@ class QueryBuilder:
     def where_like(self, column: str, pattern: str) -> "QueryBuilder":
         return self.where(column, "LIKE", pattern)
 
+    # -- expression clauses ----------------------------------------------------
+
+    def where_expr(self, expr: Any, boolean: str = "AND") -> "QueryBuilder":
+        """Constrain by a framework-authored fragment.
+
+        Not application API — the dialect macros in `engine/orm/postgres/` are.
+        `Expr` exists so those macros can reach operators the allowlists above
+        deliberately refuse (`@>`, `@@`, `<=>`) *without* opening the same door
+        to a column name that came from request input: the operator is a
+        literal in framework source, every value is a binding.
+        """
+        from engine.orm.expression import Expr
+
+        if not isinstance(expr, Expr):
+            raise TypeError(
+                "where_expr() takes an Expr built by a framework macro, not a "
+                "SQL string. Building one from caller input would bypass every "
+                "identifier check in this module."
+            )
+        self._wheres.append({"boolean": boolean, "type": "expr", "expr": expr})
+        return self
+
+    def or_where_expr(self, expr: Any) -> "QueryBuilder":
+        return self.where_expr(expr, boolean="OR")
+
+    def select_expr(self, expr: Any, alias: str) -> "QueryBuilder":
+        """Project a fragment under `alias`, alongside the existing columns.
+
+        A bare `SELECT *` is widened to `table.*` first, so adding a computed
+        column (a search rank, a vector distance) never costs the row itself.
+        """
+        from engine.orm.expression import Expr
+
+        if not isinstance(expr, Expr):
+            raise TypeError("select_expr() takes an Expr built by a framework macro.")
+        _assert_identifier(alias)
+        if self._columns == ["*"]:
+            self._columns = [f"{self.table_name}.*"]
+        self._select_exprs.append((expr, alias))
+        return self
+
+    def order_by_expr(self, expr: Any, direction: str = "asc") -> "QueryBuilder":
+        from engine.orm.expression import Expr
+
+        if not isinstance(expr, Expr):
+            raise TypeError("order_by_expr() takes an Expr built by a framework macro.")
+        self._order_exprs.append(
+            (expr, "DESC" if str(direction).lower() == "desc" else "ASC")
+        )
+        return self
+
     # -- joins / grouping ------------------------------------------------------
 
     def join(self, table: str, first: str, operator: str, second: str) -> "QueryBuilder":
@@ -223,8 +288,26 @@ class QueryBuilder:
         vector: Sequence[float],
         ascending: bool = False,
     ) -> "QueryBuilder":
-        """Sort results by vector similarity (nearest neighbors)."""
+        """Sort by vector similarity — most similar first.
+
+        On PostgreSQL this compiles to pgvector's distance operator, which an
+        HNSW index can answer directly. Elsewhere it falls back to scoring in
+        Python, which reads the whole result set into the process; that path
+        exists so the test-suite and development on SQLite keep working, not
+        because it is a way to search a real corpus.
+
+        `ascending=True` means least similar first. It reads backwards next to
+        the distance operator — where ascending distance *is* descending
+        similarity — so the flag is kept on the similarity reading it has always
+        had, and the operator ordering is derived from it.
+        """
         _assert_identifier(column)
+        if self._vector_native():
+            expression = self._vector_distance(column, vector, self._vector_metric)
+            self.select_expr(expression, "distance")
+            # Ascending distance is descending similarity, so the flag inverts.
+            return self.order_by_expr(expression, "desc" if ascending else "asc")
+
         self._vector_orders.append({
             "column": column,
             "vector": list(vector),
@@ -239,15 +322,26 @@ class QueryBuilder:
         min_similarity: float = 0.7,
         metric: str = "cosine",
     ) -> "QueryBuilder":
-        """Filter records by vector similarity."""
+        """Keep only rows at least `min_similarity` close to `vector`."""
         _assert_identifier(column)
+        self._vector_metric = str(metric).lower()
+        if self._vector_native():
+            return self.where_vector_near(
+                column, vector, min_similarity=min_similarity, metric=self._vector_metric
+            )
+
         self._vector_searches.append({
             "column": column,
             "vector": list(vector),
             "min_similarity": float(min_similarity),
-            "metric": metric.lower(),
+            "metric": self._vector_metric,
         })
         return self
+
+    def _vector_native(self) -> bool:
+        """Whether the database can do the distance arithmetic itself."""
+        dialect = getattr(self.db, "dialect", None)
+        return dialect is not None and dialect.supports("vector")
 
     def latest(self, column: str = "created_at") -> "QueryBuilder":
         return self.order_by(column, "desc")
@@ -288,7 +382,8 @@ class QueryBuilder:
         params: List[Any] = []
         for where in self._wheres:
             kind = where.get("type")
-            column = where["column"]
+            # Absent for an "expr" clause, which carries its own SQL.
+            column = where.get("column")
 
             if kind == "in" or kind == "not_in":
                 if not where["value"]:
@@ -305,6 +400,9 @@ class QueryBuilder:
             elif kind == "between":
                 condition = f"{column} BETWEEN ? AND ?"
                 params.extend(where["value"])
+            elif kind == "expr":
+                condition = where["expr"].sql
+                params.extend(where["expr"].bindings)
             else:
                 operator = str(where["operator"])
                 if operator.upper() not in _ALLOWED_OPERATORS:
@@ -324,15 +422,32 @@ class QueryBuilder:
 
         return " WHERE " + combined, params
 
-    def to_sql(self) -> tuple[str, List[Any]]:
+    def to_sql(self, without_paging: bool = False) -> tuple[str, List[Any]]:
+        """Compile to SQL and its bindings.
+
+        `without_paging` omits LIMIT/OFFSET, for the one caller that has to
+        score rows in Python before it can know which page they belong to.
+        """
+        # Bindings are accumulated strictly in clause order. It matters because
+        # `normalize_placeholders()` (connection.py) rewrites `?` positionally
+        # for the format-paramstyle drivers — a select expression's value
+        # appended after the wheres would be bound to a where's placeholder.
+        params: List[Any] = []
+
+        projections = list(self._columns)
+        for expr, alias in self._select_exprs:
+            projections.append(f"{expr.sql} AS {alias}")
+            params.extend(expr.bindings)
+
         distinct = "DISTINCT " if self._distinct else ""
-        query = f"SELECT {distinct}{', '.join(self._columns)} FROM {self.table_name}"
+        query = f"SELECT {distinct}{', '.join(projections)} FROM {self.table_name}"
 
         for join in self._joins:
             query += f" {join}"
 
-        where_sql, params = self._compile_wheres()
+        where_sql, where_params = self._compile_wheres()
         query += where_sql
+        params.extend(where_params)
 
         if self._group_by:
             query += " GROUP BY " + ", ".join(self._group_by)
@@ -344,14 +459,19 @@ class QueryBuilder:
                 params.append(having["value"])
             query += " HAVING " + " AND ".join(parts)
 
-        if self._orders:
-            query += " ORDER BY " + ", ".join(self._orders)
+        orders = list(self._orders)
+        for expr, direction in self._order_exprs:
+            orders.append(f"{expr.sql} {direction}")
+            params.extend(expr.bindings)
+        if orders:
+            query += " ORDER BY " + ", ".join(orders)
 
-        if self._limit is not None:
-            query += f" LIMIT {int(self._limit)}"
+        if not without_paging:
+            if self._limit is not None:
+                query += f" LIMIT {int(self._limit)}"
 
-        if self._offset is not None:
-            query += f" OFFSET {int(self._offset)}"
+            if self._offset is not None:
+                query += f" OFFSET {int(self._offset)}"
 
         return query, params
 
@@ -393,7 +513,9 @@ class QueryBuilder:
             relation.match(models, results)
 
     def get(self) -> Any:
-        query, params = self.to_sql()
+        needs_scoring = bool(self._vector_searches or self._vector_orders)
+
+        query, params = self.to_sql(without_paging=needs_scoring)
         rows = self.db.statement(query, params, read=True).fetchall()
 
         results: List[Any] = []
@@ -401,91 +523,101 @@ class QueryBuilder:
             row_dict = dict(row)
             results.append(self.model_class(row_dict) if self.model_class else row_dict)
 
-        # Vector semantic filtering and similarity ranking
-        if self._vector_searches or self._vector_orders:
-            import json
-
-            filtered = []
-            for item in results:
-                include = True
-                sim_score = 0.0
-
-                for v_search in self._vector_searches:
-                    col = v_search["column"]
-                    target_vec = v_search["vector"]
-                    min_sim = v_search["min_similarity"]
-
-                    raw_val = item.get_attribute(col) if hasattr(item, "get_attribute") else item.get(col)
-                    if isinstance(raw_val, (list, tuple)):
-                        row_vec = [float(x) for x in raw_val]
-                    elif isinstance(raw_val, str):
-                        try:
-                            parsed = json.loads(raw_val)
-                            row_vec = [float(x) for x in parsed] if isinstance(parsed, (list, tuple)) else None
-                        except Exception:
-                            row_vec = None
-                    else:
-                        row_vec = None
-
-                    if row_vec is None:
-                        include = False
-                        break
-
-                    # Cosine similarity calculation
-                    dot = sum(a * b for a, b in zip(row_vec, target_vec))
-                    norm_a = sum(a * a for a in row_vec) ** 0.5
-                    norm_b = sum(b * b for b in target_vec) ** 0.5
-                    sim = (dot / (norm_a * norm_b)) if (norm_a > 0 and norm_b > 0) else 0.0
-                    sim_score = sim
-                    if sim < min_sim:
-                        include = False
-                        break
-
-                if not include:
-                    continue
-
-                for v_order in self._vector_orders:
-                    col = v_order["column"]
-                    target_vec = v_order["vector"]
-                    raw_val = item.get_attribute(col) if hasattr(item, "get_attribute") else item.get(col)
-                    if isinstance(raw_val, (list, tuple)):
-                        row_vec = [float(x) for x in raw_val]
-                    elif isinstance(raw_val, str):
-                        try:
-                            parsed = json.loads(raw_val)
-                            row_vec = [float(x) for x in parsed] if isinstance(parsed, (list, tuple)) else None
-                        except Exception:
-                            row_vec = None
-                    else:
-                        row_vec = None
-
-                    if row_vec is not None and len(row_vec) == len(target_vec):
-                        dot = sum(a * b for a, b in zip(row_vec, target_vec))
-                        norm_a = sum(a * a for a in row_vec) ** 0.5
-                        norm_b = sum(b * b for b in target_vec) ** 0.5
-                        sim_score = (dot / (norm_a * norm_b)) if (norm_a > 0 and norm_b > 0) else 0.0
-
-                if hasattr(item, "set_attribute"):
-                    item.similarity_score = sim_score
-                elif isinstance(item, dict):
-                    item["similarity_score"] = sim_score
-
-                filtered.append(item)
-
-            if self._vector_orders:
-                asc = self._vector_orders[0]["ascending"]
-                filtered.sort(
-                    key=lambda x: getattr(x, "similarity_score", 0.0) if hasattr(x, "similarity_score") else x.get("similarity_score", 0.0),
-                    reverse=not asc,
-                )
-
-            results = filtered
+        if needs_scoring:
+            results = self._score_vectors(results)
 
         self._eager_load(results)
 
         from engine.support.collection import Collection
 
         return Collection(results)
+
+    # -- in-process vector scoring (drivers without pgvector) ------------------
+
+    def _score_vectors(self, results: List[Any]) -> List[Any]:
+        """Filter and rank by cosine similarity in Python.
+
+        Only reached on a driver without pgvector — everywhere else the
+        distance operator does this inside the database, against an index.
+        Kept so development and the test-suite work on SQLite.
+
+        Two things it gets right that the previous implementation did not: the
+        SQL runs *without* LIMIT/OFFSET so scoring sees the whole candidate set
+        (paging applied before scoring silently truncated the corpus, then
+        ranked whatever survived), and paging is re-applied afterwards so the
+        page returned matches the page requested.
+        """
+        scored: List[Any] = []
+        for item in results:
+            score = None
+            keep = True
+
+            for search in self._vector_searches:
+                similarity = self._cosine(item, search["column"], search["vector"])
+                if similarity is None or similarity < search["min_similarity"]:
+                    keep = False
+                    break
+                score = similarity
+
+            if not keep:
+                continue
+
+            for order in self._vector_orders:
+                similarity = self._cosine(item, order["column"], order["vector"])
+                if similarity is not None:
+                    score = similarity
+
+            self._set_score(item, 0.0 if score is None else score)
+            scored.append(item)
+
+        if self._vector_orders:
+            ascending = self._vector_orders[0]["ascending"]
+            scored.sort(key=self._read_score, reverse=not ascending)
+
+        offset = self._offset or 0
+        if self._limit is not None:
+            return scored[offset:offset + self._limit]
+        return scored[offset:] if offset else scored
+
+    @staticmethod
+    def _row_vector(item: Any, column: str) -> Optional[List[float]]:
+        raw = (
+            item.get_attribute(column) if hasattr(item, "get_attribute") else item.get(column)
+        )
+        from engine.orm.casts import VectorCast
+
+        value = VectorCast().hydrate(raw, "sqlite")
+        if isinstance(value, (list, tuple)):
+            try:
+                return [float(component) for component in value]
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    @classmethod
+    def _cosine(cls, item: Any, column: str, target: Sequence[float]) -> Optional[float]:
+        vector = cls._row_vector(item, column)
+        if vector is None or len(vector) != len(target):
+            # A dimension mismatch is a data problem, not a distance of zero —
+            # scoring it 0.0 would quietly rank it last instead of excluding it.
+            return None
+        dot = sum(a * b for a, b in zip(vector, target))
+        norm_a = sum(a * a for a in vector) ** 0.5
+        norm_b = sum(b * b for b in target) ** 0.5
+        return (dot / (norm_a * norm_b)) if norm_a > 0 and norm_b > 0 else 0.0
+
+    @staticmethod
+    def _set_score(item: Any, score: float) -> None:
+        if isinstance(item, dict):
+            item["similarity_score"] = score
+        else:
+            item.similarity_score = score
+
+    @staticmethod
+    def _read_score(item: Any) -> float:
+        if isinstance(item, dict):
+            return float(item.get("similarity_score") or 0.0)
+        return float(getattr(item, "similarity_score", 0.0) or 0.0)
 
     def first(self) -> Any:
         previous_limit = self._limit
@@ -511,14 +643,25 @@ class QueryBuilder:
 
     def _aggregate(self, expression: str) -> Any:
         # GROUP BY is cleared too: an aggregate over a grouped query would
-        # otherwise return only the first group's value.
-        original = (self._columns, self._orders, self._group_by)
-        self._columns, self._orders, self._group_by = [f"{expression} AS aggregate"], [], []
+        # otherwise return only the first group's value. So are the expression
+        # projections and orderings — a `COUNT(*)` that still carried a vector
+        # distance in its SELECT list would bind values the aggregate has no
+        # placeholder for, and ordering an aggregate is meaningless anyway.
+        original = (
+            self._columns, self._orders, self._group_by,
+            self._select_exprs, self._order_exprs,
+        )
+        self._columns = [f"{expression} AS aggregate"]
+        self._orders, self._group_by = [], []
+        self._select_exprs, self._order_exprs = [], []
         try:
             query, params = self.to_sql()
             row = self.db.statement(query, params, read=True).fetchone()
         finally:
-            self._columns, self._orders, self._group_by = original
+            (
+                self._columns, self._orders, self._group_by,
+                self._select_exprs, self._order_exprs,
+            ) = original
         return row["aggregate"] if row is not None else None
 
     @staticmethod
@@ -553,12 +696,45 @@ class QueryBuilder:
     MAX_PER_PAGE = 100
 
     def paginate(self, per_page: int = 15, page: int = 1) -> Any:
+        if self._vector_searches and not self._vector_native():
+            # A SQL COUNT cannot see a filter applied in Python, so the totals
+            # used to describe a different result set than the one returned —
+            # "1 of 40" over three items. Count what the caller will actually
+            # get instead.
+            return self._paginate_scored(per_page, page)
+
         total = self.count()
         page = max(page, 1)
         per_page = max(1, min(int(per_page or 15), self.MAX_PER_PAGE))
         self._limit = per_page
         self._offset = (page - 1) * per_page
         items = self.get()
+        items.pagination = {
+            "total": total,
+            "per_page": per_page,
+            "current_page": page,
+            "last_page": max(1, -(-total // per_page)),
+        }
+        return items
+
+    def _paginate_scored(self, per_page: int, page: int) -> Any:
+        """Paginate a result set whose filter runs in Python, honestly."""
+        page = max(page, 1)
+        per_page = max(1, min(int(per_page or 15), self.MAX_PER_PAGE))
+
+        limit, offset = self._limit, self._offset
+        self._limit = self._offset = None
+        try:
+            everything = list(self.get())
+        finally:
+            self._limit, self._offset = limit, offset
+
+        total = len(everything)
+        start = (page - 1) * per_page
+
+        from engine.support.collection import Collection
+
+        items = Collection(everything[start:start + per_page])
         items.pagination = {
             "total": total,
             "per_page": per_page,

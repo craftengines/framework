@@ -227,6 +227,17 @@ def db_show() -> None:
     echo(f"Port       : {settings.get('port', '-')}")
     echo(f"Database   : {settings.get('database', '-')}")
 
+    dialect = db.dialect
+    version = getattr(dialect, "version", None)
+    if version is not None:
+        from craft.orm.dialect import RECOMMENDED_POSTGRES, format_version
+
+        echo(f"Server     : PostgreSQL {format_version(version)} "
+             f"(recommended {format_version(RECOMMENDED_POSTGRES)}+)")
+        advice = dialect.version_advice()
+        if advice:
+            echo(f"             {advice}", "red" if not dialect.meets_minimum else "yellow")
+
 
 @db_app.command("ping")
 def db_ping() -> None:
@@ -238,6 +249,145 @@ def db_ping() -> None:
     except Exception as exc:
         echo(f"Connection FAILED: {exc}", "red")
         raise typer.Exit(code=1) from None
+
+
+@db_app.command("extensions")
+def db_extensions() -> None:
+    """Show which PostgreSQL extensions are installed, and what each is for."""
+    app = get_app()
+    db = app.make("db")
+    schema = app.make("schema")
+
+    if not db.dialect.supports("extensions"):
+        echo(f"The {db.driver!r} driver has no extensions.", "yellow")
+        return
+
+    installed = set(schema.installed_extensions())
+    for name, purpose in sorted(schema.KNOWN_EXTENSIONS.items()):
+        mark, colour = ("installed", "green") if name in installed else ("-", "yellow")
+        echo(f"  {mark:>10}  {name:<12} {purpose}", colour)
+
+    extra = installed - set(schema.KNOWN_EXTENSIONS)
+    for name in sorted(extra):
+        echo(f"  {'installed':>10}  {name:<12} (not used by the framework)")
+
+
+@db_app.command("partitions")
+def db_partitions(
+    table: str = typer.Argument(..., help="The partitioned table."),
+    ahead: int = typer.Option(3, help="How many months ahead to create."),
+) -> None:
+    """Create the upcoming partitions for a range-partitioned table.
+
+    Schedule this. A range-partitioned table with no partition covering today
+    rejects inserts, so the task is what keeps the table writable — not a
+    tidiness measure.
+    """
+    created = get_app().make("schema").ensure_partitions(table, ahead=ahead)
+    for name in created:
+        echo(f"  ready  {name}", "green")
+    echo(f"{len(created)} partition(s) present through {ahead} month(s) ahead.")
+
+
+@db_app.command("locks")
+def db_locks(
+    key: str = typer.Argument(None, help="Explain one lock key instead of listing.")
+) -> None:
+    """Show the advisory locks currently held."""
+    app = get_app()
+    lock = app.make("lock")
+
+    if not lock.supported():
+        echo(f"The {app.make('db').driver!r} driver has no advisory locks.", "yellow")
+        raise typer.Exit(code=1)
+
+    if key:
+        report = lock.explain(key)
+        echo(f"  {report['key']}  ->  {report['id']}")
+        for holder in report["holders"]:
+            echo(f"      pid {holder['pid']}  granted={holder['granted']}")
+        if not report["holders"]:
+            echo("      not held", "green")
+        return
+
+    rows = app.make("db").statement(
+        "SELECT pid, classid, objid, granted FROM pg_locks "
+        "WHERE locktype = 'advisory' ORDER BY pid",
+        read=True,
+    ).fetchall()
+    for row in rows:
+        echo(f"  pid {row['pid']}  classid={row['classid']} objid={row['objid']} "
+             f"granted={row['granted']}")
+    echo(f"{len(rows)} advisory lock(s) held.")
+
+
+@db_app.command("audit-rls")
+def db_audit_rls() -> None:
+    """Fail if a table carrying `tenant_id` is not actually isolated.
+
+    Meant for CI. The realistic way tenant isolation decays is a table added
+    without `t.tenant_scoped()`: nothing errors, nothing looks wrong, and one
+    table serves every tenant's rows to everyone. This is the check that
+    notices before a customer does.
+    """
+    app = get_app()
+    db = app.make("db")
+
+    if not db.dialect.supports("rls"):
+        echo(
+            f"The {db.driver!r} driver has no row-level security, so there is "
+            f"nothing to audit — and nothing isolating your tenants. Run this "
+            f"against the PostgreSQL connection you deploy with.",
+            "yellow",
+        )
+        raise typer.Exit(code=1)
+
+    tenant = app.make("tenant")
+
+    # The role first. Policies that cannot apply to the connecting role are
+    # decoration, and every table below would report itself protected.
+    status = tenant.enforcement(refresh=True)
+    if status["enforced"]:
+        echo(f"  role         {status['role']} — subject to policies", "green")
+    else:
+        echo(
+            f"  ROLE         {status['role']} — {status['reason']}. Every policy "
+            f"on this database is inert; connect the application as a role that "
+            f"is neither a superuser nor granted BYPASSRLS.",
+            "red",
+        )
+
+    report = tenant.audit()
+    if not report:
+        echo("No tenant-scoped tables found.", "yellow")
+        raise typer.Exit(code=0 if status["enforced"] else 1)
+
+    unprotected = [row for row in report if not row["protected"]]
+    for row in report:
+        if row.get("exempt"):
+            echo(f"  carrier      {row['table_name']}  "
+                 f"(tenant_id routes work, it does not scope rows)", "yellow")
+        elif row["protected"]:
+            echo(f"  ok           {row['table_name']}  "
+                 f"({row['policies']} policy/policies, forced)", "green")
+        else:
+            echo(f"  UNPROTECTED  {row['table_name']}  "
+                 f"(enabled={row['rls_enabled']}, forced={row['rls_forced']}, "
+                 f"policies={row['policies']})", "red")
+
+    if unprotected:
+        echo(
+            f"\n{len(unprotected)} of {len(report)} tenant-scoped table(s) are not "
+            f"isolated. Add `t.tenant_scoped()` in a migration, or "
+            f"`Schema.enable_row_level_security()` plus "
+            f"`Schema.create_tenant_policy()` for an existing table.",
+            "red",
+        )
+    elif status["enforced"]:
+        echo(f"\nAll {len(report)} tenant-scoped table(s) are isolated.", "green")
+
+    if unprotected or not status["enforced"]:
+        raise typer.Exit(code=1)
 
 
 @db_app.command("tables")
@@ -474,11 +624,15 @@ def route_list(
 def queue_work(
     queue: str = typer.Option("default", help="Queue name to process."),
     once: bool = typer.Option(False, help="Process a single job then exit."),
+    listen: bool = typer.Option(
+        False, "--listen", help="Wake on LISTEN/NOTIFY instead of polling (PostgreSQL)."
+    ),
 ) -> None:
     """Process jobs from the queue."""
     import time
 
-    manager = get_app().make("queue")
+    app = get_app()
+    manager = app.make("queue")
 
     # On the `sync` driver, `push()` runs jobs inline and nothing ever reaches
     # the `jobs` table — so the worker would print "processing" and spin
@@ -492,6 +646,31 @@ def queue_work(
         )
         raise typer.Exit(code=1)
 
+    def drain() -> int:
+        """Work the queue until it is empty, and say how many jobs ran."""
+        done = 0
+        while manager.work(queue):
+            done += 1
+            echo("Processed a job.", "green")
+        return done
+
+    if listen:
+        from craft.queue.listener import Listener, queue_channel
+
+        db = app.make("db")
+        if not db.dialect.supports("listen_notify"):
+            echo(
+                f"--listen needs PostgreSQL; the {db.driver!r} driver has no "
+                f"LISTEN/NOTIFY. Run without it to poll instead.",
+                "red",
+            )
+            raise typer.Exit(code=1)
+
+        echo(f"Waiting for jobs on the [{queue}] queue (LISTEN).", "green")
+        drain()  # anything enqueued before the listener attached
+        Listener(db, [queue_channel(queue)]).run(lambda channel, payload: drain())
+        return
+
     echo(f"Processing jobs from the [{queue}] queue.", "green")
     while True:
         processed = manager.work(queue)
@@ -501,6 +680,49 @@ def queue_work(
             break
         if not processed:
             time.sleep(1)
+
+
+@queue_app.command("failed")
+def queue_failed(
+    queue: str = typer.Option(None, help="Only this queue."),
+    limit: int = typer.Option(50, help="How many to show."),
+) -> None:
+    """List jobs that exhausted their attempts, newest first."""
+    records = get_app().make("queue").failed(queue, limit)
+    if not records:
+        echo("No failed jobs.", "green")
+        return
+
+    for record in records:
+        echo(f"  {record.get('uuid')}  [{record.get('queue')}]  "
+             f"{record.get('attempts')} attempt(s)  {record.get('failed_at')}")
+        echo(f"      {str(record.get('exception') or '').splitlines()[0][:160]}", "yellow")
+    echo(f"{len(records)} failed job(s).")
+
+
+@queue_app.command("retry")
+def queue_retry(
+    job_uuid: str = typer.Argument(None, help="Job UUID, or omit with --all."),
+    all_jobs: bool = typer.Option(False, "--all", help="Retry every failed job."),
+) -> None:
+    """Move failed jobs back onto their queue."""
+    if not job_uuid and not all_jobs:
+        echo("Give a job UUID, or --all to retry every failed job.", "red")
+        raise typer.Exit(code=1)
+
+    moved = get_app().make("queue").retry_failed(None if all_jobs else job_uuid)
+    echo(f"Re-queued {moved} job(s).", "green" if moved else "yellow")
+
+
+@queue_app.command("reclaim")
+def queue_reclaim(
+    retry_after: int = typer.Option(
+        None, help="Seconds after which a reservation is assumed dead."
+    ),
+) -> None:
+    """Free reservations held by workers that died mid-flight."""
+    freed = get_app().make("queue").reclaim(retry_after)
+    echo(f"Reclaimed {freed} job(s).", "green" if freed else "yellow")
 
 
 # -- schedule -------------------------------------------------------------------

@@ -267,19 +267,45 @@ class ScheduledTask:
 
     def run(self) -> Any:
         """Execute the task, honouring its overlap lock."""
+        if self._overlap_lock_minutes is None:
+            return self._execute()
+
+        lock = self._manager.lock()
+        if lock is not None and lock.supported():
+            # A transaction-scoped advisory lock: two schedulers racing the same
+            # minute genuinely serialise, and a run that crashes releases the
+            # lock when its connection drops rather than blocking the task until
+            # an arbitrary TTL expires.
+            with lock.transaction(self.lock_key) as held:
+                if not held:
+                    logger.info(
+                        "Skipping %s — another run holds the lock", self.name
+                    )
+                    return None
+                return self._execute()
+
+        return self._run_with_cache_lock()
+
+    def _run_with_cache_lock(self) -> Any:
+        """Fallback for drivers without advisory locks.
+
+        `Cache.add()` is an atomic put-if-absent. The `has()` then `put()` pair
+        this replaces was a check-then-set race: two schedulers both saw no lock
+        and both ran, so the guarantee the method name makes did not hold. It is
+        still weaker than an advisory lock — a crashed run holds the key until
+        it expires — which is why it is the fallback and not the mechanism.
+        """
         cache = self._manager.cache()
+        if cache is None:
+            return self._execute()
 
-        if self._overlap_lock_minutes is not None and cache is not None:
-            if cache.has(self.lock_key):
-                logger.info("Skipping %s — previous run still holds the lock", self.name)
-                return None
-            cache.put(self.lock_key, "1", self._overlap_lock_minutes * 60)
-
+        if not cache.add(self.lock_key, "1", self._overlap_lock_minutes * 60):
+            logger.info("Skipping %s — previous run still holds the lock", self.name)
+            return None
         try:
             return self._execute()
         finally:
-            if self._overlap_lock_minutes is not None and cache is not None:
-                cache.forget(self.lock_key)
+            cache.forget(self.lock_key)
 
     def _execute(self) -> Any:
         if self.kind == "call":
@@ -329,6 +355,9 @@ class ScheduleManager:
 
     def queue(self) -> Any:
         return self._make("queue")
+
+    def lock(self) -> Any:
+        return self._make("lock")
 
     def base_path(self) -> str:
         return getattr(self.app, "base_path", None) or "."

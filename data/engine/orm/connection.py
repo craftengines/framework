@@ -184,7 +184,11 @@ class _Session:
     transaction counters and two `search_path`s, instead of trampling one.
     """
 
-    __slots__ = ("pdo", "in_transaction", "requested_schema", "applied_schema")
+    __slots__ = (
+        "pdo", "in_transaction",
+        "requested_schema", "applied_schema",
+        "requested_tenant", "applied_tenant",
+    )
 
     def __init__(self) -> None:
         self.pdo: Any = None
@@ -193,6 +197,12 @@ class _Session:
         #: connection config. Per-session on purpose — see `Connection`.
         self.requested_schema: Optional[str] = None
         self.applied_schema: Optional[str] = None
+        #: Tenant id bound to the session variable row-level security policies
+        #: read. Per-session for exactly the same reason as the schema, and with
+        #: a sharper failure mode: a leaked schema serves the wrong tables, a
+        #: leaked tenant id serves another customer's rows out of the right ones.
+        self.requested_tenant: Optional[str] = None
+        self.applied_tenant: Optional[str] = None
 
 
 class Connection:
@@ -233,6 +243,9 @@ class Connection:
             self.driver = "postgresql"
         self.paramstyle = "qmark" if self.driver == "sqlite" else "pyformat"
 
+        #: Built on first use — see the `dialect` property.
+        self._dialect: Any = None
+
         self._shares_one_session = self._is_memory_sqlite()
         self._shared_session = _Session() if self._shares_one_session else None
         self._thread_sessions = threading.local()
@@ -248,6 +261,66 @@ class Connection:
 
         self.pool_size = max(1, int(self.config.get("pool_size") or self.DEFAULT_POOL_SIZE))
         self.pool_timeout = float(self.config.get("pool_timeout") or self.DEFAULT_POOL_TIMEOUT)
+
+    # -- capabilities ----------------------------------------------------------
+
+    @property
+    def dialect(self) -> Any:
+        """What this connection can be asked to do (`engine/orm/dialect.py`).
+
+        Built lazily and cached, because on PostgreSQL it has to *ask*: pgvector
+        and pg_trgm are extensions, and a dialect that claims them from the
+        server version alone lets a query compile, travel to the server and fail
+        there with `type "vector" does not exist` — a runtime error in exactly
+        the place the capability check exists to avoid.
+        """
+        if self._dialect is None:
+            from engine.orm.dialect import PostgresDialect, dialect_for
+
+            if self.driver == "postgresql":
+                self._dialect = PostgresDialect(
+                    self._installed_extensions(), self.server_version()
+                )
+            else:
+                self._dialect = dialect_for(self.driver)
+        return self._dialect
+
+    def server_version(self) -> Optional[tuple]:
+        """`(major, minor)` of the server, or None if it cannot be asked.
+
+        Read from the driver's own `server_version` integer rather than parsing
+        `version()`, which is a human-readable string that has changed shape
+        between releases.
+        """
+        if self.driver != "postgresql":
+            return None
+        try:
+            raw = int(getattr(self.pdo, "server_version", 0))
+        except Exception:
+            return None
+        if not raw:
+            return None
+        # 150018 -> (15, 18); 180004 -> (18, 4). PostgreSQL 10 dropped the
+        # three-part scheme, and every version this framework supports is after
+        # that, so two parts is the whole answer.
+        return (raw // 10000, raw % 100)
+
+    def _installed_extensions(self) -> set:
+        """Extension names present on this database.
+
+        An unreachable server answers "none". That is the conservative
+        direction: a feature wrongly refused raises a clear message at the call
+        site, while one wrongly offered fails deep inside the driver.
+        """
+        try:
+            rows = self.statement("SELECT extname FROM pg_extension").fetchall()
+        except Exception:
+            return set()
+        return {row["extname"] for row in rows}
+
+    def forget_dialect(self) -> None:
+        """Re-probe capabilities — call after installing an extension."""
+        self._dialect = None
 
     def _is_memory_sqlite(self) -> bool:
         if self.driver != "sqlite":
@@ -325,9 +398,16 @@ class Connection:
         server eventually gets "too many clients already" from the database.
         A no-op for shared-session SQLite, and for a thread holding nothing.
         """
+        session = getattr(self._thread_sessions, "session", None) or self._shared_session
+        if session is not None:
+            # Forget the tenant before anything else, and whether or not there
+            # is a physical connection to give back. It is per-request state on
+            # a long-lived object, so a driver without pooling (shared-session
+            # SQLite) must still start the next request unbound.
+            session.requested_tenant = None
+
         if self._shared_session is not None:
             return
-        session = getattr(self._thread_sessions, "session", None)
         if session is None or session.pdo is None:
             return
 
@@ -350,9 +430,36 @@ class Connection:
                 return
         session.applied_schema = None
 
+        if session.applied_tenant is not None:
+            # The single most consequential line in the tenancy design. A
+            # session-scoped GUC lives on the *physical* connection: hand this
+            # one back still carrying a tenant id and the next borrower — a
+            # request that never bound a tenant, a background job, an admin
+            # task — reads that tenant's rows through the policy, correctly and
+            # invisibly. A connection that cannot be cleared is discarded
+            # rather than reused.
+            try:
+                self._reset_tenant(pdo)
+            except Exception:
+                self._discard(pdo)
+                return
+        session.applied_tenant = None
+
         with self._cond:
             self._idle.append(pdo)
             self._cond.notify()
+
+    def dedicated(self) -> Any:
+        """Open a raw connection that the pool neither owns nor reclaims.
+
+        For work that holds a connection for the life of the process — a
+        `LISTEN` loop, above all. Taking one of those from the pool would lose
+        a slot permanently: `release()` is never reached, so `_open` stays
+        raised and the pool shrinks by one for every listener started.
+
+        The caller owns it and must `close()` it. Nothing here tracks it.
+        """
+        return self._connect()
 
     def _discard(self, pdo: Any) -> None:
         """Drop a connection that cannot be trusted back into the pool."""
@@ -376,6 +483,10 @@ class Connection:
             # A borrowed connection arrives on the default search_path, so a
             # session that asked for a tenant schema must (re)apply it.
             self._apply_schema(session)
+        if session.requested_tenant != session.applied_tenant:
+            # Same contract for the tenant id: a connection comes out of the
+            # pool with none set, so a session that asked for one re-binds it.
+            self._apply_tenant(session)
         return session.pdo
 
     def _connect(self) -> Any:
@@ -630,6 +741,95 @@ class Connection:
                 cursor.close()
             except Exception:
                 pass
+
+    # -- tenant session variable -----------------------------------------------
+
+    #: The setting row-level security policies read. A namespaced (dotted) name
+    #: is what makes it settable at all — PostgreSQL only accepts custom
+    #: settings under a prefix it does not own.
+    TENANT_GUC = "app.current_tenant_id"
+
+    def use_tenant(self, tenant_id: Optional[str], *, local: bool = False) -> None:
+        """Bind `tenant_id` to this session's `app.current_tenant_id`.
+
+        Scoped to the calling thread, like `use_schema`, because the tenant is a
+        property of the request being served.
+
+        `local=True` scopes the setting to the open transaction, which
+        PostgreSQL unwinds at COMMIT or ROLLBACK — the right choice inside
+        `DB.transaction()` and in a queue worker, where there is no request end
+        to hang a reset on. `local=False` scopes it to the session and relies on
+        `release()` to clear it.
+        """
+        session = self._session()
+        if self.driver != "postgresql":
+            # Nothing to bind, but remember the request so `tenant` still reports
+            # what the caller asked for on drivers used in development.
+            session.requested_tenant = tenant_id or None
+            return
+
+        if local:
+            # Not tracked on the session: the transaction owns the lifetime, and
+            # marking it applied would make `release()` try to clear a setting
+            # the COMMIT already dropped.
+            self._set_tenant(self.pdo, tenant_id, local=True)
+            return
+
+        session.requested_tenant = tenant_id or None
+        self._apply_tenant(session)
+
+    @property
+    def tenant(self) -> Optional[str]:
+        """Tenant id bound for the calling thread."""
+        return self._session().requested_tenant
+
+    def _apply_tenant(self, session: _Session) -> None:
+        if self.driver != "postgresql" or session.pdo is None:
+            return
+        tenant_id = session.requested_tenant
+        # Mark first: `_set_tenant` goes back through `pdo`, and an unmarked
+        # session would recurse straight back into here.
+        previous, session.applied_tenant = session.applied_tenant, tenant_id
+        try:
+            self._set_tenant(session.pdo, tenant_id, local=False)
+        except Exception:
+            session.applied_tenant = previous
+            raise
+
+    def _set_tenant(self, pdo: Any, tenant_id: Optional[str], *, local: bool) -> None:
+        """Set the GUC through `set_config`, which takes bindings.
+
+        `SET LOCAL app.current_tenant_id = :id` is not an option: `SET` is not
+        parameterizable, so the value would have to be interpolated — the same
+        hole `assert_schema_identifier` exists to close, but on a value that
+        comes straight from a request. `set_config(name, value, is_local)` is an
+        ordinary function call and binds cleanly.
+        """
+        cursor = pdo.cursor()
+        try:
+            cursor.execute(
+                "SELECT set_config(%s, %s, %s)",
+                (self.TENANT_GUC, tenant_id or "", bool(local)),
+            )
+            if not local and not self._session().in_transaction:
+                pdo.commit()
+        finally:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+
+    def _reset_tenant(self, pdo: Any) -> None:
+        """Clear the GUC on a connection going back to the pool.
+
+        Empty rather than absent, because `current_setting(name, true)` cannot
+        un-set a value once set. The policies treat `''` and NULL alike — see
+        the `NULLIF` in the generated policy — so both mean "no tenant", and no
+        tenant matches nothing.
+        """
+        if self.driver != "postgresql":
+            return
+        self._set_tenant(pdo, None, local=False)
 
     def table_exists(self, table: str) -> bool:
         if self.driver == "sqlite":
