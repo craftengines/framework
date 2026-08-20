@@ -45,7 +45,10 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Match what docker-compose.yml provisions. On an older server the
+        # version-gated tests skip rather than fail, so a mismatch here is
+        # silent: CI would report green while never exercising `uuidv7()`.
+        image: postgres:18
         env:
           POSTGRES_USER: craft
           POSTGRES_PASSWORD: secretpassword
