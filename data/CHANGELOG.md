@@ -18,6 +18,8 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.15.0] r00005 — 2026-08-24
+
 ### Added
 
 - **A fresh project is now born with row-level security wired, not merely
@@ -45,6 +47,13 @@ full policy (categories to use, what counts as security-relevant, how
 - **`ScopeTenant` was never registered by the bootstrap**, so the row-level
   strategy could not be selected even by editing config. Only the older
   schema-per-tenant middleware was wired.
+- **The release automation cut tags that did not match the documented scheme.**
+  `CONTRIBUTING.md` specifies `vX.Y.Z-rNNNNN`, and the CI step read only the
+  version from `pyproject.toml` — which is how `v3.12.0` and `v3.13.0` were
+  tagged with no counter at all. The policy and the automation disagreed and
+  the automation won silently. It now reads the counter from
+  `engine/__init__.py`, and fails the build when the two files that declare the
+  version disagree with each other.
 
 - **O CI estava vermelho desde 19/08 e nenhuma release subia.** O passo
   `Lint (ruff)` falhava, e como o job de release depende dele
