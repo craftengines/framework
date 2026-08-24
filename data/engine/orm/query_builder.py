@@ -601,7 +601,10 @@ class QueryBuilder(PostgresMacros):
             # A dimension mismatch is a data problem, not a distance of zero —
             # scoring it 0.0 would quietly rank it last instead of excluding it.
             return None
-        dot = sum(a * b for a, b in zip(vector, target))
+        # strict: the length check above is the only thing that makes this
+        # meaningful, and a silent truncation would score a mismatched vector
+        # as a partial match rather than excluding it.
+        dot = sum(a * b for a, b in zip(vector, target, strict=True))
         norm_a = sum(a * a for a in vector) ** 0.5
         norm_b = sum(b * b for b in target) ** 0.5
         return (dot / (norm_a * norm_b)) if norm_a > 0 and norm_b > 0 else 0.0

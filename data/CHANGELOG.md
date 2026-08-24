@@ -18,6 +18,26 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Fixed
+
+- **O CI estava vermelho desde 19/08 e nenhuma release subia.** O passo
+  `Lint (ruff)` falhava, e como o job de release depende dele
+  (`needs: [test-sqlite, test-postgres, docker-build]`), ele era pulado em
+  todo push — por isso a tag `v3.13.0` existe no GitHub sem Release
+  correspondente. Cinco violações, quatro delas anteriores:
+  - `engine/ai/contracts.py` usava `Union` sem importar, e
+    `engine/mail/drivers/log.py` usava `Optional` sem importar. Ambos
+    sobrevivem em runtime por causa de `from __future__ import annotations`,
+    mas quebram `typing.get_type_hints()` e qualquer leitura das anotações.
+  - `engine/security/honeypot.py` calculava `now_str` em `is_blocked()` e
+    nunca usava.
+  - `engine/storage/drivers/s3.py` re-erguia `ImportError` dentro de um
+    `except` sem `from`, escondendo a causa original.
+  - `engine/orm/query_builder.py` usava `zip()` sem `strict=` no cálculo de
+    similaridade; a checagem de dimensão logo acima é o que torna a operação
+    significativa, e um truncamento silencioso pontuaria um vetor
+    incompatível como acerto parcial em vez de excluí-lo.
+
 ## [3.14.0] r00004 — 2026-08-20
 
 ### Added

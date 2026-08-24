@@ -70,7 +70,6 @@ class HoneypotService:
         Returns: (is_blocked, blocked_until, reason)
         """
         now = datetime.now(timezone.utc)
-        now_str = self._format_time(now)
         clean_user = (username or "").strip().lower()
 
         db = self._db()

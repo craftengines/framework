@@ -39,11 +39,11 @@ class S3StorageDriver:
                 client_kwargs["endpoint_url"] = self.endpoint
             self._client = boto3.client(**client_kwargs)
             return self._client
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "The `boto3` package is required to use the S3 storage driver. "
                 "Install it with `pip install boto3`."
-            )
+            ) from exc
 
     def put(self, path: str, contents: Union[str, bytes, BinaryIO], **kwargs: Any) -> bool:
         client = self._get_client()
