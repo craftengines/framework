@@ -20,8 +20,12 @@ import sys
 from types import ModuleType
 from typing import Optional, Sequence
 
-__version__ = "3.13.0"
-__release__ = "r00001"
+__version__ = "3.14.0"
+#: Increments by exactly 1 on every cut release, never reset and never skipped
+#: (CONTRIBUTING.md, "Versioning and releases"). v3.11.0 was r00001, v3.12.0
+#: r00002, v3.13.0 r00003 — this counter was left at r00001 through both of
+#: those, so it is corrected here rather than carried forward wrong.
+__release__ = "r00004"
 __author__ = "Antonio Santos"
 __email__ = "snarthost@gmail.com"
 __license__ = "MIT"

@@ -18,8 +18,15 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.14.0] r00004 — 2026-08-20
+
 ### Added
 
+- **Database Safety & Absolute Data Persistence Policy (`documentation/database_safety.md`)**:
+  - Established framework-wide Absolute Data Persistence policy forbidding destructive schema actions across development, test, demo, staging, and production environments.
+  - Documented forward-only migration workflows (`python dev.py migrate`), non-destructive alter patterns, and idempotent seeding.
+  - Documented mandatory soft-delete query and lifecycle patterns (`deleted_at = now()`, `is_active = False`) replacing physical `DELETE` and `TRUNCATE` operations.
+  - Added safety notices and banned command lists to CLI documentation (`documentation/cli.md`) and Migration guides (`documentation/migrations.md`).
 - **PostgreSQL-native data layer** — six phases turning PostgreSQL from a row
   store into the runtime the framework depends on. Every capability is gated by
   `engine/orm/dialect.py`, so a query written for PostgreSQL fails on another
@@ -143,12 +150,7 @@ full policy (categories to use, what counts as security-relevant, how
   verifies the connecting role against `pg_roles` and refuses to serve tenant
   traffic it cannot isolate; `dev.py db:audit-rls` reports it and exits non-zero.
 
-- **Database Safety & Absolute Data Persistence Policy (`documentation/database_safety.md`)**:
-  - Established framework-wide Absolute Data Persistence policy forbidding destructive schema actions across development, test, demo, staging, and production environments.
-  - Documented forward-only migration workflows (`python dev.py migrate`), non-destructive alter patterns, and idempotent seeding.
-  - Documented mandatory soft-delete query and lifecycle patterns (`deleted_at = now()`, `is_active = False`) replacing physical `DELETE` and `TRUNCATE` operations.
-  - Added safety notices and banned command lists to CLI documentation (`documentation/cli.md`) and Migration guides (`documentation/migrations.md`).
-
+## [3.13.0] - 2026-08-20
 
 ### Added
 
