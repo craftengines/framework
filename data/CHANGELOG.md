@@ -18,7 +18,33 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **The documentation is published as a site** at
+  <https://craftengines.github.io/framework/>, built by CI on every push to
+  master. Until now the 30 guides in `documentation/` were readable only by
+  cloning the repository and running the application — anyone arriving from
+  GitHub read raw Markdown with no navigation between pages.
+  - `craft.support.docs.DocsLibrary` — discovery, titles, navigation and
+    rendering, shared by the application's `/docs` routes and the static site.
+    One implementation on purpose: a link that works on the site and 404s in
+    the app is the kind of difference nobody notices until a reader reports it.
+  - `dev.py docs:build` renders the guides to static HTML;
+    `dev.py docs:check` fails on a cross-reference that points at a page which
+    does not exist. The build runs the check first and refuses to publish, so a
+    dead link fails CI instead of shipping — an author never sees these, because
+    the file they linked to is open in front of them while they write the link.
+
 ### Fixed
+
+- **Every cross-reference between guides was already broken in the running
+  application.** `/docs/orm` rendered `href="postgres.md"` verbatim, the browser
+  resolved it to `/docs/postgres.md`, and the route looked for a file named
+  `postgres.md.md`. Markdown links between guides are written to work on
+  GitHub, and neither the app nor a static site serves paths shaped like that;
+  they are now rewritten per consumer (`/docs/postgres` and `postgres.html`
+  respectively), with anchors preserved. Links escaping `documentation/` — such
+  as `../CHANGELOG.md` — point at the file on GitHub, where it exists.
 
 - **The seeded tenant account could not work.** `UserSeeder` creates
   `tenant@craft.local` with `type = "tenant"`, and that user belonged to no

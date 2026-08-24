@@ -44,6 +44,7 @@ group_app = typer.Typer(name="group", help="Group management (team-level access)
 user_app = typer.Typer(name="user", help="User management.", no_args_is_help=True)
 firewall_app = typer.Typer(name="firewall", help="WAF & IP reputation management.", no_args_is_help=True)
 security_app = typer.Typer(name="security", help="Security audit logs and alerts.", no_args_is_help=True)
+docs_app = typer.Typer(name="docs", help="Documentation site.", no_args_is_help=True)
 
 cli.add_typer(make_app)
 cli.add_typer(migrate_app)
@@ -59,6 +60,7 @@ cli.add_typer(group_app)
 cli.add_typer(user_app)
 cli.add_typer(firewall_app)
 cli.add_typer(security_app)
+cli.add_typer(docs_app)
 
 
 
@@ -699,6 +701,61 @@ def route_list(
         count += 1
     echo("-" * 96)
     echo(f"{count} route(s).")
+
+
+# -- docs -----------------------------------------------------------------------
+
+@docs_app.command("build")
+def docs_build(
+    output: str = typer.Option("public/docs", help="Where to write the site."),
+    project: str = typer.Option("Craft Engine", help="Name shown in the sidebar."),
+) -> None:
+    """Render `documentation/` into a directory of static HTML.
+
+    Same discovery, navigation and link rewriting the application's `/docs`
+    routes use, so the published site cannot say something different from the
+    one you get by running the framework.
+    """
+    from craft.support.docs import BrokenLink
+    from craft.support.docs_site import DocsSiteBuilder
+
+    base = get_app().base_path
+    docs_dir = os.path.join(base, "documentation")
+    out_dir = output if os.path.isabs(output) else os.path.join(base, output)
+
+    if not os.path.isdir(docs_dir):
+        echo(f"No documentation directory at {docs_dir}.", "red")
+        raise typer.Exit(code=1)
+
+    try:
+        written = DocsSiteBuilder(docs_dir, out_dir, project).build()
+    except BrokenLink as exc:
+        echo(str(exc), "red")
+        raise typer.Exit(code=1) from None
+
+    echo(f"Wrote {len(written)} file(s) to {out_dir}.", "green")
+
+
+@docs_app.command("check")
+def docs_check() -> None:
+    """Fail if a guide links to a page that does not exist.
+
+    An author never sees these: the file they linked to is open in front of
+    them while they write the link. A reader sees a 404.
+    """
+    from craft.support.docs import DocsLibrary
+
+    docs_dir = os.path.join(get_app().base_path, "documentation")
+    broken = DocsLibrary(docs_dir).broken_links()
+
+    if broken:
+        for problem in broken:
+            echo(f"  broken  {problem}", "red")
+        echo(f"\n{len(broken)} broken link(s).", "red")
+        raise typer.Exit(code=1)
+
+    library = DocsLibrary(docs_dir)
+    echo(f"{len(library.slugs())} page(s), no broken links.", "green")
 
 
 # -- queue ----------------------------------------------------------------------
