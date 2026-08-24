@@ -18,7 +18,33 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **A fresh project is now born with row-level security wired, not merely
+  available.** The isolation layer existed as a library that a new checkout
+  could not reach:
+  - `database/migrations/2025_01_01_000000_create_tenants_table.py` — the
+    `tenants` table `t.tenant_scoped()` references by default. Without it that
+    call failed outright on PostgreSQL (`relation "tenants" does not exist`),
+    so the one-line contract the guide advertises did not work. The table ships
+    whether or not tenancy is enabled; it costs nothing empty, and its absence
+    is what turned enabling tenancy from a config change into a schema change.
+  - `dev.py db:provision-role` — creates the `NOBYPASSRLS` application role
+    policies actually apply to, grants it on current *and* future tables, then
+    re-reads `pg_roles` and fails if the role still bypasses. Creating a role
+    is not the same as the role being subject to policies.
+
 ### Fixed
+
+- **`MULTI_TENANCY_STRATEGY` was named in error messages and documentation
+  while nothing read it.** "Switch to `MULTI_TENANCY_STRATEGY=rls`" — the
+  instruction the tenant middleware prints when it refuses — had no effect at
+  all. It is now a real config that selects the middleware, and an unrecognised
+  value stops the boot rather than silently serving every tenant from one set
+  of tables.
+- **`ScopeTenant` was never registered by the bootstrap**, so the row-level
+  strategy could not be selected even by editing config. Only the older
+  schema-per-tenant middleware was wired.
 
 - **O CI estava vermelho desde 19/08 e nenhuma release subia.** O passo
   `Lint (ruff)` falhava, e como o job de release depende dele

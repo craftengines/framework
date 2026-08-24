@@ -103,6 +103,24 @@ Once it *is* on, everything below applies, including the refusals. A driver
 that cannot isolate stops the request rather than serving it, because at that
 point the application has declared that tenant boundaries matter.
 
+Everything it needs ships with the framework: the `tenants` table is created by
+the first migration whether or not you use it, `t.tenant_scoped()` works with
+no arguments, and `dev.py db:provision-role` creates the database role the
+policies actually apply to. Turning tenancy on is a config change, not an
+assembly job.
+
+```bash
+# 1. Turn it on
+MULTI_TENANCY_ENABLED=true
+MULTI_TENANCY_STRATEGY=rls
+
+# 2. Create the role policies apply to, and point the app at it
+python dev.py db:provision-role craft_app
+
+# 3. Confirm
+python dev.py db:audit-rls
+```
+
 Two strategies, selected with `MULTI_TENANCY_STRATEGY`:
 
 | Strategy | What it does | When |
@@ -223,14 +241,19 @@ A table can report `relrowsecurity = true`, `relforcerowsecurity = true`, carry
 a correct policy, and still return every tenant's rows to everyone. Nothing
 about the table says so.
 
-Connect the application as a role that is none of those:
+Connect the application as a role that is none of those. The framework
+provisions it:
 
-```sql
-CREATE ROLE craft_app LOGIN PASSWORD :'app_password' NOBYPASSRLS;
-GRANT USAGE ON SCHEMA public TO craft_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO craft_app;
+```bash
+python dev.py db:provision-role craft_app
 ```
+
+It creates the role `NOBYPASSRLS`, grants it on the current tables *and* on
+future ones (`ALTER DEFAULT PRIVILEGES` — without that the role works until the
+next migration and then stops), then **re-reads `pg_roles` and fails if the
+role still bypasses**. Creating a role is not the same as the role being
+subject to policies, and the difference is the whole point. `--dry-run` prints
+the SQL without running it.
 
 Run migrations as the owning role, which is a separate credential.
 

@@ -321,6 +321,89 @@ def db_locks(
     echo(f"{len(rows)} advisory lock(s) held.")
 
 
+@db_app.command("provision-role")
+def db_provision_role(
+    role: str = typer.Argument("craft_app", help="Name of the application role."),
+    password: str = typer.Option(None, help="Password. Generated if omitted."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the SQL, run nothing."),
+) -> None:
+    """Create the non-superuser role that row-level security actually applies to.
+
+    Policies do not apply to a superuser, and do not apply to a role granted
+    BYPASSRLS — `FORCE ROW LEVEL SECURITY` only reaches the table's owner. So
+    an application connecting as the role that ran the migrations sees every
+    tenant's rows while each table reports itself protected. This creates the
+    role that closes that gap, and refuses to hand back one that does not.
+
+    Run it as an administrative user; connect the application as the result.
+    """
+    import secrets
+
+    from craft.migrations.schema import _assert_table
+    from craft.orm.connection import assert_schema_identifier
+
+    app = get_app()
+    db = app.make("db")
+
+    if not db.dialect.supports("rls"):
+        echo(f"The {db.driver!r} driver has no row-level security; there is no "
+             f"role to provision.", "yellow")
+        raise typer.Exit(code=1)
+
+    # Interpolated, not bound — CREATE ROLE takes an identifier.
+    _assert_table(role)
+    schema = "public"
+    assert_schema_identifier(schema)
+    password = password or secrets.token_urlsafe(24)
+
+    statements = [
+        # NOBYPASSRLS is the point of the whole command.
+        (f'CREATE ROLE "{role}" LOGIN NOBYPASSRLS PASSWORD %s', [password]),
+        (f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"', []),
+        (f'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "{schema}" TO "{role}"', []),
+        (f'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "{schema}" TO "{role}"', []),
+        # Tables created by later migrations need the grant too, or the role
+        # works until the next migration and then stops.
+        (f'ALTER DEFAULT PRIVILEGES IN SCHEMA "{schema}" '
+         f'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{role}"', []),
+        (f'ALTER DEFAULT PRIVILEGES IN SCHEMA "{schema}" '
+         f'GRANT USAGE, SELECT ON SEQUENCES TO "{role}"', []),
+    ]
+
+    if dry_run:
+        for sql, _ in statements:
+            echo(f"  {sql.replace('%s', repr('<password>'))}")
+        return
+
+    exists = db.statement(
+        "SELECT 1 AS present FROM pg_roles WHERE rolname = ?", [role], read=True
+    ).fetchone()
+
+    for index, (sql, params) in enumerate(statements):
+        if index == 0 and exists is not None:
+            echo(f"Role {role!r} already exists; granting only.", "yellow")
+            password = None
+            continue
+        db.statement(sql, params)
+
+    status = db.statement(
+        "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = ?", [role], read=True
+    ).fetchone()
+    if status is None or status["rolsuper"] or status["rolbypassrls"]:
+        echo(f"Role {role!r} still bypasses row-level security — policies would "
+             f"be inert under it. Not usable as the application role.", "red")
+        raise typer.Exit(code=1)
+
+    echo(f"Role {role!r} is subject to row-level security policies.", "green")
+    if password:
+        echo("\nPoint the application at it:", "green")
+        echo(f"  DB_USERNAME={role}")
+        echo(f"  DB_PASSWORD={password}")
+        echo("\nShown once — it is not stored anywhere. Keep migrations running "
+             "as the owning role, which is a separate credential.", "yellow")
+    echo("\nVerify with: python dev.py db:audit-rls")
+
+
 @db_app.command("audit-rls")
 def db_audit_rls() -> None:
     """Fail if a table carrying `tenant_id` is not actually isolated.

@@ -19,6 +19,7 @@ References:
 from __future__ import annotations
 
 import fnmatch
+import logging
 import secrets
 from typing import Any, Callable, List, Optional
 
@@ -352,7 +353,7 @@ class ScopeTenant(Middleware):
         """
         host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0]
         subdomain = host.split(".")[0] if host.count(".") >= 2 else None
-        if subdomain and subdomain not in ("www", "app", "api"):
+        if subdomain and subdomain not in self.RESERVED_SUBDOMAINS:
             resolved = self.tenant_for_subdomain(subdomain)
             if resolved is not None:
                 return resolved
@@ -363,13 +364,38 @@ class ScopeTenant(Middleware):
             user = None
         return user.get_attribute("tenant_id") if user is not None else None
 
-    def tenant_for_subdomain(self, subdomain: str) -> Any:
-        """Look a subdomain up in the application's own tenants table.
+    #: Hosts that never name a tenant. `api` is here because an API host is
+    #: usually shared and identifies its tenant by token, not by name.
+    RESERVED_SUBDOMAINS = ("www", "app", "api", "admin", "static", "cdn")
 
-        Left as a hook rather than a query, because the engine must not import
-        from `app/` — the tenant model belongs to the application.
+    def tenant_for_subdomain(self, subdomain: str) -> Any:
+        """Resolve a subdomain against the framework's `tenants` table.
+
+        A query rather than a hook returning None: `tenants` ships with the
+        framework, so the engine owns it and does not have to reach into `app/`
+        to read it. Override this to resolve from somewhere else — a header, a
+        path segment, a cache in front of the lookup.
+
+        Inactive and soft-deleted tenants resolve to nothing, so suspending a
+        tenant is a row update rather than a deployment.
         """
-        return None
+        container = _container(self.app)
+        try:
+            row = container.make("db").statement(
+                "SELECT id FROM tenants WHERE slug = ? "
+                "  AND (is_active IS NULL OR is_active = ?) "
+                "  AND deleted_at IS NULL",
+                [subdomain, True],
+                read=True,
+            ).fetchone()
+        except Exception:
+            # A missing table is not a reason to fail every request — the app
+            # may resolve tenants some other way entirely.
+            logging.getLogger("craft").debug(
+                "Could not resolve tenant for subdomain %r", subdomain, exc_info=True
+            )
+            return None
+        return row["id"] if row is not None else None
 
 
 class RequireAuth(Middleware):

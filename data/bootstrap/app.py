@@ -112,6 +112,7 @@ from app.Http.Middleware.TenantMiddleware import TenantMiddleware
 
 from craft.http.middleware import (
     Authenticate,
+    ScopeTenant,
     SecurityHeaders,
     SetLocale,
     StartSession,
@@ -136,8 +137,25 @@ _global_middleware = [
 # `MULTI_TENANCY_ENABLED` used to be decorative: TenantMiddleware ran on every
 # request whatever the flag said. A single-tenant app now stops paying for the
 # per-request tenant resolution it never wanted.
-if app.make("config").get("framework.MULTI_TENANCY_ENABLED", True):
-    _global_middleware.append(TenantMiddleware)
+#
+# The strategy picks *which* middleware, and both refuse to serve a tenant
+# request the database cannot isolate rather than degrading to shared tables.
+# `MULTI_TENANCY_STRATEGY` used to appear only in error messages and docs while
+# nothing read it — the instruction "switch to MULTI_TENANCY_STRATEGY=rls" had
+# no effect at all.
+_config = app.make("config")
+if _config.get("framework.MULTI_TENANCY_ENABLED", False):
+    _strategy = str(_config.get("framework.MULTI_TENANCY_STRATEGY", "rls")).lower()
+    if _strategy == "rls":
+        _global_middleware.append(ScopeTenant)
+    elif _strategy == "schema":
+        _global_middleware.append(TenantMiddleware)
+    else:
+        raise ValueError(
+            f"MULTI_TENANCY_STRATEGY is {_strategy!r}; expected 'rls' or 'schema'. "
+            f"An unrecognised value here would silently serve every tenant from "
+            f"the same tables."
+        )
 
 kernel.with_middleware(*_global_middleware)
 

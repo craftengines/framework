@@ -32,6 +32,19 @@ from craft import __version__ as FRAMEWORK_VERSION  # noqa: E402
 # see documentation/postgres.md for the two strategies and the database role
 # the row-level-security one requires.
 MULTI_TENANCY_ENABLED = env("MULTI_TENANCY_ENABLED", False)
+
+# How tenants are isolated once the flag above is on.
+#
+#   "rls"    — shared tables, a `tenant_id` column, and a row-level security
+#              policy the database enforces. Migrates once, scales to many
+#              tenants, and survives a query that forgets to scope itself.
+#   "schema" — one PostgreSQL schema per tenant, selected with `search_path`.
+#              For the handful of tenants that need physical separation; costs
+#              a migration run per tenant, on the request path.
+#
+# `rls` is the default because forgetting to scope a query is the failure that
+# actually happens, and it is the one the database can rule out.
+MULTI_TENANCY_STRATEGY = env("MULTI_TENANCY_STRATEGY", "rls")
 PQC_SECURITY_ENABLED = env("PQC_SECURITY_ENABLED", True)
 CAPTCHA_ENABLED = env("CAPTCHA_ENABLED", True)
 
