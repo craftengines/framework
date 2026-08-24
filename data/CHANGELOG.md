@@ -18,6 +18,8 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.16.0] r00006 — 2026-08-24
+
 ### Added
 
 - **The documentation is published as a site** at
