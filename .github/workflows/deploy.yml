@@ -122,15 +122,30 @@ jobs:
       - name: Extract Version Tag
         id: get_version
         run: |
+          # The documented scheme is vX.Y.Z-rNNNNN (CONTRIBUTING.md), and the
+          # counter lives in engine/__init__.py while the version lives in
+          # pyproject.toml. This step used to read only the version, so it cut
+          # v3.12.0 and v3.13.0 with no counter at all — the automation and the
+          # policy disagreed, and the automation won silently.
           VERSION=$(grep -m1 '^version =' data/pyproject.toml | cut -d'"' -f2)
+          RELEASE=$(grep -m1 '^__release__' data/engine/__init__.py | cut -d'"' -f2)
+          INIT_VERSION=$(grep -m1 '^__version__' data/engine/__init__.py | cut -d'"' -f2)
+
+          # Both files declare the version and must agree. A mismatch is a
+          # silent bug: whichever file is read tells you something different.
+          if [ "$VERSION" != "$INIT_VERSION" ]; then
+            echo "::error::pyproject.toml says ${VERSION} but engine/__init__.py says ${INIT_VERSION}"
+            exit 1
+          fi
+
           echo "version=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}-${RELEASE}" >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
-          name: Craft Engine ${{ steps.get_version.outputs.tag }}
+          name: Craft Engine ${{ steps.get_version.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
