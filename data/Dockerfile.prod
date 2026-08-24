@@ -1,7 +1,7 @@
 # Multi-stage production Dockerfile for the Craft framework
 
 # --- Stage 1: Builder ---
-FROM python:3.11-slim as builder
+FROM python:3.14-slim as builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --prefix=/install . \
     && pip install --no-cache-dir --prefix=/install uvicorn[standard] gunicorn psycopg[binary]
 
 # --- Stage 2: Production Final Image ---
-FROM python:3.11-slim as production
+FROM python:3.14-slim as production
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

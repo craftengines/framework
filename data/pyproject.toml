@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "craft"
-version = "3.16.0"
+version = "3.17.0"
 description = "A batteries-included Python web framework built on Starlette"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Antonio Santos", email = "snarthost@gmail.com" }]
@@ -22,9 +22,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
@@ -74,7 +72,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py314"
 # Starting scope: the framework package only. `app/` (the sample application)
 # and `tests/` are intentionally excluded for now — turning on lint here
 # should not become a blocking rewrite of the whole codebase in one pass.

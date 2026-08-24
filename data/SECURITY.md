@@ -6,7 +6,7 @@ Only the latest release receives security fixes.
 
 | Version | Supported |
 |---------|-----------|
-| 3.11.x  | Yes       |
+| 3.17.x  | Yes       |
 
 ## Reporting a vulnerability
 

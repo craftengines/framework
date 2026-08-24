@@ -48,7 +48,7 @@ craft-framework/
 ### Pré-requisitos
 - **Git**
 - **Docker** e **Docker Compose**
-- **Python 3.12+** (caso queira rodar fora do Docker)
+- **Python 3.14+** (caso queira rodar fora do Docker)
 
 ### Passo a Passo
 

@@ -38,7 +38,7 @@ CRAFT_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
   DB_DATABASE=craft_validation DB_USERNAME=craft DB_PASSWORD=secretpassword \
   python -m pytest
 
-# Python 3.11, the minimum supported version
+# Python 3.14, the minimum supported version
 docker exec framework python -m pytest
 ```
 

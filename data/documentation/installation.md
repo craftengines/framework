@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Python 3.11 or newer.** The suite is validated on 3.11 and 3.14.
+- **Python 3.14 or newer.** The suite is validated on 3.14.
 - A database. **SQLite is the default** and ships with Python — no server
   needed. PostgreSQL and MySQL are opt-in.
 

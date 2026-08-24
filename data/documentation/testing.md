@@ -26,7 +26,7 @@ CRAFT_TEST_DB=pgsql DB_HOST=127.0.0.1 DB_PORT=5499 \
   DB_DATABASE=craft_validation DB_USERNAME=craft DB_PASSWORD=secretpassword \
   python -m pytest
 
-# 3. Python 3.11, the minimum supported version
+# 3. Python 3.14, the minimum supported version
 docker exec framework python -m pytest
 ```
 
@@ -39,8 +39,8 @@ python -m pytest
 ```
 
 Python 3.14 evaluates annotations lazily (PEP 649). Code with a broken
-annotation — a missing import, say — runs fine there and raises on 3.11. That is
-exactly the class of bug target 3 catches.
+annotation — a missing import, say — runs fine there. Target 3 exercises
+the test suite directly on the containerized Python 3.14 environment.
 
 ## The schema comes from migrations
 

@@ -56,7 +56,7 @@ project/
 
 ### Prerequisites
 
-- Python 3.11 or newer
+- Python 3.14 or newer
 - Docker & Docker Compose — optional, only for the PostgreSQL setup
 
 ### Installation & Run

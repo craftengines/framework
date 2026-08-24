@@ -13,8 +13,8 @@ from craft.facades import Route, DB, Auth, Cache, Queue, Event, Gate
 from craft.orm import Model
 ```
 
-Version 3.11.0 · **878 tests**, green on SQLite and on real PostgreSQL, Python
-3.11+ · MIT.
+Version 3.17.0 · **1200+ tests**, green on SQLite and on real PostgreSQL, Python
+3.14+ · MIT.
 
 ---
 

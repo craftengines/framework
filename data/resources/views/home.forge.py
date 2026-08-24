@@ -63,7 +63,7 @@
                     </div>
                     <div class="stat-divider"></div>
                     <div class="stat-item">
-                        <span class="stat-value">Py 3.11+</span>
+                        <span class="stat-value">Py 3.14+</span>
                         <span class="stat-label">ASGI Runtime</span>
                     </div>
                 </div>

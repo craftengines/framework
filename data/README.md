@@ -10,7 +10,7 @@ from craft.facades import Route, DB, Auth
 from craft.orm.model import Model
 ```
 
-**878 tests**, validated on SQLite, PostgreSQL, and Python 3.11.
+**1200+ tests**, validated on SQLite, PostgreSQL, and Python 3.14.
 
 
 > New here — or an AI agent picking this up? Read
@@ -338,7 +338,7 @@ $env:DB_DATABASE="craft_validation"
 $env:DB_USERNAME="craft"; $env:DB_PASSWORD="secretpassword"
 python -m pytest
 
-docker exec framework python -m pytest  # Python 3.11, the minimum version
+docker exec framework python -m pytest  # Python 3.14, the minimum version
 ```
 
 `conftest.py` builds the schema with the **real migrator**, so migrations

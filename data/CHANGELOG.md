@@ -18,6 +18,16 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.17.0] r00007 — 2026-08-24
+
+### Changed
+
+- **Migrated runtime and baseline requirements to Python 3.14+**.
+  - Updated `pyproject.toml` (`requires-python = ">=3.14"`, classifier `Programming Language :: Python :: 3.14`, and ruff `target-version = "py314"`).
+  - Updated development and production Dockerfiles to `python:3.14-slim`.
+  - Updated GitHub Actions CI/CD workflows to execute test matrices and doc builds on Python 3.14.
+  - Updated documentation, landing page badges, security policies, and contribution guidelines to reflect Python 3.14+.
+
 ## [3.16.0] r00006 — 2026-08-24
 
 ### Added
