@@ -37,6 +37,15 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Fixed
 
+- **A production install could not boot the framework.** `engine/ai/manager.py`
+  imports the Gemini and OpenAI drivers at module level and those imported
+  `httpx` at module level — but `httpx` is not a runtime dependency, so
+  registering the AI service provider raised `ModuleNotFoundError` on any
+  install without the `dev` extra. CI found it, by being the first thing to run
+  `pip install -e "."` without it. Both drivers now import the client inside
+  the call that needs it and name the package when it is missing, the way every
+  other optional backend here already does (boto3, redis, psycopg2, pymysql),
+  and `httpx` is declared as the `ai` extra.
 - **Every cross-reference between guides was already broken in the running
   application.** `/docs/orm` rendered `href="postgres.md"` verbatim, the browser
   resolved it to `/docs/postgres.md`, and the route looked for a file named

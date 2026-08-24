@@ -719,7 +719,11 @@ def docs_build(
     from craft.support.docs import BrokenLink
     from craft.support.docs_site import DocsSiteBuilder
 
-    base = get_app().base_path
+    # `base_path()`, not `get_app()`: rendering Markdown needs the files and a
+    # parser, not a booted application with a database, a queue and every
+    # service provider. Publishing documentation should not be able to fail
+    # because a backend the docs merely describe is unreachable.
+    base = base_path()
     docs_dir = os.path.join(base, "documentation")
     out_dir = output if os.path.isabs(output) else os.path.join(base, output)
 
@@ -745,7 +749,8 @@ def docs_check() -> None:
     """
     from craft.support.docs import DocsLibrary
 
-    docs_dir = os.path.join(get_app().base_path, "documentation")
+    # No app boot — see the note in `docs:build`.
+    docs_dir = os.path.join(base_path(), "documentation")
     broken = DocsLibrary(docs_dir).broken_links()
 
     if broken:

@@ -8,10 +8,27 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Union
 
-import httpx
-
 from engine.ai.contracts import AIResponse, EmbeddingResponse, ToolCall
 from engine.ai.drivers.base import BaseAIDriver
+
+
+def _httpx():
+    """The HTTP client, imported on use rather than on import.
+
+    `engine/ai/manager.py` imports this module at boot, so a module-level
+    `import httpx` made the whole framework unbootable wherever httpx was not
+    installed — and it is not a runtime dependency. Every other optional
+    backend here (boto3, redis, psycopg2, pymysql) is imported this way, with a
+    message naming the package; this one was the exception.
+    """
+    try:
+        import httpx
+    except ImportError as exc:  # pragma: no cover - depends on environment
+        raise ImportError(
+            "The `httpx` package is required to call the OpenAI API. "
+            "Install it with `pip install httpx`, or use the `mock` AI driver."
+        ) from exc
+    return httpx
 
 
 class OpenAIDriver(BaseAIDriver):
@@ -50,7 +67,7 @@ class OpenAIDriver(BaseAIDriver):
         if tools:
             payload["tools"] = [{"type": "function", "function": t} for t in tools]
 
-        resp = httpx.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60.0)
+        resp = _httpx().post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60.0)
         resp.raise_for_status()
         data = resp.json()
 
@@ -101,7 +118,7 @@ class OpenAIDriver(BaseAIDriver):
         }
         payload = {"model": active_model, "input": norm}
 
-        resp = httpx.post(f"{self.base_url}/embeddings", headers=headers, json=payload, timeout=30.0)
+        resp = _httpx().post(f"{self.base_url}/embeddings", headers=headers, json=payload, timeout=30.0)
         resp.raise_for_status()
         data = resp.json()
 
