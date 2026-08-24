@@ -43,7 +43,7 @@ dependencies = [
     # passlib's bcrypt backend reads `bcrypt.__about__`, which 4.1 removed. Pin
     # below it, or passlib raises on first use and Hash falls back to PBKDF2.
     "passlib>=1.7",
-    "bcrypt>=4.0,<4.1",
+    "bcrypt>=5.0.0,<5.1",
     "faker>=20.0",
     "psycopg2-binary>=2.9",
     "pillow>=10.0.0",
