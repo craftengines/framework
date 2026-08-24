@@ -18,6 +18,24 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Fixed
+
+- **The seeded tenant account could not work.** `UserSeeder` creates
+  `tenant@craft.local` with `type = "tenant"`, and that user belonged to no
+  tenant while the `tenants` table stayed empty — so turning multi-tenancy on
+  produced an account whose every scoped query raised `TenantNotBoundError`,
+  because nothing resolved a tenant for it by host or by user. The seeder now
+  creates the demo tenant (`acme`) and points that account at it, idempotently.
+  Seeding a user whose own configuration cannot work is worse than seeding
+  nothing, because it looks finished.
+- **The CHANGELOG was missing the `[3.12.0]` section and the `[3.13.0]` release
+  counter.** The 3.13.0 cut overwrote the `## [3.12.0]` header rather than
+  inserting a new section above it, so 712 lines of released history sat
+  unlabelled. The section is restored byte-for-byte from
+  `git show v3.12.0:data/CHANGELOG.md` — recovered from the repository's own
+  history rather than reconstructed — and `[3.13.0]` is labelled `r00003`, the
+  counter it was cut with.
+
 ## [3.15.0] r00005 — 2026-08-24
 
 ### Added
@@ -205,7 +223,7 @@ full policy (categories to use, what counts as security-relevant, how
   verifies the connecting role against `pg_roles` and refuses to serve tenant
   traffic it cannot isolate; `dev.py db:audit-rls` reports it and exits non-zero.
 
-## [3.13.0] - 2026-08-20
+## [3.13.0] r00003 — 2026-08-20
 
 ### Added
 
@@ -262,6 +280,8 @@ full policy (categories to use, what counts as security-relevant, how
 - **Architectural Policy**: Explicitly documented and enforced zero-hardcoding rules across
   `CRAFT_ENGINE.md`, documentation, and agent skills: state, internationalization,
   authorization (RBAC/ABAC), modules, and settings must be database-backed.
+
+## [3.12.0] — 2026-08-17 (r00002)
 
 ### Fixed
 
