@@ -1,0 +1,23 @@
+# Pre-commit hooks for Craft Engine. Run from `data/`, which is the application
+# root: `pyproject.toml`, pytest, ruff and CI all resolve from here.
+#
+#   pip install pre-commit && pre-commit install
+#
+# The language gate runs twice on purpose. Views are `*.forge.py` — a template
+# DSL carrying a `.py` suffix — so one config cannot classify both Python
+# modules and templates without failing every view as unparseable.
+
+repos:
+  - repo: local
+    hooks:
+      - id: language-standard
+        name: English-only code + zero hardcoded copy
+        entry: python tools/lint_language.py --config language-standard.toml
+        language: system
+        pass_filenames: false
+
+      - id: language-standard-views
+        name: English-only templates + zero hardcoded copy
+        entry: python tools/lint_language.py --config language-standard.views.toml
+        language: system
+        pass_filenames: false

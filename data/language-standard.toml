@@ -1,0 +1,81 @@
+# Language standard gate — project configuration for Craft Engine.
+#
+# Everything project-specific belongs here; the linter itself is never edited.
+# The full standard lives in `.agents/rules/LANGUAGE_AND_I18N_STANDARD.md` and
+# the short contract in `.claude/rules/AGENTS.md`.
+#
+# Paths are relative to `data/`, which is the application root: `pyproject.toml`,
+# pytest and ruff all run from here, and so does CI (`working-directory: data`).
+#
+# Templates are handled by a second pass — see `language-standard.views.toml`.
+# Views are `*.forge.py`, which matches the Python glob but is not Python, so
+# the two passes cannot share one config without every view failing LANG-E.
+
+[language_standard]
+# Adoption is phased, mirroring the ruff scope note in `pyproject.toml`: a
+# deliberately small starting scope that is green today, widened one bounded
+# context per change. Never shrink it.
+#
+# Current backlog, measured with this config (see the standard's §10):
+#   bootstrap    1   boot-time ValueError; engineer-facing, decide then include
+#   database     4   demo copy persisted by PostSeeder / FrameworkSeeder
+#   app          7   real: hardcoded copy in controller views and panel headings
+#   tests       35   fixture copy and flat keys in test_translation.py
+#   views      120   the bulk of R2 work; run the views pass to see it
+#   engine     252   the framework itself; largest, migrate last
+roots = ["config", "routes"]
+
+exclude_dirs = ["dist", "storage", "public", "node_modules"]
+
+exempt_globs = [
+    "*/lang/*",
+    "*/locales/*",
+    "*/translations/*",
+    # Localized copy legitimately lives in the seeder: translations are
+    # database-first in Craft (documentation/localization.md).
+    "*translation*seed*",
+    "*Translation*Seeder*",
+    # The gate must not lint itself: it carries the denylist as data and its CLI
+    # output is engineer-facing, not user-facing.
+    "*/tools/lint_language.py",
+]
+
+strict_strings  = false     # true: every sentence literal is a violation
+check_templates = false     # templates are scanned by the views pass
+
+[language_standard.files]
+python    = ["*.py"]
+generic   = ["*.js", "*.sql"]
+templates = []              # see language-standard.views.toml
+
+[language_standard.tokens]
+denylist_locales = ["pt"]
+extra_denylist   = []
+
+# Homographs: words that are on the Portuguese denylist but are also ordinary
+# English. Without these the gate reports ~95% false positives on this codebase
+# (`data` 77x, `item` 48x) and stops being read.
+# Legal and protocol proper nouns stay local by the standard's own §4 rule.
+allowlist = [
+    "data", "item", "desc", "num", "dt", "pasta", "taxa",
+    "cpf", "cnpj", "pix", "iban",
+]
+
+[language_standard.i18n]
+# Craft resolves keys through `__(key, locale=None, **params)` from
+# `craft.support` (documentation/localization.md).
+#
+# The canonical §7.3 pattern, unmodified. This is not an aspiration here:
+# `resources/lang/catalog.json` already holds 75 dot.case keys with complete
+# values in all four locales. The flat keys still used by the views and by
+# `TranslationSeeder.py` (`login`, `recent_posts`) are the legacy vocabulary,
+# and LANG-D is what will flag them when those paths enter scope.
+key_pattern = "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+
+translator_functions = ["__", "translate", "trans", "t"]
+
+[language_standard.copy]
+sinks        = []
+message_keys = []
+min_words    = 3
+min_chars    = 8

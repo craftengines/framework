@@ -34,6 +34,15 @@ jobs:
         run: |
           ruff check .
 
+      # Two passes: views are `*.forge.py`, a template DSL carrying a `.py`
+      # suffix, so one config cannot classify both without failing every view.
+      # Blocking, no bypass label — see the standard's §12.4.
+      - name: Language standard
+        working-directory: data
+        run: |
+          python tools/lint_language.py --config language-standard.toml --format github
+          python tools/lint_language.py --config language-standard.views.toml --format github
+
       - name: Run Pytest Suite (SQLite, with coverage)
         working-directory: data
         run: |

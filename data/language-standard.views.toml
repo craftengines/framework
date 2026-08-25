@@ -1,0 +1,50 @@
+# Language standard gate — template pass for Craft Engine.
+#
+# Views are `*.forge.py`: a Jinja-style template DSL (`{# ... #}`, `{{ ... }}`)
+# that happens to carry a `.py` suffix. It matches the Python glob but is not
+# parseable Python, so a single config makes every view fail LANG-E. This pass
+# classifies them as templates instead, which is where hardcoded copy actually
+# lives and where R2 earns its keep.
+#
+# Run both passes; see `.pre-commit-config.yaml` and the CI workflow.
+
+[language_standard]
+# Phased exactly like the code pass: the scope that is green today, widened one
+# screen group per change. Backlog measured with this config:
+#   admin           29
+#   panel           36
+#   home.forge.py   35
+#   auth            11
+#   layouts          9
+#   posts            6
+#   api              1
+roots = ["resources/views/access", "resources/views/dashboard", "resources/views/docs"]
+exclude_dirs    = ["dist", "storage", "public", "node_modules"]
+exempt_globs    = ["*/lang/*", "*/locales/*", "*/translations/*"]
+strict_strings  = false
+check_templates = true
+
+[language_standard.files]
+python    = []              # deliberately empty: `.forge.py` is not Python
+generic   = []
+templates = ["*.forge.py", "*.html"]
+
+[language_standard.tokens]
+denylist_locales = ["pt"]
+extra_denylist   = []
+allowlist = [
+    "data", "item", "desc", "num", "dt", "pasta", "taxa",
+    "cpf", "cnpj", "pix", "iban",
+]
+
+[language_standard.i18n]
+# Kept identical to `language-standard.toml` on purpose — the two passes must
+# agree on what a valid key is.
+key_pattern = "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+translator_functions = ["__", "translate", "trans", "t"]
+
+[language_standard.copy]
+sinks        = []
+message_keys = []
+min_words    = 3
+min_chars    = 8

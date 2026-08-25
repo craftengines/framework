@@ -18,6 +18,15 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.17.1] r00008 — 2026-08-25
+
+### Added
+
+- **Automated Language & i18n Standard Enforcement Gate**.
+  - Added `tools/lint_language.py`, `language-standard.toml`, and `language-standard.views.toml` to enforce English identifiers, comments, and translation key usage.
+  - Integrated `lint_language.py` verification into `.github/workflows/deploy.yml` CI pipeline.
+  - Added `.agents/rules/` and `.claude/rules/` developer standards.
+
 ## [3.17.0] r00007 — 2026-08-24
 
 ### Changed

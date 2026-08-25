@@ -1,0 +1,29 @@
+# Language standard gate — project configuration.
+# Everything project-specific belongs here; never edit the linter itself.
+
+[language_standard]
+roots = ["src", "app", "tests"]
+exclude_dirs = []
+exempt_globs = ["*/lang/*", "*/locales/*", "*/translations/*"]
+strict_strings = false      # true: every sentence literal is a violation
+check_templates = true
+
+[language_standard.files]
+python    = ["*.py"]
+generic   = ["*.php", "*.js", "*.jsx", "*.ts", "*.tsx", "*.go", "*.sql"]
+templates = ["*.html", "*.vue", "*.blade.php", "*.twig"]
+
+[language_standard.tokens]
+denylist_locales = ["pt"]   # built-in lists: pt, es, fr, it, de
+extra_denylist   = []       # project-specific words that must never appear
+allowlist        = ["cpf", "cnpj", "pix", "iban"]  # legal or protocol proper nouns
+
+[language_standard.i18n]
+key_pattern          = "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+translator_functions = ["t", "trans", "translate", "__"]
+
+[language_standard.copy]
+sinks        = []
+message_keys = []
+min_words    = 3
+min_chars    = 8
