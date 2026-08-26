@@ -22,6 +22,14 @@ class Response:
         self._status = status
         self._headers = headers or {}
 
+    @property
+    def status(self) -> int:
+        return self._status
+
+    @property
+    def status_code(self) -> int:
+        return self._status
+
     def to_starlette(self) -> StarletteResponse:
         if isinstance(self._content, (dict, list)):
             return JsonResponse(self._content, self._status, self._headers).to_starlette()

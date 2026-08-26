@@ -18,6 +18,27 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.17.3] r00010 — 2026-08-26
+
+### Added
+
+- **Native Business Modules & Capability Plugins Architecture**.
+  - Structured business domains into modular packages under `app/modules/` (`cms` and `billing`) with native `module.py` lifecycle handlers (`register()` for IoC container bindings, `boot()` for route mounting).
+  - Created stateless capability plugins under `app/plugins/` (`brazil_validator` Modulo 11 CPF/CNPJ engine, `qrcode_generator` SVG vector matrix engine, `seo_optimizer` slugification & SERP auditor) with native `plugin.py` IoC providers.
+  - Enforced thin controller transport layer (< 150 lines per controller) and native HTML template rendering.
+  - Added test suite `tests/test_modules_and_plugins.py` verifying plugin resolution and module isolation.
+
+- **Engineering Governance & Code of Conduct Directive**.
+  - Added `.agents/rules/ENGINEERING_GOVERNANCE.md` and `documentation/governance.md` enforcing file/function line thresholds, layer purity, 100% English codebase, and financial `bank_slip` domain standards.
+
+## [3.17.2] r00009 — 2026-08-25
+
+### Security
+
+- **Sequential Integer ID Query Rejection for UUID Models**.
+  - Enforced framework-wide UUIDv7 security standard by rejecting sequential integer/digit ID lookups in `Model.find_by_route_key()` and `Model.find_by_uuid()` when `uses_uuid` is enabled and table carries a UUID column.
+  - Prevents ID enumeration attack vectors by requiring valid public UUIDs (UUIDv7) to resolve records on protected models.
+
 ## [3.17.1] r00008 — 2026-08-25
 
 ### Added

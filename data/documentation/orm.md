@@ -307,11 +307,11 @@ Use it in routes without leaking the key:
 
 ```python
 def show(self, request, id):
-    product = Product.find_by_route_key(id)   # resolves a UUID or an id
+    product = Product.find_by_route_key(id)   # resolves the public UUID
 ```
 
 `route_key()` returns the UUID when the model has one, so URL generation picks
-it up automatically.
+it up automatically. For security, sequential integer queries on models with UUID enabled are rejected in `find_by_route_key` to prevent ID enumeration. A model opting out with `uses_uuid = False` (or without a `uuid` column) will resolve by primary key `id`.
 
 A table with no `uuid` column is untouched — nothing is inserted that the schema
 does not declare. Opt a model out with `uses_uuid = False`, or rename the column

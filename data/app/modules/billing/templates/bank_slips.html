@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Billing — Bank Slips</title>
+</head>
+<body>
+    <h1>Bank Slips</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Customer</th>
+                <th>Document</th>
+                <th>Amount</th>
+                <th>Due Date</th>
+                <th>Barcode</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for slip in bank_slips %}
+                <tr>
+                    <td>{{ slip.customer_name }}</td>
+                    <td>{{ slip.customer_document }}</td>
+                    <td>${{ slip.amount }}</td>
+                    <td>{{ slip.due_date }}</td>
+                    <td>{{ slip.barcode }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

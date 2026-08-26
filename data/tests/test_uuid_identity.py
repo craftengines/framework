@@ -203,6 +203,15 @@ class TestRouteKey:
         legacy = Legacy.create({"name": "old"})
         assert Legacy.find_by_route_key(legacy.get_attribute("id")) is not None
 
+    def test_find_by_route_key_rejects_sequential_integer_for_uuid_model(self):
+        widget = Widget.create({"name": "routed-seq"})
+        assert Widget.find_by_route_key(widget.get_attribute("id")) is None
+        assert Widget.find_by_route_key(str(widget.get_attribute("id"))) is None
+
+    def test_find_by_uuid_rejects_sequential_integer(self):
+        widget = Widget.create({"name": "uuid-seq"})
+        assert Widget.find_by_uuid(str(widget.get_attribute("id"))) is None
+
 
 class TestUuidPrimaryKey:
     def test_the_primary_key_is_a_uuid(self):

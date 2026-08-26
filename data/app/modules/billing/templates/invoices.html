@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Billing — Invoices</title>
+</head>
+<body>
+    <h1>Invoices</h1>
+    <ul>
+        {% for invoice in invoices %}
+            <li>Customer #{{ invoice.customer_id }} — ${{ invoice.total_amount }} ({{ invoice.status }})</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

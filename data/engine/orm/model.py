@@ -202,6 +202,8 @@ class Model:
 
     @classmethod
     def find_by_uuid(cls, value: str) -> Optional['Model']:
+        if not value or (isinstance(value, str) and value.isdigit()):
+            return None
         return cls.query().where(cls.uuid_column, value).first()
 
     @classmethod
@@ -221,8 +223,14 @@ class Model:
 
     @classmethod
     def find_by_route_key(cls, value: Any) -> Optional['Model']:
-        """Resolve whatever `route_key()` produced, UUID or primary key."""
-        if cls.uses_uuid and cls.has_uuid_column() and not str(value).isdigit():
+        """Resolve whatever `route_key()` produced, UUID or primary key.
+
+        For security, when UUID is enabled on the model and schema, sequential
+        integer queries are rejected to prevent ID enumeration.
+        """
+        if cls.uses_uuid and cls.has_uuid_column():
+            if str(value).isdigit():
+                return None
             return cls.find_by_uuid(str(value))
         return cls.find(value)
 

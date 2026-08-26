@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CMS — Blog Posts</title>
+</head>
+<body>
+    <h1>Blog Posts</h1>
+    <ul>
+        {% for post in posts %}
+            <li>
+                <a href="/cms/posts/{{ post.uuid or post.id }}">{{ post.title }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

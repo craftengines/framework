@@ -36,7 +36,7 @@ SECTIONS = [
         "resources", "localization", "storage", "mail", "media",
     ]),
     ("AI", ["ai", "agents_mcp", "vector_search"]),
-    ("Going further", ["testing", "deployment"]),
+    ("Going further", ["testing", "deployment", "governance"]),
 ]
 
 TITLE_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
