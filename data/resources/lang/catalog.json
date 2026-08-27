@@ -38,6 +38,7 @@
 
     "error.csrf.title": "This page expired",
     "error.csrf.body": "For your security, the form was no longer valid. Reload the page and submit again.",
+    "database.transaction.rolled_back": "The operation was cancelled by an inner step and nothing was saved.",
     "error.not_found.title": "Page not found",
     "error.not_found.body": "The page you're looking for doesn't exist or has moved.",
     "error.forbidden.title": "Access denied",
@@ -126,6 +127,7 @@
 
     "error.csrf.title": "Esta página caducou",
     "error.csrf.body": "Por motivos de segurança, o formulário deixou de ser válido. Recarregue a página e submeta novamente.",
+    "database.transaction.rolled_back": "A operação foi cancelada por um passo interno e nada foi guardado.",
     "error.not_found.title": "Página não encontrada",
     "error.not_found.body": "A página que procura não existe ou foi movida.",
     "error.forbidden.title": "Acesso negado",
@@ -214,6 +216,7 @@
 
     "error.csrf.title": "Esta página expirou",
     "error.csrf.body": "Por segurança, o formulário perdeu a validade. Recarregue a página e envie de novo.",
+    "database.transaction.rolled_back": "A operação foi cancelada por uma etapa interna e nada foi salvo.",
     "error.not_found.title": "Página não encontrada",
     "error.not_found.body": "A página que você procura não existe ou foi movida.",
     "error.forbidden.title": "Acesso negado",
@@ -302,6 +305,7 @@
 
     "error.csrf.title": "Esta página ha caducado",
     "error.csrf.body": "Por seguridad, el formulario dejó de ser válido. Recarga la página y envíalo de nuevo.",
+    "database.transaction.rolled_back": "La operación fue cancelada por un paso interno y no se guardó nada.",
     "error.not_found.title": "Página no encontrada",
     "error.not_found.body": "La página que buscas no existe o ha cambiado de dirección.",
     "error.forbidden.title": "Acceso denegado",

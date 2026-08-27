@@ -1,11 +1,11 @@
-"""One physical session per thread — the prerequisite for serving in parallel.
+"""One physical session per thread - the prerequisite for serving in parallel.
 
 A `Connection` used to hold a single raw DB-API connection plus mutable
 per-request state (transaction depth, tenant schema). That is only safe while
 the process handles one request at a time, which is exactly the throughput
 ceiling this design removes. These tests assert the isolation directly, because
-the failure mode under load — two threads sharing a cursor, or one tenant's
-request repointing another tenant's `search_path` — does not show up in a
+the failure mode under load - two threads sharing a cursor, or one tenant's
+request repointing another tenant's `search_path` - does not show up in a
 single-threaded run at all.
 """
 # Craft Framework
@@ -18,12 +18,12 @@ import time
 
 import pytest
 
-from craft.orm.connection import Connection
+from craft.orm.connection import Connection, TransactionRolledBackError
 
 
 @pytest.fixture
 def file_connection(tmp_path):
-    """A file-backed SQLite connection — the per-thread mode.
+    """A file-backed SQLite connection - the per-thread mode.
 
     `:memory:` is deliberately the exception (one shared session), so it cannot
     be used to test the per-thread behaviour.
@@ -75,7 +75,7 @@ class TestSessionPerThread:
 
     def test_transaction_depth_is_not_shared(self, file_connection):
         """One thread inside a transaction must not make another thread think
-        it is inside one — `DatabaseManager` routes reads on exactly that flag,
+        it is inside one - `DatabaseManager` routes reads on exactly that flag,
         and `statement()` decides whether to commit on it."""
         inside = threading.Event()
         checked = threading.Event()
@@ -136,7 +136,7 @@ class TestSessionPerThread:
         finish.set()
         worker.join()
 
-        # Still usable afterwards — close is not a one-way door.
+        # Still usable afterwards - close is not a one-way door.
         file_connection.statement("SELECT 1")
         assert file_connection.open_sessions == 1
 
@@ -234,6 +234,30 @@ class TestPoolIsBounded:
         finally:
             conn.close()
 
+    def test_outer_commit_fails_after_an_inner_rollback(self, file_connection):
+        """Without savepoints an inner rollback discards the outer work too;
+        the outer commit must say so instead of returning as if it persisted."""
+        file_connection.begin()
+        file_connection.statement("INSERT INTO widgets (name) VALUES ('outer')")
+        file_connection.begin()
+        file_connection.rollback()   # inner level gives up
+
+        with pytest.raises(TransactionRolledBackError):
+            file_connection.commit()
+
+        # The flag is consumed: the next transaction starts clean.
+        file_connection.begin()
+        file_connection.statement("INSERT INTO widgets (name) VALUES ('later')")
+        file_connection.commit()
+        names = [r["name"] for r in file_connection.statement("SELECT name FROM widgets")]
+        assert names == ["later"]
+
+    def test_an_outermost_rollback_does_not_poison_the_next_commit(self, file_connection):
+        file_connection.begin()
+        file_connection.rollback()
+        file_connection.begin()
+        file_connection.commit()   # must not raise
+
     def test_release_rolls_back_an_abandoned_transaction(self, file_connection):
         """A request that opens a transaction and never closes it must not hand
         its uncommitted work to whoever borrows the connection next."""
@@ -273,7 +297,7 @@ class TestInMemorySqliteSharesOneSession:
 class TestTenantSchemaIsPerThread:
     """`use_schema()` is per-thread because the tenant is per-request. Were it
     process-wide, one tenant's request could repoint `search_path` while
-    another tenant's request was mid-query — a cross-tenant read."""
+    another tenant's request was mid-query - a cross-tenant read."""
 
     def test_two_threads_hold_different_schemas(self, is_postgres, migrated_database):
         if not is_postgres:
@@ -311,7 +335,7 @@ class TestTenantSchemaIsPerThread:
 class TestAuthStateIsPerThread:
     """`AuthManager` is a container singleton, but "the current user" belongs to
     the request. With requests served on a thread pool, instance state would let
-    one visitor's identity be read — or overwritten — by another's request."""
+    one visitor's identity be read - or overwritten - by another's request."""
 
     def test_a_login_in_one_thread_is_invisible_to_another(self, migrated_database):
         auth = migrated_database.make("auth")

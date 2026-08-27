@@ -1,5 +1,5 @@
 """
-Kernel — Builds the Starlette ASGI app: mounts the router, static files, and
+Kernel - Builds the Starlette ASGI app: mounts the router, static files, and
 runs each request through the registered middleware stack.
 Category: Core Framework (HTTP).
 Relations:
@@ -57,7 +57,7 @@ class DynamicStarletteApp:
     SPOOFABLE_METHODS = ("PUT", "PATCH", "DELETE")
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        # Rebuild only when the route table changed — rebuilding the whole
+        # Rebuild only when the route table changed - rebuilding the whole
         # Starlette app per request was pure waste.
         router = self.kernel.app.make("router")
         version = getattr(router, "_version", None)
@@ -74,7 +74,7 @@ class DynamicStarletteApp:
         """Honour a `_method` form field, before Starlette routes the request.
 
         HTML forms can only issue GET and POST, so the framework emits a hidden
-        `_method` input — the `@method("PUT")` view directive and every
+        `_method` input - the `@method("PUT")` view directive and every
         edit/delete form the CRUD builder generates rely on it. Nothing ever
         read it back: the browser sent POST, `Route.resource()` had registered
         the route under PUT/DELETE, and the request 405'd. The directive
@@ -161,8 +161,8 @@ class Kernel:
         """Middleware instances, built once and reused.
 
         Building them per request was a correctness bug, not just waste: a
-        middleware that caches anything — the session store and its signing key,
-        for one — got a fresh copy every time, so nothing survived a request.
+        middleware that caches anything - the session store and its signing key,
+        for one - got a fresh copy every time, so nothing survived a request.
         """
         if self._middleware is None:
             self._middleware = [self._instantiate(cls) for cls in self.middleware_classes]
@@ -194,10 +194,10 @@ class Kernel:
         """Turn a route's middleware list into instances.
 
         Accepts alias strings and classes. Aliases may carry a parameter after
-        a colon — `"role:admin"` / `"permission:manage-users"` — which is
+        a colon - `"role:admin"` / `"permission:manage-users"` - which is
         passed as the first positional argument to the resolved middleware
         class (e.g. `RequireRole(role="admin")`). Unknown aliases raise rather
-        than being skipped — a route that declares protection which silently
+        than being skipped - a route that declares protection which silently
         does nothing is worse than one that fails loudly at boot.
         """
         aliases = {**self.route_middleware_aliases(), **self._aliases}
@@ -206,14 +206,14 @@ class Kernel:
             if isinstance(entry, str):
                 if entry in aliases:
                     # Some aliases (`role`, `permission`) are only meaningful
-                    # with a `:param` — a bare use is a caller mistake, not a
+                    # with a `:param` - a bare use is a caller mistake, not a
                     # silently-do-nothing middleware, so it must still raise.
                     try:
                         resolved.append(self._instantiate(aliases[entry]))
                         continue
                     except TypeError:
                         raise KeyError(
-                            f"Route middleware [{entry}] requires a parameter — "
+                            f"Route middleware [{entry}] requires a parameter - "
                             f"use '{entry}:<value>' (e.g. '{entry}:admin')."
                         ) from None
 
@@ -248,7 +248,7 @@ class Kernel:
                 Mount("/", app=StaticFiles(directory=public_dir), name="static")
             )
 
-        # Never hardcode debug — it leaks stack traces to clients in production.
+        # Never hardcode debug - it leaks stack traces to clients in production.
         try:
             debug = bool(self.app.make("config").get("app.APP_DEBUG", False))
         except Exception:
@@ -293,7 +293,7 @@ class Kernel:
 
         async def endpoint(request: StarletteRequest) -> StarletteResponse:
             # Middleware and controllers are synchronous, so the body has to be
-            # read here — they cannot await `request.form()` themselves.
+            # read here - they cannot await `request.form()` themselves.
             from engine.http.request import from_starlette
 
             request = await from_starlette(request).prepare()
@@ -383,7 +383,7 @@ class Kernel:
             # The whole middleware + controller chain is synchronous and every
             # ORM call blocks. Running it inline blocked the event loop for the
             # duration of the request, so the process served exactly one at a
-            # time — the measured ~30 req/s ceiling, flat from 1 to 100 clients.
+            # time - the measured ~30 req/s ceiling, flat from 1 to 100 clients.
             # Offloading to the thread pool is only safe because the connection
             # layer now keeps one session per thread, and because the auth
             # manager's per-request state is thread-local; without those, two

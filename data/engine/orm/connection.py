@@ -8,7 +8,7 @@ Category: Core Framework (ORM).
 Relations:
   - Wrapped by `DatabaseManager` (`engine/orm/db.py`), which owns
     read/write splitting and multi-tenant schema switching.
-  - No SQLAlchemy or other ORM layer sits underneath this — it talks to the
+  - No SQLAlchemy or other ORM layer sits underneath this - it talks to the
     driver libraries directly.
 References:
   - Guide: `documentation/orm.md`, `documentation/configuration.md#database-connections`
@@ -36,7 +36,7 @@ def assert_schema_identifier(name: str) -> str:
     """Reject schema names that could break out of the quoted identifier.
 
     Postgres schema/search_path values here are built with an f-string, not a
-    bound parameter (`SET search_path` cannot take one) — so a tenant name
+    bound parameter (`SET search_path` cannot take one) - so a tenant name
     such as `a", public; DROP SCHEMA public CASCADE; --` must be rejected
     before it ever reaches the string, not just quoted.
     """
@@ -124,6 +124,16 @@ class ConnectionError_(Exception):
     """Raised when a database connection cannot be established."""
 
 
+class TransactionRolledBackError(Exception):
+    """Raised by the outermost `commit()` after an inner level rolled back."""
+
+    code = "DB_TRANSACTION_ROLLED_BACK"
+    message_key = "database.transaction.rolled_back"
+
+    def __init__(self) -> None:
+        super().__init__(self.code)
+
+
 # --- placeholder normalisation -------------------------------------------------
 
 _NAMED_RE = re.compile(r"(?<![:\w]):([a-zA-Z_]\w*)")
@@ -179,14 +189,14 @@ class _Session:
     """The state that belongs to one physical database connection.
 
     Transaction depth and the active tenant schema are properties *of a
-    connection*, not of the `Connection` object — which is shared by every
+    connection*, not of the `Connection` object - which is shared by every
     thread. Keeping them together here is what makes one session per thread
     possible: two requests running concurrently get two raw connections, two
     transaction counters and two `search_path`s, instead of trampling one.
     """
 
     __slots__ = (
-        "_box", "in_transaction",
+        "_box", "in_transaction", "rolled_back",
         "requested_schema", "applied_schema",
         "requested_tenant", "applied_tenant",
         "__weakref__",
@@ -198,8 +208,11 @@ class _Session:
         #: itself has been collected (see `Connection._session`).
         self._box: List[Any] = [None]
         self.in_transaction: int = 0
+        #: Set when an inner transaction level rolled back, so the outermost
+        #: `commit()` refuses instead of pretending the work was persisted.
+        self.rolled_back: bool = False
         #: Tenant schema this session was asked for, or None for the one in the
-        #: connection config. Per-session on purpose — see `Connection`.
+        #: connection config. Per-session on purpose - see `Connection`.
         self.requested_schema: Optional[str] = None
         self.applied_schema: Optional[str] = None
         #: Tenant id bound to the session variable row-level security policies
@@ -223,7 +236,7 @@ class Connection:
 
     A `Connection` used to hold one raw DB-API connection plus mutable
     per-request state. That is safe only while the process handles exactly one
-    request at a time — which is precisely the ~30 req/s ceiling this design
+    request at a time - which is precisely the ~30 req/s ceiling this design
     removes. Two threads sharing a cursor corrupt each other's results, so the
     connection layer had to come first, before any thread offloading.
 
@@ -231,14 +244,14 @@ class Connection:
     back at the end of the request** (`release()`, called by the HTTP kernel).
     Between those points the thread owns it outright, so transaction depth and
     tenant `search_path` are unambiguous. Handing every thread its own
-    permanent connection instead — the obvious shortcut — is what exhausts
+    permanent connection instead - the obvious shortcut - is what exhausts
     `max_connections` the moment the thread pool grows.
 
     `pool_size` (per connection config, default 10) caps how many physical
     connections exist. A thread that needs one while all are checked out waits
     up to `pool_timeout` seconds and then raises, rather than blocking forever.
 
-    **Exception — SQLite `:memory:`**: an in-memory database exists only inside
+    **Exception - SQLite `:memory:`**: an in-memory database exists only inside
     the connection that created it, so pooling would hand each thread a
     different empty database. In that one configuration (development and the
     test-suite) every thread shares a single connection, which `sqlite3` allows
@@ -252,6 +265,8 @@ class Connection:
     #: providers enforce server-side, so the pool drops a connection before the
     #: server does.
     DEFAULT_POOL_RECYCLE = 900.0
+    #: Idle seconds after which a pooled connection is pinged before reuse.
+    DEFAULT_POOL_PING_AFTER = 30.0
 
     def __init__(self, config: Dict[str, Any], base_path: Optional[str] = None):
         self.config = dict(config or {})
@@ -261,7 +276,7 @@ class Connection:
             self.driver = "postgresql"
         self.paramstyle = "qmark" if self.driver == "sqlite" else "pyformat"
 
-        #: Built on first use — see the `dialect` property.
+        #: Built on first use - see the `dialect` property.
         self._dialect: Any = None
 
         self._shares_one_session = self._is_memory_sqlite()
@@ -294,7 +309,7 @@ class Connection:
         Built lazily and cached, because on PostgreSQL it has to *ask*: pgvector
         and pg_trgm are extensions, and a dialect that claims them from the
         server version alone lets a query compile, travel to the server and fail
-        there with `type "vector" does not exist` — a runtime error in exactly
+        there with `type "vector" does not exist` - a runtime error in exactly
         the place the capability check exists to avoid.
         """
         if self._dialect is None:
@@ -342,7 +357,7 @@ class Connection:
         return {row["extname"] for row in rows}
 
     def forget_dialect(self) -> None:
-        """Re-probe capabilities — call after installing an extension."""
+        """Re-probe capabilities - call after installing an extension."""
         self._dialect = None
 
     def _is_memory_sqlite(self) -> bool:
@@ -430,7 +445,14 @@ class Connection:
                 except Exception:
                     self._discard(None)
                     raise
-            if time.monotonic() - checked_in_at > self.pool_recycle or not self._ping(pdo):
+            idle_for = time.monotonic() - checked_in_at
+            if idle_for > self.pool_recycle:
+                self._discard(pdo)
+                continue
+            # A connection handed back moments ago is almost certainly alive;
+            # pinging it would add a round-trip to every request. Only ask
+            # after it has sat long enough for the server to have dropped it.
+            if idle_for > self.DEFAULT_POOL_PING_AFTER and not self._ping(pdo):
                 self._discard(pdo)
                 continue
             return pdo
@@ -482,6 +504,7 @@ class Connection:
             return
 
         pdo, session.pdo = session.pdo, None
+        session.rolled_back = False
         if session.in_transaction:
             # A request that opened a transaction and never closed it would
             # otherwise poison the next borrower with its uncommitted work.
@@ -490,29 +513,20 @@ class Connection:
                 pdo.rollback()
             except Exception:
                 pass
-        if session.applied_schema is not None:
-            # Give it back on the default search_path, so the next borrower does
-            # not inherit a tenant's schema.
+        if session.applied_schema is not None or session.applied_tenant is not None:
+            # The single most consequential line in the tenancy design. Both
+            # the tenant search_path and the tenant id GUC live on the
+            # *physical* connection: hand this one back still carrying them
+            # and the next borrower, a request that never bound a tenant, a
+            # background job, an admin task, reads that tenant's rows through
+            # the policy, correctly and invisibly. A connection that cannot be
+            # cleared is discarded rather than reused.
             try:
-                self._reset_schema(pdo)
+                self._reset_session_state(pdo)
             except Exception:
                 self._discard(pdo)
                 return
         session.applied_schema = None
-
-        if session.applied_tenant is not None:
-            # The single most consequential line in the tenancy design. A
-            # session-scoped GUC lives on the *physical* connection: hand this
-            # one back still carrying a tenant id and the next borrower — a
-            # request that never bound a tenant, a background job, an admin
-            # task — reads that tenant's rows through the policy, correctly and
-            # invisibly. A connection that cannot be cleared is discarded
-            # rather than reused.
-            try:
-                self._reset_tenant(pdo)
-            except Exception:
-                self._discard(pdo)
-                return
         session.applied_tenant = None
 
         with self._cond:
@@ -522,7 +536,7 @@ class Connection:
     def dedicated(self) -> Any:
         """Open a raw connection that the pool neither owns nor reclaims.
 
-        For work that holds a connection for the life of the process — a
+        For work that holds a connection for the life of the process - a
         `LISTEN` loop, above all. Taking one of those from the pool would lose
         a slot permanently: `release()` is never reached, so `_open` stays
         raised and the pool shrinks by one for every listener started.
@@ -613,14 +627,16 @@ class Connection:
         # from the other clients of a shared managed database.
         connect_kwargs["application_name"] = str(self.config.get("application_name") or "craft")
 
+        search_path = self._default_search_path()
+        if search_path:
+            # As a startup option rather than a SET after connecting: it costs
+            # no round-trip, and it becomes the *session default*, which is
+            # what `RESET ALL` restores when the connection goes back to the
+            # pool. Validated by `_default_search_path`, so quoting is safe.
+            connect_kwargs["options"] = f'-c search_path="{search_path}",public'
+
         conn = psycopg2.connect(**connect_kwargs)
         conn.autocommit = False
-        search_path = self.config.get("search_path") or self.config.get("schema")
-        if search_path:
-            assert_schema_identifier(search_path)
-            with conn.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{search_path}", public')
-            conn.commit()
         return conn
 
 
@@ -659,6 +675,7 @@ class Connection:
                 idle.append(session.pdo)
                 session.pdo = None
             session.in_transaction = 0
+            session.rolled_back = False
             session.applied_schema = None
 
         for pdo in idle:
@@ -740,7 +757,7 @@ class Connection:
                 rows.append(Row({key: item[key] for key in item.keys()}))
             else:
                 # strict: a row whose arity disagrees with cursor.description is
-                # a driver bug — pairing them off silently would drop columns.
+                # a driver bug - pairing them off silently would drop columns.
                 rows.append(Row(dict(zip(columns, item, strict=True))))
         return rows
 
@@ -760,13 +777,29 @@ class Connection:
         self._in_transaction += 1
 
     def commit(self) -> None:
-        if self._in_transaction:
-            self._in_transaction -= 1
-        if not self._in_transaction:
-            self.pdo.commit()
+        """Commit the outermost transaction; inner levels only unwind depth.
+
+        Raises `TransactionRolledBackError` when an inner level rolled back:
+        the work is already gone, and returning silently would let the outer
+        caller believe it was persisted.
+        """
+        session = self._session()
+        if session.in_transaction:
+            session.in_transaction -= 1
+        if session.in_transaction:
+            return
+        if session.rolled_back:
+            session.rolled_back = False
+            raise TransactionRolledBackError()
+        self.pdo.commit()
 
     def rollback(self) -> None:
-        self._in_transaction = 0
+        session = self._session()
+        # Rolling back from an inner level discards the outer levels' work too
+        # (there are no savepoints); make their commit fail loudly. From the
+        # outermost level there is nobody left to warn, so the flag clears.
+        session.rolled_back = session.in_transaction > 1
+        session.in_transaction = 0
         try:
             self.pdo.rollback()
         except Exception:
@@ -780,7 +813,7 @@ class Connection:
         **Scoped to the calling thread.** The tenant is a property of the
         request being served, so making it process-wide would mean one tenant's
         request could repoint the search_path while another tenant's request is
-        mid-flight — a cross-tenant read, not merely a race. Every request sets
+        mid-flight - a cross-tenant read, not merely a race. Every request sets
         its own schema on its own session.
         """
         if schema:
@@ -819,6 +852,26 @@ class Connection:
             assert_schema_identifier(default)
         return default
 
+    def _reset_session_state(self, pdo: Any) -> None:
+        """Drop every per-request setting in one round-trip at check-in.
+
+        `RESET ALL` restores the session defaults, which include the startup
+        `search_path` from the config and an unset tenant GUC. Run in
+        autocommit so it is a single round-trip, rather than the SET + COMMIT
+        pairs it replaces (two per setting, up to four per request).
+        """
+        if self.driver != "postgresql":
+            return
+        pdo.autocommit = True
+        try:
+            cursor = pdo.cursor()
+            try:
+                cursor.execute("RESET ALL")
+            finally:
+                cursor.close()
+        finally:
+            pdo.autocommit = False
+
     def _reset_schema(self, pdo: Any) -> None:
         """Put a connection back on the search_path its config asks for."""
         if self.driver != "postgresql":
@@ -838,7 +891,7 @@ class Connection:
     # -- tenant session variable -----------------------------------------------
 
     #: The setting row-level security policies read. A namespaced (dotted) name
-    #: is what makes it settable at all — PostgreSQL only accepts custom
+    #: is what makes it settable at all - PostgreSQL only accepts custom
     #: settings under a prefix it does not own.
     TENANT_GUC = "app.current_tenant_id"
 
@@ -849,7 +902,7 @@ class Connection:
         property of the request being served.
 
         `local=True` scopes the setting to the open transaction, which
-        PostgreSQL unwinds at COMMIT or ROLLBACK — the right choice inside
+        PostgreSQL unwinds at COMMIT or ROLLBACK - the right choice inside
         `DB.transaction()` and in a queue worker, where there is no request end
         to hang a reset on. `local=False` scopes it to the session and relies on
         `release()` to clear it.
@@ -893,7 +946,7 @@ class Connection:
         """Set the GUC through `set_config`, which takes bindings.
 
         `SET LOCAL app.current_tenant_id = :id` is not an option: `SET` is not
-        parameterizable, so the value would have to be interpolated — the same
+        parameterizable, so the value would have to be interpolated - the same
         hole `assert_schema_identifier` exists to close, but on a value that
         comes straight from a request. `set_config(name, value, is_local)` is an
         ordinary function call and binds cleanly.
@@ -916,8 +969,8 @@ class Connection:
         """Clear the GUC on a connection going back to the pool.
 
         Empty rather than absent, because `current_setting(name, true)` cannot
-        un-set a value once set. The policies treat `''` and NULL alike — see
-        the `NULLIF` in the generated policy — so both mean "no tenant", and no
+        un-set a value once set. The policies treat `''` and NULL alike - see
+        the `NULLIF` in the generated policy - so both mean "no tenant", and no
         tenant matches nothing.
         """
         if self.driver != "postgresql":

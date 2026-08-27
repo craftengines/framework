@@ -22,7 +22,7 @@ connections = {
         # Connect as a role that owns nothing, is not a superuser, and has no
         # BYPASSRLS. Row-level security does not apply to any of those, so
         # tenant isolation policies would be inert and nothing about the tables
-        # would say so — `dev.py db:audit-rls` reports it, and the ScopeTenant
+        # would say so - `dev.py db:audit-rls` reports it, and the ScopeTenant
         # middleware refuses to serve tenant traffic under such a role.
         # Migrations run as the owning role, which is a separate credential.
         "username": env("DB_USERNAME", "forge"),
