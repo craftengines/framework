@@ -355,15 +355,15 @@ class Kernel:
                     result = action
 
                 if inspect.iscoroutine(result):
-                    # Async controller action. The middleware chain is
-                    # synchronous and already running on the event loop, so run
-                    # the coroutine to completion on its own loop in a worker
-                    # thread instead of returning str(coroutine).
+                    # Async controller action. This chain already runs on a
+                    # worker thread (see `serve` below), which has no event
+                    # loop, so the coroutine can run to completion right here.
+                    # It must be *this* thread: the pooled connection is
+                    # thread-local, and running the coroutine on another thread
+                    # checked out a second connection that `release()` never saw.
                     import asyncio
-                    from concurrent.futures import ThreadPoolExecutor
 
-                    with ThreadPoolExecutor(max_workers=1) as pool:
-                        result = pool.submit(asyncio.run, result).result()
+                    result = asyncio.run(result)
 
                 if hasattr(result, "to_starlette"):
                     return result.to_starlette()

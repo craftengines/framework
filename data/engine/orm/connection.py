@@ -24,6 +24,7 @@ import re
 import sqlite3
 import threading
 import time
+import weakref
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 Bindings = Union[Sequence[Any], Dict[str, Any], None]
@@ -185,13 +186,17 @@ class _Session:
     """
 
     __slots__ = (
-        "pdo", "in_transaction",
+        "_box", "in_transaction",
         "requested_schema", "applied_schema",
         "requested_tenant", "applied_tenant",
+        "__weakref__",
     )
 
     def __init__(self) -> None:
-        self.pdo: Any = None
+        #: The raw connection lives in a one-slot box rather than directly on
+        #: the session, so a finalizer can still reach it after the session
+        #: itself has been collected (see `Connection._session`).
+        self._box: List[Any] = [None]
         self.in_transaction: int = 0
         #: Tenant schema this session was asked for, or None for the one in the
         #: connection config. Per-session on purpose — see `Connection`.
@@ -203,6 +208,14 @@ class _Session:
         #: leaked tenant id serves another customer's rows out of the right ones.
         self.requested_tenant: Optional[str] = None
         self.applied_tenant: Optional[str] = None
+
+    @property
+    def pdo(self) -> Any:
+        return self._box[0]
+
+    @pdo.setter
+    def pdo(self, value: Any) -> None:
+        self._box[0] = value
 
 
 class Connection:
@@ -234,6 +247,11 @@ class Connection:
 
     DEFAULT_POOL_SIZE = 10
     DEFAULT_POOL_TIMEOUT = 30.0
+    #: Seconds an idle connection may sit in the pool before it is reopened
+    #: instead of reused. Kept under the idle timeout managed PostgreSQL
+    #: providers enforce server-side, so the pool drops a connection before the
+    #: server does.
+    DEFAULT_POOL_RECYCLE = 900.0
 
     def __init__(self, config: Dict[str, Any], base_path: Optional[str] = None):
         self.config = dict(config or {})
@@ -251,16 +269,21 @@ class Connection:
         self._thread_sessions = threading.local()
         #: Guards the pool bookkeeping and wakes threads waiting for a slot.
         self._cond = threading.Condition()
-        self._idle: List[Any] = []
+        #: `(raw connection, checked-in at)` pairs, so checkout can tell how
+        #: long one has been idle and recycle it instead of reusing it.
+        self._idle: List[tuple] = []
         self._open = 0
-        #: Every session handed out, so `close()` reaches sessions belonging to
-        #: threads that have since finished.
-        self._sessions: List[_Session] = []
+        #: Every live session handed out, so `close()` reaches sessions of
+        #: threads still running. Weak on purpose: a session's only strong
+        #: owner is its thread, so a thread that dies drops the session and the
+        #: finalizer registered in `_session()` gives its connection back.
+        self._sessions: "weakref.WeakSet[_Session]" = weakref.WeakSet()
         if self._shared_session is not None:
-            self._sessions.append(self._shared_session)
+            self._sessions.add(self._shared_session)
 
         self.pool_size = max(1, int(self.config.get("pool_size") or self.DEFAULT_POOL_SIZE))
         self.pool_timeout = float(self.config.get("pool_timeout") or self.DEFAULT_POOL_TIMEOUT)
+        self.pool_recycle = float(self.config.get("pool_recycle") or self.DEFAULT_POOL_RECYCLE)
 
     # -- capabilities ----------------------------------------------------------
 
@@ -337,9 +360,18 @@ class Connection:
         if session is None:
             session = _Session()
             self._thread_sessions.session = session
+            # A thread that dies still holding a connection never reaches
+            # `release()`; reclaim its slot when the session is collected.
+            weakref.finalize(session, self._reclaim, session._box)
             with self._cond:
-                self._sessions.append(session)
+                self._sessions.add(session)
         return session
+
+    def _reclaim(self, box: List[Any]) -> None:
+        """Discard a connection whose owning thread vanished without `release()`."""
+        pdo, box[0] = box[0], None
+        if pdo is not None:
+            self._discard(pdo)
 
     @property
     def _in_transaction(self) -> int:
@@ -365,30 +397,68 @@ class Connection:
     # -- pool ------------------------------------------------------------------
 
     def _checkout(self) -> Any:
-        """Take a connection from the pool, opening one if the cap allows."""
+        """Take a connection from the pool, opening one if the cap allows.
+
+        An idle connection is reused only if it is younger than `pool_recycle`
+        and still answers; otherwise it is discarded and the loop goes round
+        again. A managed server drops idle sessions on its own schedule, and
+        handing out one it already closed fails the first statement of a
+        request for nothing.
+        """
         deadline = time.monotonic() + self.pool_timeout
-        with self._cond:
-            while True:
-                if self._idle:
-                    return self._idle.pop()
-                if self._open < self.pool_size:
-                    self._open += 1
-                    break
-                remaining = deadline - time.monotonic()
-                if remaining <= 0 or not self._cond.wait(timeout=remaining):
-                    raise ConnectionError_(
-                        f"All {self.pool_size} pooled connections are in use and "
-                        f"none came free within {self.pool_timeout:g}s. Raise "
-                        f"`pool_size` for this connection, or look for a request "
-                        f"that never releases (an unclosed transaction)."
-                    )
-        try:
-            return self._connect()
-        except Exception:
+        while True:
             with self._cond:
-                self._open -= 1
-                self._cond.notify()
-            raise
+                while True:
+                    if self._idle:
+                        pdo, checked_in_at = self._idle.pop()
+                        break
+                    if self._open < self.pool_size:
+                        self._open += 1
+                        pdo, checked_in_at = None, 0.0
+                        break
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0 or not self._cond.wait(timeout=remaining):
+                        raise ConnectionError_(
+                            f"All {self.pool_size} pooled connections are in use and "
+                            f"none came free within {self.pool_timeout:g}s. Raise "
+                            f"`pool_size` for this connection, or look for a request "
+                            f"that never releases (an unclosed transaction)."
+                        )
+            if pdo is None:
+                try:
+                    return self._connect()
+                except Exception:
+                    self._discard(None)
+                    raise
+            if time.monotonic() - checked_in_at > self.pool_recycle or not self._ping(pdo):
+                self._discard(pdo)
+                continue
+            return pdo
+
+    def _ping(self, pdo: Any) -> bool:
+        """Whether an idle connection still answers; only PostgreSQL is asked."""
+        if self.driver != "postgresql":
+            return True
+        if getattr(pdo, "closed", 0):
+            return False
+        try:
+            cursor = pdo.cursor()
+            try:
+                cursor.execute("SELECT 1")
+            finally:
+                cursor.close()
+            pdo.rollback()
+            return True
+        except Exception:
+            return False
+
+    def _is_connection_failure(self, exc: BaseException) -> bool:
+        """Whether `exc` means the physical connection can no longer be trusted."""
+        if self.driver != "postgresql":
+            return False
+        import psycopg2
+
+        return isinstance(exc, (psycopg2.InterfaceError, psycopg2.OperationalError))
 
     def release(self) -> None:
         """Return this thread's connection to the pool.
@@ -446,7 +516,7 @@ class Connection:
         session.applied_tenant = None
 
         with self._cond:
-            self._idle.append(pdo)
+            self._idle.append((pdo, time.monotonic()))
             self._cond.notify()
 
     def dedicated(self) -> Any:
@@ -462,11 +532,16 @@ class Connection:
         return self._connect()
 
     def _discard(self, pdo: Any) -> None:
-        """Drop a connection that cannot be trusted back into the pool."""
-        try:
-            pdo.close()
-        except Exception:
-            pass
+        """Drop a connection that cannot be trusted back into the pool.
+
+        `pdo` may be None when the slot was reserved but `_connect()` failed;
+        the slot is freed either way.
+        """
+        if pdo is not None:
+            try:
+                pdo.close()
+            except Exception:
+                pass
         with self._cond:
             self._open -= 1
             self._cond.notify()
@@ -532,6 +607,11 @@ class Connection:
         }
         if "sslmode" in self.config:
             connect_kwargs["sslmode"] = self.config["sslmode"]
+        if self.config.get("sslrootcert"):
+            connect_kwargs["sslrootcert"] = self.config["sslrootcert"]
+        # Shown in `pg_stat_activity`, so a leaking process can be told apart
+        # from the other clients of a shared managed database.
+        connect_kwargs["application_name"] = str(self.config.get("application_name") or "craft")
 
         conn = psycopg2.connect(**connect_kwargs)
         conn.autocommit = False
@@ -568,8 +648,11 @@ class Connection:
         """Close the whole pool: checked-out connections and idle ones alike."""
         with self._cond:
             sessions = list(self._sessions)
-            idle, self._idle = self._idle, []
-            self._sessions = [s for s in (self._shared_session,) if s is not None]
+            idle = [pdo for pdo, _ in self._idle]
+            self._idle = []
+            self._sessions = weakref.WeakSet(
+                s for s in (self._shared_session,) if s is not None
+            )
 
         for session in sessions:
             if session.pdo is not None:
@@ -616,8 +699,18 @@ class Connection:
             if not self._in_transaction:
                 self.pdo.commit()
             return result
-        except Exception:
-            if not self._in_transaction:
+        except Exception as exc:
+            session = self._session()
+            if self._is_connection_failure(exc) and session.pdo is not None:
+                # The socket is gone: rolling back would fail too, and handing
+                # the connection back to the pool would make every later
+                # borrower fail the same way. Drop it and start clean next time.
+                pdo, session.pdo = session.pdo, None
+                session.in_transaction = 0
+                session.applied_schema = session.applied_tenant = None
+                self._discard(pdo)
+                raise
+            if not session.in_transaction:
                 try:
                     self.pdo.rollback()
                 except Exception:

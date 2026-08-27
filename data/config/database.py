@@ -27,12 +27,23 @@ connections = {
         # Migrations run as the owning role, which is a separate credential.
         "username": env("DB_USERNAME", "forge"),
         "password": env("DB_PASSWORD", ""),
-        "sslmode": env("DB_SSLMODE", "prefer"),
+        # `require` at minimum: `prefer` silently falls back to plaintext when
+        # TLS cannot be negotiated. Set DB_SSLROOTCERT to the provider's CA and
+        # DB_SSLMODE=verify-full to also pin the server identity.
+        "sslmode": env("DB_SSLMODE", "require"),
+        "sslrootcert": env("DB_SSLROOTCERT", ""),
+        "application_name": env("APP_NAME", "craft"),
         # How many physical connections this process may hold. A thread that
         # needs one while all are checked out waits `pool_timeout` seconds and
-        # then raises, rather than blocking forever.
-        "pool_size": env("DB_POOL_SIZE", 10),
-        "pool_timeout": env("DB_POOL_TIMEOUT", 30),
+        # then raises, rather than blocking forever. The cap is per process and
+        # per connection (write and read each get their own): with a managed
+        # server limit of 22 minus 3 reserved slots, budget the sum across
+        # every web worker, queue worker and listener to stay under 19.
+        "pool_size": env("DB_POOL_SIZE", 4),
+        "pool_timeout": env("DB_POOL_TIMEOUT", 10),
+        # Reopen an idle connection older than this instead of reusing it,
+        # ahead of the server-side idle timeout.
+        "pool_recycle": env("DB_POOL_RECYCLE", 900),
     },
     "mysql": {
         "driver": "mysql",

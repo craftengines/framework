@@ -12,7 +12,9 @@ single-threaded run at all.
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
+import gc
 import threading
+import time
 
 import pytest
 
@@ -57,13 +59,19 @@ class TestSessionPerThread:
     def test_each_thread_opens_its_own_connection(self, file_connection):
         def query(i):
             file_connection.statement("SELECT 1")
-            return id(file_connection._session())
+            # Return the object, not `id()`: a reclaimed session's address is
+            # reused by the next one, which would read as "shared".
+            return file_connection._session()
 
-        session_ids = _run_in_threads(query, count=4)
+        sessions = _run_in_threads(query, count=4)
 
-        assert len(set(session_ids)) == 4, "threads shared a session"
-        # 4 worker threads + the main thread, which created the table.
-        assert file_connection.open_sessions == 5
+        assert len({id(s) for s in sessions}) == 4, "threads shared a session"
+        del sessions
+        # The worker threads are gone and their connections were reclaimed;
+        # only the main thread, which created the table, still holds one.
+        gc.collect()
+        assert file_connection.open_sessions == 1
+        assert file_connection.pool_stats["open"] == 1
 
     def test_transaction_depth_is_not_shared(self, file_connection):
         """One thread inside a transaction must not make another thread think
@@ -109,11 +117,24 @@ class TestSessionPerThread:
         assert rows["n"] == 40
 
     def test_close_shuts_down_every_thread_session(self, file_connection):
-        _run_in_threads(lambda i: file_connection.statement("SELECT 1"), count=3)
-        assert file_connection.open_sessions == 4   # 3 threads + main
+        file_connection.statement("SELECT 1")
+        started = threading.Event()
+        finish = threading.Event()
+
+        def hold(i):
+            file_connection.statement("SELECT 1")
+            started.set()
+            finish.wait()
+
+        worker = threading.Thread(target=hold, args=(0,))
+        worker.start()
+        started.wait()
+        assert file_connection.open_sessions == 2   # worker + main
 
         file_connection.close()
         assert file_connection.open_sessions == 0
+        finish.set()
+        worker.join()
 
         # Still usable afterwards — close is not a one-way door.
         file_connection.statement("SELECT 1")
@@ -155,6 +176,42 @@ class TestPoolIsBounded:
 
             _run_in_threads(work, count=8)
             assert conn.pool_stats["open"] <= 2
+        finally:
+            conn.close()
+
+    def test_a_thread_that_dies_without_release_gives_its_slot_back(self, tmp_path):
+        """A thread that borrows and exits without `release()` (a worker that
+        crashed, a one-off executor) must not keep the slot forever."""
+        conn = Connection({
+            "driver": "sqlite",
+            "database": str(tmp_path / "orphan.sqlite"),
+            "pool_size": 1,
+            "pool_timeout": 0.5,
+        })
+        try:
+            _run_in_threads(lambda i: conn.statement("SELECT 1"), count=1)
+            gc.collect()
+            assert conn.pool_stats["open"] == 0
+
+            # The slot is usable again from another thread.
+            _run_in_threads(lambda i: conn.statement("SELECT 1"), count=1)
+        finally:
+            conn.close()
+
+    def test_an_idle_connection_past_recycle_is_reopened(self, tmp_path):
+        conn = Connection({
+            "driver": "sqlite",
+            "database": str(tmp_path / "recycle.sqlite"),
+            "pool_recycle": 0.01,
+        })
+        try:
+            conn.statement("SELECT 1")
+            first = conn.pdo
+            conn.release()
+            time.sleep(0.05)
+            conn.statement("SELECT 1")
+            assert conn.pdo is not first
+            assert conn.pool_stats == {"open": 1, "idle": 0}
         finally:
             conn.close()
 
