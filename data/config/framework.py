@@ -48,6 +48,30 @@ MULTI_TENANCY_STRATEGY = env("MULTI_TENANCY_STRATEGY", "rls")
 PQC_SECURITY_ENABLED = env("PQC_SECURITY_ENABLED", True)
 CAPTCHA_ENABLED = env("CAPTCHA_ENABLED", True)
 
+# Health probes
+#
+# Two endpoints, because a load balancer asks two different questions.
+# `/health` is liveness: it touches nothing external, so a database incident
+# does not get every healthy web instance restarted on top of it. `/ready` is
+# readiness: it checks the database and cache, so an instance that cannot
+# serve is taken out of rotation instead of returning errors. An application
+# route on either path takes precedence over the built-in one.
+HEALTH_ROUTES_ENABLED = env("HEALTH_ROUTES_ENABLED", True)
+HEALTH_LIVENESS_PATH = env("HEALTH_LIVENESS_PATH", "/health")
+HEALTH_READINESS_PATH = env("HEALTH_READINESS_PATH", "/ready")
+
+# How many requests one process serves at once. Zero derives it from the
+# connection pool (`pool_size` x 2, at least 8), which is the right default:
+# the request chain is synchronous, so a thread with no connection to borrow
+# only waits out `pool_timeout` and fails. Set it explicitly for a workload
+# that is mostly cached or static and rarely touches the database.
+HTTP_THREADPOOL_SIZE = env("HTTP_THREADPOOL_SIZE", 0)
+
+# How long `dev.py migrate` waits for another instance to finish migrating
+# before giving up. Every container runs migrations at boot, so without the
+# lock they race; with it, the second one waits and then finds nothing pending.
+MIGRATION_LOCK_TIMEOUT = env("MIGRATION_LOCK_TIMEOUT", 120)
+
 # Default locale & timezone
 DEFAULT_LOCALE = env("APP_LOCALE", "en")
 SUPPORTED_LOCALES = ["en", "pt", "es"]

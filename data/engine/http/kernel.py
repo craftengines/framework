@@ -57,6 +57,14 @@ class DynamicStarletteApp:
     SPOOFABLE_METHODS = ("PUT", "PATCH", "DELETE")
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") == "lifespan":
+            # Handled here rather than by the inner Starlette app, which is
+            # rebuilt whenever the route table changes: a shutdown hook
+            # registered on an instance that has since been replaced would
+            # never run, which is precisely the bug this must not have.
+            await self._lifespan(scope, receive, send)
+            return
+
         # Rebuild only when the route table changed - rebuilding the whole
         # Starlette app per request was pure waste.
         router = self.kernel.app.make("router")
@@ -69,6 +77,33 @@ class DynamicStarletteApp:
 
         scope, receive = await self._apply_method_override(scope, receive)
         await self._app(scope, receive, send)
+
+    async def _lifespan(self, scope: Any, receive: Any, send: Any) -> None:
+        """Run the process-level startup and shutdown protocol.
+
+        The shutdown half is what makes a rolling deploy safe: the server stops
+        accepting connections and waits for in-flight requests before sending
+        `lifespan.shutdown`, so by the time the hooks below run there is nobody
+        left holding a pooled connection and the pool can be closed for real.
+        Without this the process exited with connections still open on the
+        server, which a managed database counts against `max_connections` until
+        it notices the socket is gone.
+        """
+        while True:
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                try:
+                    await self.kernel.on_startup()
+                except Exception as exc:  # pragma: no cover - boot failure path
+                    await send({"type": "lifespan.startup.failed", "message": str(exc)})
+                    return
+                await send({"type": "lifespan.startup.complete"})
+            elif message["type"] == "lifespan.shutdown":
+                try:
+                    await self.kernel.on_shutdown()
+                finally:
+                    await send({"type": "lifespan.shutdown.complete"})
+                return
 
     async def _apply_method_override(self, scope: Any, receive: Any):
         """Honour a `_method` form field, before Starlette routes the request.
@@ -151,6 +186,61 @@ class Kernel:
         self.middleware_classes: List[Any] = []
         self._middleware: Optional[List[Any]] = None
         self._aliases: dict = {}
+
+    #: Worker threads per DB connection. The whole request chain is
+    #: synchronous, so concurrency is threads, and a thread that cannot get a
+    #: connection just waits out `pool_timeout` and fails. Slightly more
+    #: threads than connections keeps requests that never touch the database
+    #: moving; many more only converts a fast rejection into a slow one.
+    THREADS_PER_CONNECTION = 2
+    MIN_THREADPOOL_SIZE = 8
+
+    async def on_startup(self) -> None:
+        """Bound the worker pool to something the database can actually serve."""
+        self._apply_threadpool_limit()
+
+    async def on_shutdown(self) -> None:
+        """Release process-wide resources once the server has drained."""
+        for closer in ("db",):
+            try:
+                self.app.make(closer).purge()
+            except Exception:
+                # Shutdown must not raise: an exception here would replace an
+                # orderly exit with a stack trace and a non-zero status.
+                pass
+
+    def _apply_threadpool_limit(self) -> None:
+        size = self.threadpool_size()
+        if size <= 0:
+            return
+        try:
+            import anyio.to_thread
+
+            anyio.to_thread.current_default_thread_limiter().total_tokens = size
+        except Exception:  # pragma: no cover - depends on the anyio version
+            pass
+
+    def threadpool_size(self) -> int:
+        """How many requests this process serves at once.
+
+        Defaults from `pool_size` rather than a fixed number, because the two
+        are the same setting seen from opposite ends: anyio's default of 40
+        threads against a pool of 4 means 36 threads queueing on a connection
+        timeout instead of being turned away at the door.
+        """
+        try:
+            config = self.app.make("config")
+            explicit = config.get("framework.HTTP_THREADPOOL_SIZE", 0)
+            if explicit:
+                return max(1, int(explicit))
+            name = config.get("database.default") or "sqlite"
+            settings = config.get(f"database.connections.{name}", {}) or {}
+            pool_size = int(settings.get("pool_size") or 0)
+        except Exception:
+            return 0
+        if not pool_size:
+            return 0
+        return max(self.MIN_THREADPOOL_SIZE, pool_size * self.THREADS_PER_CONNECTION)
 
     def with_middleware(self, *middleware) -> 'Kernel':
         self.middleware_classes.extend(middleware)
@@ -240,6 +330,12 @@ class Kernel:
             endpoint = self._create_endpoint(r.action, r._module, r.middleware_list)
             for m in r.methods:
                 routes.append(StarletteRoute(r.uri, endpoint=endpoint, methods=[m]))
+
+        # Probes are mounted outside the middleware stack, and after the
+        # application's own routes so a project can still define its own.
+        from engine.http.health import register_health_routes
+
+        register_health_routes(self.app, routes, {r.uri for r in router.routes})
 
         # Serve static files (CSS, JS, images) from the public/ directory.
         public_dir = os.path.join(self.app.base_path, "public")

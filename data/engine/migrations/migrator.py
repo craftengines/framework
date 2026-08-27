@@ -2,7 +2,7 @@
 
 Discovers migration files in `database/migrations`, tracks applied migrations in
 a `migrations` table with batch numbers, and supports run / rollback / reset /
-refresh / fresh / status — mirroring the framework's migrator semantics.
+refresh / fresh / status - mirroring the framework's migrator semantics.
 
 Category: Core Framework (Migrations).
 Relations:
@@ -26,6 +26,17 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 MIGRATION_FILE_RE = re.compile(r"^\d{4}_\d{2}_\d{2}_\d{6}_[\w]+\.py$")
+
+
+class MigrationLockTimeout(RuntimeError):
+    """Another process held the migration lock for longer than allowed."""
+
+    code = "MIGRATION_LOCK_TIMEOUT"
+    message_key = "database.migration.lock_timeout"
+
+    def __init__(self, seconds: float):
+        super().__init__(self.code)
+        self.seconds = seconds
 
 
 class Migration:
@@ -87,7 +98,7 @@ class MigrationFile:
         """Whether this migration may be wrapped in a transaction.
 
         Set `transactional = False` at module level for DDL PostgreSQL refuses
-        inside a transaction block — `CREATE INDEX CONCURRENTLY`,
+        inside a transaction block - `CREATE INDEX CONCURRENTLY`,
         `ALTER TYPE … ADD VALUE`. Such a migration has to be written to be
         re-runnable, because a failure leaves it half applied with no rollback.
         """
@@ -97,7 +108,7 @@ class MigrationFile:
         method = self._resolve(direction)
         if method is None:
             if direction == "down":
-                return  # irreversible migration — nothing to undo
+                return  # irreversible migration - nothing to undo
             raise AttributeError(f"Migration [{self.name}] has no `{direction}()`.")
         method()
 
@@ -183,6 +194,61 @@ class Migrator:
 
     def run(self, step: Optional[int] = None, pretend: bool = False) -> List[str]:
         """Apply all pending migrations. Returns the names that ran."""
+        return self.with_lock(lambda: self._run(step, pretend))
+
+    #: One lock for the whole migrator, so `migrate` and `rollback` cannot
+    #: interleave either.
+    LOCK_KEY = "craft:migrations"
+
+    def with_lock(self, callback: Callable[[], Any]) -> Any:
+        """Run `callback` as the only migrator touching this database.
+
+        Production images run migrations at container start, so a deployment
+        that replaces three containers runs three migrators against one
+        database within the same second. Each reads the same pending list and
+        applies it, and the second one fails somewhere in the middle with a
+        half-built schema.
+
+        A session-scoped advisory lock rather than a transactional one: the
+        migrations themselves open and close transactions, and some (a
+        concurrent index build) cannot run inside one at all. Waiting is the
+        right behaviour, not failing: the loser wakes up when the winner
+        finishes and finds nothing pending, which is what makes every container
+        able to run the same command.
+        """
+        db = self.db
+        try:
+            supported = db.dialect.supports("advisory_locks")
+        except Exception:
+            supported = False
+        if not supported:
+            # SQLite and MySQL: no advisory locks, and no deployment shape that
+            # needs them here. Running unlocked is the previous behaviour.
+            return callback()
+
+        from engine.orm.locks import LockManager
+
+        timeout = self._lock_timeout()
+        handle = LockManager(self.app).key(self.LOCK_KEY)
+        if timeout > 0:
+            handle = handle.block_for(timeout)
+        if not handle.acquire():
+            raise MigrationLockTimeout(timeout)
+        try:
+            return callback()
+        finally:
+            try:
+                handle.release()
+            except Exception:
+                pass
+
+    def _lock_timeout(self) -> float:
+        try:
+            return float(self.app.make("config").get("framework.MIGRATION_LOCK_TIMEOUT", 120))
+        except Exception:
+            return 120.0
+
+    def _run(self, step: Optional[int] = None, pretend: bool = False) -> List[str]:
         self.ensure_repository()
         pending = self.pending()
         if step:
@@ -204,13 +270,13 @@ class Migrator:
         return applied
 
     def _apply(self, migration: MigrationFile, direction: str, batch: int) -> None:
-        """Run one migration and record it — as a single unit of work.
+        """Run one migration and record it - as a single unit of work.
 
         A migration is one decision, and its ledger row belongs inside it.
         Running the statements one at a time (each auto-committing, which is
         what `Connection.statement` does outside a transaction) meant a failure
         on statement four of seven left a half-built schema and no ledger row
-        to say so — the worst possible state to recover from. PostgreSQL and
+        to say so - the worst possible state to recover from. PostgreSQL and
         SQLite both roll back DDL, so this costs nothing where it works and is
         skipped where it does not.
         """
@@ -228,6 +294,9 @@ class Migrator:
 
     def rollback(self, step: int = 1) -> List[str]:
         """Revert the last `step` batches."""
+        return self.with_lock(lambda: self._rollback(step))
+
+    def _rollback(self, step: int = 1) -> List[str]:
         self.ensure_repository()
         batch = self.last_batch()
         if batch == 0:
@@ -248,7 +317,7 @@ class Migrator:
                 migration = by_name.get(name)
                 if migration is None:
                     # Deleting the ledger row without running down() would
-                    # silently strand the schema — keep it and tell the user.
+                    # silently strand the schema - keep it and tell the user.
                     self.notes.append(f"Migration file missing, skipped:  {name}")
                     continue
                 self._apply(migration, "down", current)

@@ -84,6 +84,29 @@ both tells you so instead of quietly serving with one). Each worker has its own
 connection pool, so plan `pool_size × workers` against the database's
 `max_connections`.
 
+### Threads and the connection budget
+
+Threads and `pool_size` are one setting seen from both ends: every thread that
+touches the database needs a connection, and one that cannot get a connection
+only waits out `pool_timeout` and fails. The thread pool therefore defaults to
+`pool_size × 2` (minimum 8) rather than the runtime's own default of 40 —
+40 threads against a pool of 4 means 36 of them queueing on a timeout instead
+of being turned away at the door. Override with `HTTP_THREADPOOL_SIZE` for a
+workload that is mostly cached or static.
+
+Budget connections across the whole deployment, not per process:
+
+```text
+(pool_size_write + pool_size_read) × web workers
+  + pool_size × queue workers
+  + 1 per LISTEN listener
+  ≤ max_connections − 3 reserved for the superuser
+```
+
+Set `APP_NAME` per deployment: it becomes the connection's `application_name`,
+which is what makes `pg_stat_activity` able to tell you *which* process is
+holding connections open.
+
 ## Multiple workers
 
 Some defaults do not survive more than one process:
@@ -105,7 +128,8 @@ python dev.py queue work --queue default
 
 Run it under a supervisor that restarts it — systemd, supervisord, or a separate
 container. The `sync` driver runs jobs inline and needs no worker, but it makes
-the request wait.
+the request wait. On `SIGTERM` the worker finishes its current job and exits
+cleanly; see [Rolling deploys](#rolling-deploys).
 
 ## Migrations on deploy
 
@@ -113,8 +137,14 @@ the request wait.
 python dev.py migrate
 ```
 
-It is idempotent: already-applied migrations are skipped. Check first with
-`migrate:status`, and rehearse a rollback:
+It is idempotent: already-applied migrations are skipped, and on PostgreSQL it
+takes an advisory lock first, so every container in a deployment can run the
+same command at boot. The first one migrates; the others wait, then find
+nothing pending. `MIGRATION_LOCK_TIMEOUT` (default 120s) bounds that wait, and
+exceeding it fails the boot rather than migrating concurrently. Drivers
+without advisory locks (SQLite, MySQL) run unlocked.
+
+Check first with `migrate:status`, and rehearse a rollback:
 
 ```bash
 python dev.py migrate:status
@@ -142,19 +172,62 @@ of 404s or failed CSRF checks does not bury a real fault.
 Configure the handler in `config/logging.py`. In containers, log to stdout and
 let the platform collect it.
 
-## Health check
+## Health checks
 
-```python
-Route.get("/health", lambda: {"status": "ok"}).name("health")
+Two probes ship mounted, outside the middleware stack, so neither loads a
+session nor verifies CSRF:
+
+| Path | Question | Checks | Fails with |
+|---|---|---|---|
+| `/health` | Is the process wedged? | Nothing external | never |
+| `/ready` | Can this instance serve? | Database round-trip, pool census, cache | `503` |
+
+Keeping them apart is not pedantry. Point a liveness probe at something that
+checks the database and a database incident restarts every healthy web
+instance on top of it, turning one outage into two. Liveness answers from the
+process alone; readiness is the one that takes an instance out of rotation.
+
+```jsonc
+// GET /ready
+{
+  "status": "ok",
+  "checks": {
+    "database": {"driver": "postgresql", "pool_open": 2, "pool_idle": 1,
+                 "pool_size": 4, "status": "pass", "duration_ms": 1.4},
+    "cache": {"store": "RedisStore", "status": "pass", "duration_ms": 0.3}
+  }
+}
 ```
 
-For a check that proves the database too:
+`pool_open == pool_size` sustained is the signal to alert on: the instance is
+about to start failing on `pool_timeout`, and that is visible here before it is
+visible in the error rate.
+
+Configure with `HEALTH_ROUTES_ENABLED`, `HEALTH_LIVENESS_PATH` and
+`HEALTH_READINESS_PATH`. An application route on either path takes precedence,
+so defining your own `/health` replaces the built-in one rather than colliding
+with it. Add a dependency of your own:
 
 ```python
-def health(request):
-    app.make("db").statement("SELECT 1")
-    return {"status": "ok"}
+from craft.http.health import HealthCheck
+
+reporter.add_check(HealthCheck("search", lambda: {"healthy": index.ping()}))
 ```
+
+## Rolling deploys
+
+The process handles the ASGI lifespan, so a `SIGTERM` to the web server drains
+in-flight requests and then closes the connection pool. Without that, a
+replaced container left connections open on the server until it noticed the
+socket was gone — which a managed database counts against `max_connections`
+in the meantime.
+
+Queue workers and the scheduler stop cooperatively on `SIGTERM`: the worker
+finishes the job in hand and exits rather than being killed mid-job, which
+would leave the job reserved until the stale sweep reclaimed it and would
+repeat any side effect it had already performed. Give the orchestrator a
+`terminationGracePeriodSeconds` (or `stop_grace_period`) longer than the
+slowest job.
 
 ## What to back up
 

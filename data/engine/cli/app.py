@@ -817,14 +817,26 @@ def queue_work(
         return
 
     echo(f"Processing jobs from the [{queue}] queue.", "green")
-    while True:
-        processed = manager.work(queue)
-        if processed:
-            echo("Processed a job.", "green")
-        if once:
-            break
-        if not processed:
-            time.sleep(1)
+    from craft.support.shutdown import ShutdownSignal
+
+    stop = ShutdownSignal(
+        lambda name: echo(f"{name} received; finishing the current job.", "yellow")
+    ).install()
+    try:
+        while not stop.requested:
+            processed = manager.work(queue)
+            if processed:
+                echo("Processed a job.", "green")
+            if once:
+                break
+            if not processed:
+                # Waits on the stop event, so a deploy is not held up for a
+                # second by a worker that happens to be idle.
+                stop.wait(1)
+    finally:
+        stop.restore()
+    if stop.requested:
+        echo("Worker stopped cleanly.", "green")
 
 
 @queue_app.command("failed")
@@ -916,16 +928,26 @@ def schedule_work() -> None:
     import time
     from datetime import datetime
 
+    from craft.support.shutdown import ShutdownSignal
+
     manager = get_app().make("schedule")
     echo("Scheduler running. Ctrl-C to stop.", "green")
-    while True:
-        # Evaluate first, then sleep: sleeping first skipped anything due in
-        # the minute the worker started.
-        for name in manager.run_due():
-            echo(f"Ran: {name}", "green")
-        # Sleep to the top of the next minute so each minute is evaluated once.
-        now = datetime.now()
-        time.sleep(60 - now.second - now.microsecond / 1_000_000)
+    stop = ShutdownSignal(
+        lambda signal_name: echo(f"{signal_name} received; stopping.", "yellow")
+    ).install()
+    try:
+        while not stop.requested:
+            # Evaluate first, then sleep: sleeping first skipped anything due
+            # in the minute the worker started.
+            for name in manager.run_due():
+                echo(f"Ran: {name}", "green")
+            # Sleep to the top of the next minute so each minute is evaluated
+            # once, waking early when a stop is requested.
+            now = datetime.now()
+            stop.wait(60 - now.second - now.microsecond / 1_000_000)
+    finally:
+        stop.restore()
+    echo("Scheduler stopped cleanly.", "green")
 
 
 # -- cache ----------------------------------------------------------------------
