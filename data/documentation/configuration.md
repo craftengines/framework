@@ -78,13 +78,13 @@ Config.set("cache.default", "array")
 | File | Purpose |
 |---|---|
 | `app.py` | Name, environment, debug (off by default), key, locale, timezone |
-| `framework.py` | Framework name/version/release, feature flags (`MULTI_TENANCY_ENABLED`, `PQC_SECURITY_ENABLED`, `CAPTCHA_ENABLED`), default locale and supported locales |
+| `framework.py` | Framework name/version/release, feature flags (`MULTI_TENANCY_ENABLED`, `PQC_SECURITY_ENABLED`, `CAPTCHA_ENABLED`), health probes, metrics, thread pool, migration lock, default locale and supported locales |
 | `database.py` | Connections for sqlite, pgsql, mysql |
 | `session.py` | Driver, lifetime, cookie name, SameSite, CSRF switch |
 | `auth.py` | Guards and the user provider model |
 | `cache.py` | Default store |
 | `queue.py` | Default connection |
-| `logging.py` | Log channel setup |
+| `logging.py` | Log channel setup and the `text` / `json` format |
 
 ## Database connections
 
@@ -132,16 +132,30 @@ pool, per connection:
 "pgsql": {
     "driver": "postgresql",
     # ...
-    "pool_size": 10,      # physical connections (default 10)
-    "pool_timeout": 30,   # seconds to wait for a free one (default 30)
+    "pool_size": 4,        # physical connections (default 4)
+    "pool_timeout": 10,    # seconds to wait for a free one (default 10)
+    "pool_recycle": 900,   # reopen a connection idle longer than this
+    "application_name": env("APP_NAME", "craft"),
 }
 ```
 
-`pool_size` is a ceiling on connections to that database *per worker process*,
-so the total your server opens is `pool_size × workers` — keep that under the
-database's own `max_connections`. When every connection is checked out, a
+`pool_size` is a ceiling on connections to that database *per worker process*
+and *per connection* (a configured read replica gets its own), so the total
+your deployment opens is the sum across web workers, queue workers and
+listeners — keep that under the database's own `max_connections`, minus the
+slots it reserves for the superuser. When every connection is checked out, a
 request waits up to `pool_timeout` and then fails with an error naming the
 setting, rather than hanging forever.
+
+`pool_recycle` reopens a connection that has sat idle longer than the given
+seconds instead of reusing it, ahead of the idle timeout a managed database
+enforces on its own. A connection idle for more than 30 seconds is also pinged
+before reuse, so a failover costs one discarded connection rather than a wave
+of errors. `application_name` is what makes `pg_stat_activity` able to say
+*which* process is holding connections open.
+
+The web thread pool is sized from `pool_size` — see
+[Deployment](deployment.md#threads-and-the-connection-budget).
 
 SQLite `:memory:` is the one exception: an in-memory database lives inside the
 connection that created it, so all threads share a single connection there.

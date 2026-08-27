@@ -18,7 +18,7 @@ Route.get("/", [HomeController, "index"]).name("home")
 Route.get("/home", [HomeController, "index"]).name("home.index")
 Route.get("/dashboard", [HomeController, "index"]).name("dashboard")
 
-# Authentication — login/register are throttled per IP+route to close the
+# Authentication - login/register are throttled per IP+route to close the
 # brute-force gap: the CAPTCHA on /login stops naive scripted attempts, but
 # does not bound automated ones without a request-rate limit.
 Route.get("/login", [AuthController, "show_login"]).name("login")
@@ -29,7 +29,7 @@ Route.post("/logout", [AuthController, "logout"]).name("logout")
 
 # The dashboard lists every user, every administrator and every tenant in the
 # installation. It carried `auth` alone, so any account that could log in read
-# the whole directory — authentication is not authorization. `role:admin` puts
+# the whole directory - authentication is not authorization. `role:admin` puts
 # it on the same footing as the rest of the admin surface, and
 # `tests/test_admin_authorization.py` now fails the build if any /admin route
 # is ever declared without an authorizing alias again.
@@ -42,12 +42,12 @@ Route.get("/admin", [HomeController, "admin"]).middleware("auth", "role:admin").
 Route.get("/admin/crud-builder", [CrudBuilderController, "index"]).middleware("auth", "role:admin").name("admin.crud_builder.index")
 Route.post("/admin/crud-builder", [CrudBuilderController, "store"]).middleware("auth", "role:admin").name("admin.crud_builder.store")
 
-# RBAC admin UI — the first real usage of the `role:<slug>` route middleware.
+# RBAC admin UI - the first real usage of the `role:<slug>` route middleware.
 Route.get("/admin/roles", [RoleController, "index"]).middleware("auth", "role:admin").name("admin.roles.index")
 Route.post("/admin/roles/grant", [RoleController, "grant"]).middleware("auth", "role:admin").name("admin.roles.grant")
 Route.get("/admin/permissions", [PermissionController, "index"]).middleware("auth", "role:admin").name("admin.permissions.index")
 
-# Group admin UI — team-level access, plus the conditional (ABAC) grants.
+# Group admin UI - team-level access, plus the conditional (ABAC) grants.
 # Every one of these hands out access, so they are themselves admin-only.
 Route.get("/admin/groups", [GroupController, "index"]).middleware("auth", "role:admin").name("admin.groups.index")
 Route.post("/admin/groups", [GroupController, "store"]).middleware("auth", "role:admin").name("admin.groups.store")
@@ -55,7 +55,7 @@ Route.post("/admin/groups/members", [GroupController, "add_member"]).middleware(
 Route.post("/admin/groups/roles", [GroupController, "grant_role"]).middleware("auth", "role:admin").name("admin.groups.roles")
 Route.post("/admin/groups/permissions", [GroupController, "grant_permission"]).middleware("auth", "role:admin").name("admin.groups.permissions")
 
-# The control panel — a workspace for EVERY signed-in account, not an admin
+# The control panel - a workspace for EVERY signed-in account, not an admin
 # area. `/panel` and the pages under it that only concern the visitor's own
 # data need `auth` alone; the pages that manage other people carry
 # `role:admin` as well. The sidebar is built from the `nav` registry and
@@ -67,7 +67,7 @@ Route.post("/panel/profile/password", [PanelController, "update_password"]).midd
 Route.get("/panel/posts", [PanelController, "posts"]).middleware("auth").name("panel.posts")
 
 # The access audit exposes permission slugs, the path each grant arrives by and
-# the raw ABAC conditions — the installation's security configuration, not the
+# the raw ABAC conditions - the installation's security configuration, not the
 # visitor's personal data. It shipped open to any signed-in account for one
 # revision; it is admin-only now.
 Route.get("/panel/access", [PanelController, "access"]).middleware("auth", "role:admin").name("panel.access")
@@ -83,8 +83,8 @@ Route.get("/panel/plugins", [PanelController, "plugins"]).middleware("auth", "ro
 Route.get("/panel/tenants", [PanelController, "tenants"]).middleware("auth", "role:admin").name("panel.tenants")
 
 # Framework control. These answer "what is this installation actually doing?"
-# from the running application — the live router, the live connection, the live
-# managers — so an administrator never has to shell into the container to find
+# from the running application - the live router, the live connection, the live
+# managers - so an administrator never has to shell into the container to find
 # out. `/panel/routes` in particular is the installation's attack surface in
 # one table.
 Route.get("/panel/routes", [PanelController, "routes"]).middleware("auth", "role:admin").name("panel.routes")

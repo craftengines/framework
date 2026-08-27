@@ -1,4 +1,4 @@
-"""Application bootstrap — creates and boots the Craft application."""
+"""Application bootstrap - creates and boots the Craft application."""
 # Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
@@ -112,6 +112,7 @@ from app.Http.Middleware.TenantMiddleware import TenantMiddleware
 
 from craft.http.middleware import (
     Authenticate,
+    RequestContext,
     ScopeTenant,
     SecurityHeaders,
     SetLocale,
@@ -123,9 +124,13 @@ kernel = Kernel(app)
 
 # Order matters: the session must exist before the locale can be remembered in
 # it, before CSRF verification, and before the user is resolved from it.
-# SecurityHeaders goes first so every response — including error responses
-# rendered inside StartSession — carries the baseline headers.
+# SecurityHeaders goes early so every response - including error responses
+# rendered inside StartSession - carries the baseline headers.
+# RequestContext goes first of all: everything after it, a session failure and
+# a CSRF rejection included, should carry the identifier of the request that
+# caused it and land in the latency histogram.
 _global_middleware = [
+    RequestContext,
     SecurityHeaders,
     StartSession,
     SetLocale,
@@ -141,7 +146,7 @@ _global_middleware = [
 # The strategy picks *which* middleware, and both refuse to serve a tenant
 # request the database cannot isolate rather than degrading to shared tables.
 # `MULTI_TENANCY_STRATEGY` used to appear only in error messages and docs while
-# nothing read it — the instruction "switch to MULTI_TENANCY_STRATEGY=rls" had
+# nothing read it - the instruction "switch to MULTI_TENANCY_STRATEGY=rls" had
 # no effect at all.
 _config = app.make("config")
 if _config.get("framework.MULTI_TENANCY_ENABLED", False):

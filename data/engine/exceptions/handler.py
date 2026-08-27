@@ -1,5 +1,5 @@
 """
-ExceptionHandler — Turns raised exceptions into HTTP responses. Server faults
+ExceptionHandler - Turns raised exceptions into HTTP responses. Server faults
 (5xx) log a stack trace; client errors (4xx) log at info level without one.
 Category: Core Framework (Exceptions).
 Relations:
@@ -15,7 +15,7 @@ References:
 from __future__ import annotations
 
 import traceback
-from typing import Any, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 class CraftException(Exception):
@@ -46,12 +46,14 @@ class ExceptionHandler:
 
     def __init__(self, app: Any = None):
         self.app = app
+        #: Sinks registered through `reporter()`, called for server faults.
+        self._reporters: List[Callable[[BaseException, Dict[str, Any]], None]] = []
 
     def should_report(self, exception: BaseException) -> bool:
         """Only server faults are worth a stack trace.
 
         A 404, a failed CSRF check or a validation error is the client getting
-        it wrong — logging a full traceback for each one buries the real faults.
+        it wrong - logging a full traceback for each one buries the real faults.
         """
         if isinstance(exception, self.dont_report):
             return False
@@ -80,20 +82,61 @@ class ExceptionHandler:
 
     # -- handling --------------------------------------------------------------
 
+    def reporter(self, callback: Callable[[BaseException, Dict[str, Any]], None]) -> Any:
+        """Register a sink for reportable exceptions - Sentry, or any other.
+
+        The log is where an exception is written down; a reporter is where it
+        is noticed. Registered rather than hard-wired so the framework carries
+        no vendor, and called with the request context so the report names the
+        request rather than arriving as an anonymous stack trace.
+
+            handler.reporter(lambda exc, ctx: sentry_sdk.capture_exception(exc))
+        """
+        self._reporters.append(callback)
+        return self
+
     def report(self, exception: BaseException) -> None:
+        from engine.support import context
+
+        request_context = context.current()
         logger = self._logger()
-        if logger is None:
+
+        if logger is not None:
+            if self.should_report(exception):
+                logger.error(
+                    "%s: %s", type(exception).__name__, exception, exc_info=exception
+                )
+            else:
+                logger.info(
+                    "%s (%s): %s",
+                    type(exception).__name__,
+                    self.status_for(exception),
+                    exception,
+                )
+
+        if not self.should_report(exception):
             return
 
-        if self.should_report(exception):
-            logger.error("%s: %s", type(exception).__name__, exception, exc_info=exception)
-        else:
-            logger.info(
-                "%s (%s): %s",
-                type(exception).__name__,
-                self.status_for(exception),
-                exception,
+        # Counted here rather than in the middleware: this is the one funnel
+        # every reportable fault passes through, however it was rendered.
+        try:
+            from engine.support.metrics import registry
+
+            registry.increment(
+                "craft_exceptions_total", exception=type(exception).__name__
             )
+        except Exception:
+            pass
+
+        for reporter in self._reporters:
+            try:
+                reporter(exception, dict(request_context))
+            except Exception:
+                # A failing reporter must not replace the exception being
+                # reported: the original is the one worth surfacing, and an
+                # error tracker being down is not a reason to lose it.
+                if logger is not None:
+                    logger.warning("error_reporter_failed", exc_info=True)
 
     def status_for(self, exception: BaseException) -> int:
         return int(getattr(exception, "status_code", 500))
@@ -132,7 +175,7 @@ class ExceptionHandler:
 
         # An application view wins, so an error page can be branded like the
         # rest of the site: `resources/views/errors/403.forge.py`, falling back
-        # to `errors/error.forge.py`. Neither is required — the built-in page
+        # to `errors/error.forge.py`. Neither is required - the built-in page
         # below is a complete answer on its own.
         rendered = self._render_error_view(status, payload)
         if rendered is not None:
@@ -188,7 +231,7 @@ class ExceptionHandler:
         return None
 
     def _default_error_page(self, status: int, payload: dict) -> str:
-        """A self-contained, readable error page — no template needed."""
+        """A self-contained, readable error page - no template needed."""
         from html import escape
 
         title = self.TITLES.get(status, "Error")
@@ -207,7 +250,7 @@ class ExceptionHandler:
         return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{status} — {escape(title)}</title></head>
+<title>{status} - {escape(title)}</title></head>
 <body style="margin:0;min-height:100vh;display:flex;align-items:center;
 justify-content:center;background:#f8fafc;color:#0f172a;
 font-family:system-ui,-apple-system,'Segoe UI',sans-serif">

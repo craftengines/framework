@@ -18,6 +18,124 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.18.0] r00011 — 2026-08-27
+
+High availability: the work needed before a second instance of the application
+can be run safely, and before an incident on one of them can be diagnosed.
+
+### Added
+
+- **Health probes**, mounted outside the middleware stack so a probe costs no
+  session load, no CSRF check and no user lookup (`engine/http/health.py`).
+  - `/health` is liveness and touches nothing external: a probe that checked
+    the database would get every healthy web instance restarted during a
+    database incident, turning one outage into two.
+  - `/ready` is readiness — a database round-trip, a cache round-trip and the
+    connection pool census — and answers `503` when a critical check fails, so
+    an instance that cannot serve is taken out of rotation instead of returning
+    errors. Extensible with `HealthCheck`; an application route on either path
+    takes precedence over the built-in one.
+  - Configured by `HEALTH_ROUTES_ENABLED`, `HEALTH_LIVENESS_PATH`,
+    `HEALTH_READINESS_PATH`.
+
+- **ASGI lifespan with graceful shutdown** (`engine/http/kernel.py`). The
+  lifespan is handled by the outer application rather than the inner Starlette
+  instance, which is rebuilt whenever the route table changes — a shutdown hook
+  on a replaced instance would never run. The connection pool is closed after
+  the server has drained in-flight requests.
+
+- **Cooperative worker shutdown** (`engine/support/shutdown.py`). `queue work`
+  and `schedule work` finish the job in hand on `SIGTERM` and exit, instead of
+  being killed mid-job and leaving the job reserved until the stale sweep
+  reclaimed it — with any side effect it had already performed repeated on the
+  retry. A second signal still exits immediately.
+
+- **Request correlation** (`engine/support/context.py`,
+  `RequestContext` middleware). Every request gets an identifier, returned as
+  `X-Request-ID`, carried on every log line it produces and handed to error
+  reporters. An inbound identifier is echoed so a trace survives a hop between
+  services, but only after validation: the header is attacker-controlled, and a
+  newline in one forges log entries. Held in a `ContextVar`, not a
+  thread-local, because a pooled worker thread is reused by the next request.
+
+- **Structured logging** (`engine/support/logging.py`). `LOG_FORMAT=json` emits
+  one object per line with the request context as real fields and anything
+  passed through `extra=` alongside it; `text` keeps the readable format and
+  appends the request id. The `stderr` channel defaults to JSON.
+
+- **Metrics** in the Prometheus text format (`engine/support/metrics.py`),
+  **off by default**: the payload names every route the application serves and
+  how often each is hit, which is reconnaissance if reachable from outside.
+  `craft_requests_total`, `craft_request_duration_seconds`,
+  `craft_exceptions_total` and a `craft_db_pool_connections` gauge. Routes are
+  labelled by matched pattern, never raw path, so `/posts/{id}` is one series
+  rather than one per post. Enabled with `METRICS_ENABLED`, optionally guarded
+  by `METRICS_TOKEN` (a request without it gets `404`, not `401`).
+
+- **Pluggable error reporting**. `ExceptionHandler.reporter(callback)`
+  registers a sink — Sentry or any other — called with the exception and the
+  request context, so the framework carries no vendor and a report names the
+  request instead of arriving as an anonymous stack trace. Only server faults
+  reach a reporter, and a reporter that raises is logged and skipped.
+
+- **Migration advisory lock**. `migrate` and `rollback` take a session-scoped
+  advisory lock on PostgreSQL, so every container in a deployment can run the
+  same command at boot: the first migrates, the rest wait and find nothing
+  pending. Bounded by `MIGRATION_LOCK_TIMEOUT` (default 120s). Session-scoped
+  rather than transactional because migrations open their own transactions and
+  a concurrent index build cannot run inside one. Drivers without advisory
+  locks run unlocked, as before.
+
+- **Documentation**: `documentation/observability.md`, and new
+  Health checks / Rolling deploys / Threads and the connection budget sections
+  in `documentation/deployment.md`.
+
+### Fixed
+
+- **Connection leak on `async` controller actions**. The coroutine ran on a
+  throwaway single-worker executor, checking out a thread-local pooled
+  connection that the request thread's `release()` never saw; the pool lost one
+  slot per async request until every request timed out. It now runs on the
+  request's own worker thread. As a backstop, a session whose owning thread
+  dies without releasing has its slot reclaimed.
+
+- **Stale pooled connections were reused after a failover**. Connections idle
+  longer than `pool_recycle` (default 900s) are reopened, and one idle longer
+  than 30s is pinged before reuse. A statement that hits a broken socket now
+  discards its connection instead of returning it to the pool, where it
+  previously circulated indefinitely.
+
+- **The outer `commit()` succeeded silently after an inner rollback**. Without
+  savepoints, a rollback from an inner transaction level discards the outer
+  work too; the outermost `commit()` then committed an empty transaction and
+  returned as if the work had been persisted. It now raises
+  `TransactionRolledBackError` (`DB_TRANSACTION_ROLLED_BACK`,
+  `database.transaction.rolled_back`, seeded in every locale).
+
+### Changed
+
+- **Connection check-in costs one round-trip instead of up to four.** The
+  tenant `search_path` and tenant GUC are cleared with a single `RESET ALL` in
+  autocommit, replacing two `SET` + `COMMIT` pairs; the configured
+  `search_path` moved to a connection startup option so it is the session
+  default `RESET` restores.
+
+- **Thread pool sized from the connection pool** (`pool_size × 2`, minimum 8)
+  instead of the runtime default of 40. Forty threads against a pool of four
+  meant thirty-six queueing on `pool_timeout` rather than being turned away.
+  Override with `HTTP_THREADPOOL_SIZE`.
+
+- **PostgreSQL connection defaults**: `sslmode` is now `require` rather than
+  `prefer`, which falls back to plaintext when TLS cannot be negotiated;
+  `pool_size` 10 → 4 and `pool_timeout` 30 → 10 so one process fits a managed
+  22-connection limit; `application_name` is set so `pg_stat_activity` can name
+  the process holding connections open. `DB_SSLROOTCERT` added for
+  `verify-full`.
+
+  **Upgrade note**: a deployment that relied on `DB_POOL_SIZE=10` must now set
+  it explicitly, and one that cannot offer TLS must set `DB_SSLMODE=prefer`
+  deliberately.
+
 ## [3.17.3] r00010 — 2026-08-26
 
 ### Added

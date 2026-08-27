@@ -26,5 +26,5 @@ providers = {
 }
 
 # NOTE: no `password_timeout` here. It described a confirm-password window
-# that Craft does not implement, and nothing read it — a knob with no wiring.
+# that Craft does not implement, and nothing read it - a knob with no wiring.
 

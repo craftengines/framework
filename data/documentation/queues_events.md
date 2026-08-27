@@ -120,6 +120,19 @@ worker and the job becomes claimable again. A job that raises is released for
 retry; once it has been attempted 3 times (`max_attempts`), it is removed from
 the queue and the failure is logged.
 
+### Stopping a worker
+
+On `SIGTERM` — what Docker, systemd and Kubernetes send before `SIGKILL` — the
+worker finishes the job in hand and then exits, printing `Worker stopped
+cleanly.` Killed mid-job instead, the job would stay reserved until the stale
+sweep reclaimed it minutes later, and any side effect it had already performed
+would happen twice on the retry.
+
+Give the supervisor a grace period longer than your slowest job
+(`terminationGracePeriodSeconds` on Kubernetes, `stop_grace_period` in
+Compose). A second `SIGTERM` exits immediately: the handler stands down as it
+fires, so an operator is never left with a process that ignores them.
+
 ## On PostgreSQL
 
 The queue claims jobs with `SELECT ... FOR UPDATE SKIP LOCKED`, backs off

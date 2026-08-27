@@ -165,6 +165,76 @@ def register_health_routes(app: Any, routes: List[Any], claimed: set) -> None:
             StarletteRoute(path, endpoint=endpoint_for(producer), methods=["GET"])
         )
 
+    register_metrics_route(app, routes, claimed)
+
+
+def register_metrics_route(app: Any, routes: List[Any], claimed: set) -> None:
+    """Mount the scrape endpoint, off by default.
+
+    Off unless asked for, because the payload names every route the
+    application serves and how often each is hit, which is reconnaissance if
+    the endpoint is reachable from outside. Enable it and keep it on an
+    internal network, or set `METRICS_TOKEN` and have the scraper send it as a
+    bearer token.
+    """
+    from starlette.responses import PlainTextResponse, Response
+    from starlette.routing import Route as StarletteRoute
+
+    try:
+        config = app.make("config")
+        enabled = bool(config.get("framework.METRICS_ENABLED", False))
+        path = str(config.get("framework.METRICS_PATH", "/metrics"))
+        token = str(config.get("framework.METRICS_TOKEN", "") or "")
+    except Exception:
+        return
+
+    if not enabled or path in claimed:
+        return
+
+    async def endpoint(request: Any) -> Any:
+        if token and not _token_matches(request, token):
+            return Response(status_code=404)
+        from engine.support.metrics import registry
+
+        body = await _render_metrics(registry)
+        return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
+
+    routes.append(StarletteRoute(path, endpoint=endpoint, methods=["GET"]))
+
+
+def _token_matches(request: Any, expected: str) -> bool:
+    """Compare the bearer token without leaking its length through timing.
+
+    A wrong token answers 404 rather than 401: an endpoint that admits it
+    exists is an endpoint worth guessing at.
+    """
+    import hmac
+
+    header = request.headers.get("authorization", "")
+    scheme, _, presented = header.partition(" ")
+    if scheme.lower() != "bearer":
+        return False
+    return hmac.compare_digest(presented.strip(), expected)
+
+
+async def _render_metrics(registry: Any) -> str:
+    """Render on a worker thread: the pool gauge issues no query, but a
+    registry-wide render walks every series and a custom gauge may block."""
+    from starlette.concurrency import run_in_threadpool
+
+    from engine.container.application import Container
+
+    def run() -> str:
+        try:
+            return registry.render()
+        finally:
+            try:
+                Container.getInstance().make("db").release()
+            except Exception:
+                pass
+
+    return await run_in_threadpool(run)
+
 
 async def _run_probe(producer: Callable[[], Tuple[Dict[str, Any], int]]) -> Tuple[Dict[str, Any], int]:
     """Run a probe off the event loop, and release the connection it borrowed.

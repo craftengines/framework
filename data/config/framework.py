@@ -17,8 +17,8 @@ from craft import __version__ as FRAMEWORK_VERSION  # noqa: E402
 # Global feature flags
 
 # Off by default, and deliberately so. Multi-tenancy is an architectural
-# decision with a cost — a tenant bound on every request, an isolation policy
-# on every table, and a database that can actually enforce one — and it is not
+# decision with a cost - a tenant bound on every request, an isolation policy
+# on every table, and a database that can actually enforce one - and it is not
 # something an application should acquire by accident.
 #
 # The default used to be on, which made the out-of-the-box experience depend on
@@ -35,10 +35,10 @@ MULTI_TENANCY_ENABLED = env("MULTI_TENANCY_ENABLED", False)
 
 # How tenants are isolated once the flag above is on.
 #
-#   "rls"    — shared tables, a `tenant_id` column, and a row-level security
+#   "rls"    - shared tables, a `tenant_id` column, and a row-level security
 #              policy the database enforces. Migrates once, scales to many
 #              tenants, and survives a query that forgets to scope itself.
-#   "schema" — one PostgreSQL schema per tenant, selected with `search_path`.
+#   "schema" - one PostgreSQL schema per tenant, selected with `search_path`.
 #              For the handful of tenants that need physical separation; costs
 #              a migration run per tenant, on the request path.
 #
@@ -66,6 +66,16 @@ HEALTH_READINESS_PATH = env("HEALTH_READINESS_PATH", "/ready")
 # only waits out `pool_timeout` and fails. Set it explicitly for a workload
 # that is mostly cached or static and rarely touches the database.
 HTTP_THREADPOOL_SIZE = env("HTTP_THREADPOOL_SIZE", 0)
+
+# Prometheus scrape endpoint. Off by default: the payload names every route
+# the application serves and how often each is hit, which is reconnaissance if
+# it is reachable from outside. Turn it on behind an internal network, or set
+# METRICS_TOKEN and have the scraper send it as a bearer token - a request
+# without it gets a 404, because an endpoint that admits it exists is an
+# endpoint worth guessing at.
+METRICS_ENABLED = env("METRICS_ENABLED", False)
+METRICS_PATH = env("METRICS_PATH", "/metrics")
+METRICS_TOKEN = env("METRICS_TOKEN", "")
 
 # How long `dev.py migrate` waits for another instance to finish migrating
 # before giving up. Every container runs migrations at boot, so without the

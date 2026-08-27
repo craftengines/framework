@@ -196,8 +196,14 @@ class Kernel:
     MIN_THREADPOOL_SIZE = 8
 
     async def on_startup(self) -> None:
-        """Bound the worker pool to something the database can actually serve."""
+        """Bound the worker pool, and declare the metrics this process reports."""
         self._apply_threadpool_limit()
+        try:
+            from engine.support.metrics import register_default_metrics
+
+            register_default_metrics(self.app)
+        except Exception:
+            pass
 
     async def on_shutdown(self) -> None:
         """Release process-wide resources once the server has drained."""
@@ -327,7 +333,9 @@ class Kernel:
         routes = []
 
         for r in router.routes:
-            endpoint = self._create_endpoint(r.action, r._module, r.middleware_list)
+            endpoint = self._create_endpoint(
+                r.action, r._module, r.middleware_list, route_uri=r.uri
+            )
             for m in r.methods:
                 routes.append(StarletteRoute(r.uri, endpoint=endpoint, methods=[m]))
 
@@ -384,6 +392,7 @@ class Kernel:
         action: Any,
         module_name: Optional[str] = None,
         route_middleware: Optional[List[Any]] = None,
+        route_uri: Optional[str] = None,
     ) -> Any:
         route_stack = self.resolve_route_middleware(route_middleware or [])
 
@@ -393,6 +402,10 @@ class Kernel:
             from engine.http.request import from_starlette
 
             request = await from_starlette(request).prepare()
+            # The pattern, not the path: metrics labelled `/posts/{id}` are one
+            # series, while `/posts/1`, `/posts/2` and so on are as many series
+            # as there are posts.
+            request.route_uri = route_uri
 
             if module_name:
                 # Ask the ModuleManager rather than issuing a SELECT here: it is

@@ -1,4 +1,4 @@
-"""Console routes — scheduled tasks and CLI-only routes."""
+"""Console routes - scheduled tasks and CLI-only routes."""
 # Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.

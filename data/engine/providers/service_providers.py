@@ -59,7 +59,7 @@ class AuthServiceProvider(ServiceProvider):
         from engine.auth.password import Hash
 
         self.app.instance("auth", AuthManager(self.app))
-        # `access` resolves roles, groups and permissions — including the
+        # `access` resolves roles, groups and permissions - including the
         # attribute conditions on a grant. The Gate consults it, and the
         # `role:`/`permission:`/`group:` middleware go through it too, so there
         # is exactly one implementation of "can this user do this?".
@@ -90,7 +90,7 @@ class LoggingServiceProvider(ServiceProvider):
     """Configure the `craft` logger from `config/logging.py`.
 
     This used to be `logging.getLogger("craft")` and nothing else, so the whole
-    config file — channels, level, path, retention — was decoration: setting
+    config file - channels, level, path, retention - was decoration: setting
     `level: "error"` or pointing `path` somewhere else changed nothing, and by
     default no handler existed at all, meaning framework warnings went nowhere.
     """
@@ -117,12 +117,17 @@ class LoggingServiceProvider(ServiceProvider):
         if any(getattr(h, "_craft_managed", False) for h in logger.handlers):
             return logger
 
+        from engine.support.logging import RequestContextFilter, formatter_for
+
         handler = self._build_handler(channel, os)
-        handler.setFormatter(
-            logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
-        )
+        handler.setFormatter(formatter_for(channel.get("format", "text")))
         handler._craft_managed = True
         logger.addHandler(handler)
+        # The filter goes on the logger, not the handler: it enriches the
+        # record itself, so a project that adds a second handler or its own
+        # formatter still gets the request context.
+        if not any(isinstance(f, RequestContextFilter) for f in logger.filters):
+            logger.addFilter(RequestContextFilter())
         return logger
 
     def _build_handler(self, channel, os):
@@ -206,7 +211,7 @@ class FrameworkSubsystemsServiceProvider(ServiceProvider):
         """Bridge plugin hooks onto the event bus, then load enabled plugins.
 
         Done in `boot` rather than `register` because it needs the dispatcher,
-        which another provider registers — `register` runs before every binding
+        which another provider registers - `register` runs before every binding
         exists, `boot` runs after all of them do.
         """
         plugins = self.app.make("plugin")
@@ -218,7 +223,7 @@ class FrameworkSubsystemsServiceProvider(ServiceProvider):
         """Import `routes/console.py` so declared tasks reach the scheduler.
 
         Nothing called `register_console()` before, so every task declared in
-        that file was dead on arrival — the scheduler could not have run them
+        that file was dead on arrival - the scheduler could not have run them
         even once it worked. A missing file is fine (not every app schedules
         anything); a *broken* one is logged rather than silenced, because a
         typo there would otherwise mean tasks vanish with no signal at all.

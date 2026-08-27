@@ -16,6 +16,7 @@ LANG-B  Team-language tokens in identifiers, file names, comments or docstrings.
 LANG-C  Hardcoded user-facing text that should be a translation key.
 LANG-D  Translation key that does not match the canonical format.
 LANG-E  File could not be parsed.
+LANG-F  Team-language prose in a committed document (Markdown, reST, plain text).
 
 Usage
 -----
@@ -124,6 +125,55 @@ BUILTIN_DENYLISTS: dict[str, frozenset[str]] = {
     ),
 }
 
+# Function words that carry a language and almost never appear in English text.
+# Identifier denylists are useless on prose — `data` and `item` are English too —
+# so committed documents are judged by these markers instead.
+BUILTIN_PROSE_MARKERS: dict[str, frozenset[str]] = {
+    "pt": frozenset(
+        {
+            "nao", "sao", "esta", "estao", "voce", "voces", "tambem", "porque",
+            "entao", "isso", "aquilo", "uma", "umas", "uns", "dos", "das", "pelo",
+            "pela", "pelos", "pelas", "nas", "aos", "que", "para", "por", "como",
+            "mais", "mas", "ser", "foi", "sera", "sua", "seu", "suas", "seus",
+            "onde", "quando", "cada", "ainda", "apenas", "sem", "entre", "depois",
+            "quem", "muito", "pode", "deve", "fazer", "feito", "sobre", "qual",
+            "quais", "sempre", "nunca", "aqui", "assim", "outro", "outra",
+        }
+    ),
+    "es": frozenset(
+        {
+            "que", "para", "por", "como", "pero", "sino", "esta", "estan", "una",
+            "unas", "unos", "los", "las", "del", "cuando", "donde", "cada", "sin",
+            "entre", "despues", "quien", "mucho", "puede", "debe", "hacer", "sobre",
+            "siempre", "nunca", "aqui", "asi", "otro", "otra", "tambien", "porque",
+        }
+    ),
+    "fr": frozenset(
+        {
+            "pas", "sont", "vous", "aussi", "parce", "alors", "cela", "une", "des",
+            "les", "pour", "par", "comme", "mais", "etre", "etait", "sera", "son",
+            "leur", "quand", "chaque", "encore", "sans", "entre", "apres", "qui",
+            "beaucoup", "peut", "doit", "faire", "toujours", "jamais", "ici",
+        }
+    ),
+    "it": frozenset(
+        {
+            "non", "sono", "anche", "perche", "allora", "questo", "questa", "una",
+            "dei", "delle", "degli", "per", "come", "essere", "quando", "dove",
+            "ogni", "ancora", "senza", "tra", "dopo", "chi", "molto", "puo",
+            "deve", "fare", "sempre", "mai", "qui", "cosi",
+        }
+    ),
+    "de": frozenset(
+        {
+            "nicht", "sind", "auch", "weil", "dann", "dies", "eine", "einen",
+            "einem", "der", "die", "das", "fuer", "durch", "aber", "sein", "war",
+            "wird", "wenn", "wann", "jede", "jeden", "noch", "ohne", "zwischen",
+            "nach", "wer", "viel", "kann", "muss", "machen", "immer", "nie",
+        }
+    ),
+}
+
 DEFAULT_EXCLUDED_DIRS: tuple[str, ...] = (
     ".git", ".hg", ".svn", ".venv", "venv", "env", "node_modules", "vendor",
     "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache", "dist", "build",
@@ -140,6 +190,12 @@ DEFAULT_GENERIC_GLOBS: tuple[str, ...] = (
 DEFAULT_TEMPLATE_GLOBS: tuple[str, ...] = (
     "*.html", "*.htm", "*.vue", "*.svelte", "*.blade.php", "*.twig", "*.jinja",
     "*.jinja2", "*.j2", "*.erb", "*.hbs",
+)
+
+# Committed documents are artifacts too: a report, a README or an ADR ships with
+# the repository and is read by contributors who do not speak the team language.
+DEFAULT_DOC_GLOBS: tuple[str, ...] = (
+    "*.md", "*.markdown", "*.mdx", "*.rst", "*.txt", "*.adoc",
 )
 
 # Paths that legitimately contain localized copy and are exempt from LANG-A/B/C.
@@ -171,6 +227,11 @@ TECHNICAL_STRING_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Escape hatch for a document that must quote the team language — a standard
+# showing a rejected example, an ADR citing a stakeholder verbatim.
+IGNORE_FILE_RE = re.compile(r"lint-language:\s*ignore-file")
+IGNORE_LINE_RE = re.compile(r"lint-language:\s*ignore\b")
+
 SEGMENT_SPLIT_RE = re.compile(r"[^A-Za-z]+|(?<=[a-z0-9])(?=[A-Z])")
 STRING_LITERAL_RE = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`")
 TEMPLATE_TEXT_RE = re.compile(r">([^<>{}]{8,})<")
@@ -192,8 +253,10 @@ class Config:
     python_globs: list[str] = field(default_factory=lambda: list(DEFAULT_PYTHON_GLOBS))
     generic_globs: list[str] = field(default_factory=lambda: list(DEFAULT_GENERIC_GLOBS))
     template_globs: list[str] = field(default_factory=lambda: list(DEFAULT_TEMPLATE_GLOBS))
+    doc_globs: list[str] = field(default_factory=lambda: list(DEFAULT_DOC_GLOBS))
     denylist: set[str] = field(default_factory=set)
     allowlist: set[str] = field(default_factory=set)
+    prose_markers: set[str] = field(default_factory=set)
     translator_functions: set[str] = field(default_factory=lambda: set(DEFAULT_TRANSLATOR_FUNCTIONS))
     copy_sinks: set[str] = field(default_factory=lambda: set(DEFAULT_COPY_SINKS))
     message_keys: set[str] = field(default_factory=lambda: set(DEFAULT_MESSAGE_KEYS))
@@ -202,6 +265,8 @@ class Config:
     min_chars: int = 8
     strict_strings: bool = False
     check_templates: bool = True
+    check_docs: bool = True
+    min_prose_markers: int = 4
 
     @classmethod
     def load(cls, explicit: Path | None = None) -> "Config":
@@ -214,18 +279,27 @@ class Config:
         config.exempt_globs += list(raw.get("exempt_globs", ()))
         config.strict_strings = bool(raw.get("strict_strings", config.strict_strings))
         config.check_templates = bool(raw.get("check_templates", config.check_templates))
+        config.check_docs = bool(raw.get("check_docs", config.check_docs))
+        config.min_prose_markers = int(raw.get("min_prose_markers", config.min_prose_markers))
 
         files = raw.get("files", {})
         config.python_globs = list(files.get("python", config.python_globs))
         config.generic_globs = list(files.get("generic", config.generic_globs))
         config.template_globs = list(files.get("templates", config.template_globs))
+        config.doc_globs = list(files.get("docs", config.doc_globs))
 
         tokens = raw.get("tokens", {})
-        for locale in tokens.get("denylist_locales", ["pt"]):
-            config.denylist |= BUILTIN_DENYLISTS.get(str(locale).lower(), frozenset())
+        locales = [str(locale).lower() for locale in tokens.get("denylist_locales", ["pt"])]
+        for locale in locales:
+            config.denylist |= BUILTIN_DENYLISTS.get(locale, frozenset())
+            config.prose_markers |= BUILTIN_PROSE_MARKERS.get(locale, frozenset())
         config.denylist |= {str(word).lower() for word in tokens.get("extra_denylist", ())}
         config.allowlist |= {str(word).lower() for word in tokens.get("allowlist", ())}
         config.denylist -= config.allowlist
+        config.prose_markers |= {
+            str(word).lower() for word in tokens.get("extra_prose_markers", ())
+        }
+        config.prose_markers -= config.allowlist
 
         i18n = raw.get("i18n", {})
         config.translator_functions |= {str(name) for name in i18n.get("translator_functions", ())}
@@ -240,6 +314,8 @@ class Config:
 
         if not config.denylist:
             config.denylist = set(BUILTIN_DENYLISTS["pt"])
+        if not config.prose_markers:
+            config.prose_markers = set(BUILTIN_PROSE_MARKERS["pt"])
         return config
 
     def is_exempt(self, path: Path) -> bool:
@@ -616,6 +692,46 @@ def analyze_generic(path: Path, config: Config, is_template: bool = False) -> li
     return violations
 
 
+def analyze_docs(path: Path, config: Config) -> list[Violation]:
+    """Flag a committed document written in the team language instead of English.
+
+    Judged over the whole file: one quoted word proves nothing, a paragraph of
+    function words does. `lint-language: ignore-file` exempts a document that has
+    to quote the team language; `lint-language: ignore` exempts a single line.
+    """
+    violations = check_file_name(path, config)
+    if config.is_exempt(path) or not config.prose_markers:
+        return violations
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return violations
+    if IGNORE_FILE_RE.search(text):
+        return violations
+
+    evidence: dict[str, int] = {}
+    first_line = 0
+    for number, line in enumerate(text.splitlines(), 1):
+        if IGNORE_LINE_RE.search(line):
+            continue
+        for word in WORD_RE.findall(_strip_accents(line).lower()):
+            if word in config.prose_markers:
+                evidence[word] = evidence.get(word, 0) + 1
+                first_line = first_line or number
+
+    if len(evidence) < config.min_prose_markers:
+        return violations
+
+    sample = ", ".join(sorted(evidence, key=lambda word: -evidence[word])[:6])
+    violations.append(
+        Violation(path, first_line or 1, 1, "LANG-F",
+                  f"team-language prose in a committed document "
+                  f"({len(evidence)} markers: {sample}) — rewrite it in English")
+    )
+    return violations
+
+
 def _sink_pattern(config: Config) -> re.Pattern[str] | None:
     if not config.copy_sinks:
         return None
@@ -660,16 +776,20 @@ exclude_dirs = []
 exempt_globs = ["*/lang/*", "*/locales/*", "*/translations/*"]
 strict_strings = false      # true: every sentence literal is a violation
 check_templates = true
+check_docs = true           # committed documents must be English prose too
+min_prose_markers = 4       # distinct markers before a document is flagged
 
 [language_standard.files]
 python    = ["*.py"]
 generic   = ["*.php", "*.js", "*.jsx", "*.ts", "*.tsx", "*.go", "*.sql"]
 templates = ["*.html", "*.vue", "*.blade.php", "*.twig"]
+docs      = ["*.md", "*.mdx", "*.rst", "*.txt"]
 
 [language_standard.tokens]
-denylist_locales = ["pt"]   # built-in lists: pt, es, fr, it, de
-extra_denylist   = []       # project-specific words that must never appear
-allowlist        = ["cpf", "cnpj", "pix", "iban"]  # legal or protocol proper nouns
+denylist_locales   = ["pt"]  # built-in lists: pt, es, fr, it, de
+extra_denylist     = []      # project-specific words that must never appear
+extra_prose_markers = []     # extra function words that betray the team language
+allowlist          = ["cpf", "cnpj", "pix", "iban"]  # legal or protocol proper nouns
 
 [language_standard.i18n]
 key_pattern          = "^[a-z0-9_]+(\\\\.[a-z0-9_]+)+$"
@@ -725,6 +845,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         violations.extend(analyze_generic(path, config))
     for path in iter_files(roots, config.template_globs, config):
         violations.extend(analyze_generic(path, config, is_template=True))
+    if config.check_docs:
+        for path in iter_files(roots, config.doc_globs, config):
+            violations.extend(analyze_docs(path, config))
 
     for violation in sorted(violations, key=lambda item: (str(item.path), item.line, item.column)):
         print(violation.render(arguments.format))

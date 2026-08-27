@@ -42,7 +42,6 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 |---|---|
 | [Security](security.md) | Authentication, authorization, WAF/firewall, honeypot, audit logs, sessions, CSRF |
 | [Authorization (RBAC)](authorization.md) | Roles, permissions, the Gate fallback, `role:`/`permission:` middleware |
-
 | [Sessions](sessions.md) | Drivers, flash data, CSRF tokens |
 | [Cache](cache.md) | Stores, TTL, `remember` |
 | [Queues and events](queues_events.md) | Jobs, workers, listeners |
@@ -54,7 +53,8 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 | Guide | What it covers |
 |---|---|
 | [Testing](testing.md) | Running the suite, fixtures, testing against PostgreSQL |
-| [Deployment](deployment.md) | Production checklist, Docker, environment |
+| [Deployment](deployment.md) | Production checklist, Docker, health probes, rolling deploys, the connection budget |
+| [Observability](observability.md) | Request correlation, structured logging, metrics, error reporting |
 
 ## Project resources
 

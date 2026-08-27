@@ -2,7 +2,7 @@
 
 Middleware is synchronous: `handle(request, next_callable)` returns a response.
 The kernel composes the stack in registration order, so `StartSession` must come
-first — `VerifyCsrfToken` and `Authenticate` both read from the session.
+first - `VerifyCsrfToken` and `Authenticate` both read from the session.
 
 Category: Core Framework (HTTP).
 Relations:
@@ -25,7 +25,7 @@ from typing import Any, Callable, List, Optional
 
 
 class Middleware:
-    """Base middleware — pass the request through untouched."""
+    """Base middleware - pass the request through untouched."""
 
     def handle(self, request: Any, next_callable: Callable) -> Any:
         return next_callable(request)
@@ -48,6 +48,81 @@ def _as_starlette(response: Any) -> Any:
     if hasattr(response, "to_starlette"):
         return response.to_starlette()
     return None
+
+
+class RequestContext(Middleware):
+    """Give the request an identity, then time it and count it.
+
+    First in the stack, and deliberately so: everything after it - a session
+    failure, a CSRF rejection, an exception rendered before any controller runs
+    - should be attributable to a request, and a request that produced no log
+    line still belongs in the latency histogram.
+
+    An inbound `X-Request-ID` is echoed so a trace survives a hop between
+    services, but only after validation: the header is attacker-controlled, and
+    an unbounded value bloats every log line while a newline in one forges
+    entries outright.
+    """
+
+    HEADER = "X-Request-ID"
+
+    def __init__(self, app: Any = None):
+        self.app = app
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        import time
+
+        from engine.support import context
+        from engine.support.metrics import registry
+
+        # Exceptions are counted by the exception handler, not here: an inner
+        # middleware may render a fault into a response before it reaches this
+        # frame, and counting in both places would count some of them twice.
+        identifier = context.sanitize_request_id(
+            self._header(request, self.HEADER)
+        ) or context.new_request_id()
+
+        method = str(getattr(request, "method", "") or "GET").upper()
+        route = self._route(request)
+        started = time.monotonic()
+
+        with context.bind(request_id=identifier, method=method, path=route):
+            status = 500
+            try:
+                response = next_callable(request)
+                starlette_response = _as_starlette(response)
+                if starlette_response is not None:
+                    status = starlette_response.status_code
+                    starlette_response.headers.setdefault(self.HEADER, identifier)
+                    response = starlette_response
+                else:
+                    status = 200
+                return response
+            finally:
+                duration = time.monotonic() - started
+                registry.observe(
+                    "craft_request_duration_seconds", duration, method=method, route=route
+                )
+                registry.increment(
+                    "craft_requests_total", method=method, route=route, status=str(status)
+                )
+
+    def _header(self, request: Any, name: str) -> Optional[str]:
+        try:
+            return request.headers.get(name.lower())
+        except Exception:
+            return None
+
+    def _route(self, request: Any) -> str:
+        """The matched route pattern, never the raw path.
+
+        `/posts/{id}` is one series; `/posts/1`, `/posts/2` and the rest are as
+        many series as there are posts, which is how a metrics store is killed
+        by the thing that was meant to observe it. The kernel stamps the
+        pattern on the request when it builds the endpoint.
+        """
+        pattern = getattr(request, "route_uri", None)
+        return pattern if isinstance(pattern, str) and pattern else "unmatched"
 
 
 class StartSession(Middleware):
@@ -86,7 +161,7 @@ class StartSession(Middleware):
         try:
             # Exception-driven responses (validation redirect, CSRF 419) must
             # still carry the session writes and Set-Cookie, so render them
-            # here — the kernel's outer handler remains as a fallback for
+            # here - the kernel's outer handler remains as a fallback for
             # anything raised above this middleware.
             try:
                 response = next_callable(request)
@@ -235,7 +310,7 @@ class VerifyCsrfToken(Middleware):
         header = request.headers.get("x-csrf-token") or request.headers.get("x-xsrf-token")
         if header:
             return header
-        # Only the parsed body counts — a token in the query string could be
+        # Only the parsed body counts - a token in the query string could be
         # planted by a crafted cross-site link.
         if hasattr(request, "post"):
             return request.post("_token")
@@ -251,7 +326,7 @@ class VerifyCsrfToken(Middleware):
 
         if not getattr(request, "has_session", lambda: False)():
             # Passing silently here would disable CSRF protection whenever
-            # StartSession is missing from the stack — fail loudly instead.
+            # StartSession is missing from the stack - fail loudly instead.
             raise RuntimeError(
                 "VerifyCsrfToken requires a session. Add StartSession before it "
                 "in the middleware stack in bootstrap/app.py."
@@ -283,7 +358,7 @@ class Authenticate(Middleware):
 
         # The auth manager is a singleton, so a user resolved on a previous
         # request must not leak into this one. `reset()` clears memory without
-        # ending the session — `logout()` here would erase the very key we are
+        # ending the session - `logout()` here would erase the very key we are
         # about to read.
         auth.reset()
 
@@ -307,8 +382,8 @@ class Authenticate(Middleware):
 class ScopeTenant(Middleware):
     """Bind the request's tenant, so row-level security can isolate it.
 
-    Register it after `Authenticate` — it may resolve the tenant from the
-    authenticated user — and before anything that reads data.
+    Register it after `Authenticate` - it may resolve the tenant from the
+    authenticated user - and before anything that reads data.
 
     It refuses to run on a driver without row-level security rather than
     warning. The schema-per-tenant middleware this replaces logged a line and
@@ -348,7 +423,7 @@ class ScopeTenant(Middleware):
 
         Host first, because it is the boundary a customer can see and an
         operator can reason about; the user's own tenant is the fallback for
-        single-domain deployments. Override this method to resolve differently —
+        single-domain deployments. Override this method to resolve differently -
         a header, a path segment, an API token claim.
         """
         host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0]
@@ -373,7 +448,7 @@ class ScopeTenant(Middleware):
 
         A query rather than a hook returning None: `tenants` ships with the
         framework, so the engine owns it and does not have to reach into `app/`
-        to read it. Override this to resolve from somewhere else — a header, a
+        to read it. Override this to resolve from somewhere else - a header, a
         path segment, a cache in front of the lookup.
 
         Inactive and soft-deleted tenants resolve to nothing, so suspending a
@@ -389,7 +464,7 @@ class ScopeTenant(Middleware):
                 read=True,
             ).fetchone()
         except Exception:
-            # A missing table is not a reason to fail every request — the app
+            # A missing table is not a reason to fail every request - the app
             # may resolve tenants some other way entirely.
             logging.getLogger("craft").debug(
                 "Could not resolve tenant for subdomain %r", subdomain, exc_info=True
@@ -422,7 +497,7 @@ class RequireAuth(Middleware):
 class RequireRole(Middleware):
     """Terminate the request unless the authenticated user has the role.
 
-    Resolved from the `role:<slug>` route middleware alias — see
+    Resolved from the `role:<slug>` route middleware alias - see
     `Kernel.resolve_route_middleware`.
     """
 
@@ -455,7 +530,7 @@ class RequireRole(Middleware):
 class RequireGroup(Middleware):
     """Terminate the request unless the authenticated user is in the group.
 
-    Resolved from the `group:<slug>` route middleware alias — see
+    Resolved from the `group:<slug>` route middleware alias - see
     `Kernel.resolve_route_middleware`. Useful when a whole area belongs to a
     team ("the support console"), where naming the team is more honest than
     inventing a permission that means "is on the support team".
@@ -490,12 +565,12 @@ class RequireGroup(Middleware):
 class RequirePermission(Middleware):
     """Terminate the request unless the authenticated user has the permission.
 
-    Resolved from the `permission:<slug>` route middleware alias — see
+    Resolved from the `permission:<slug>` route middleware alias - see
     `Kernel.resolve_route_middleware`.
 
     Note that this asks for the permission with **no resource in hand**, so a
     grant narrowed by attribute conditions ("only your own") does not satisfy
-    it — route middleware cannot know which record the controller will load.
+    it - route middleware cannot know which record the controller will load.
     Guard those in the controller with `Gate.authorize(ability, user, record)`
     once the record exists.
     """
@@ -534,7 +609,7 @@ class AuthenticateApiToken(Middleware):
     """Require a valid `Authorization: Bearer <token>` for the api guard.
 
     This *rejects*. It used to resolve a user when a token happened to match
-    and call the next handler regardless — so a route carrying the `api` alias
+    and call the next handler regardless - so a route carrying the `api` alias
     accepted anonymous requests, and the only thing standing between the
     public internet and a write was whatever check the controller happened to
     run. A middleware named "authenticate" that never denies is worse than no
@@ -617,7 +692,7 @@ class SecurityHeaders(Middleware):
 
 
 class ThrottleRequests(Middleware):
-    """Fixed-window per-IP+route rate limit — closes the "no rate limiting
+    """Fixed-window per-IP+route rate limit - closes the "no rate limiting
     on authentication endpoints" gap called out in SECURITY.md. Backed by
     the cache store, so it works with the array/file/redis driver alike."""
 
