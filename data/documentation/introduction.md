@@ -1,6 +1,6 @@
-# Introduction to Craft
+# Introduction to Craft Engine
 
-Craft is a modern, full-stack MVC backend framework that brings expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **Starlette** (the ASGI HTTP layer), its own multi-driver database layer and **Craft ORM** (SQLite, PostgreSQL, and MySQL with the same SQL), and **Jinja2** (preprocessed as the **Forge** engine), Craft makes it easy to construct robust APIs and server-rendered web applications.
+Craft Engine is a modern, full-stack MVC backend framework that brings expressive conventions, developer ergonomics, and batteries-included design to the Python ecosystem. Built on top of **Starlette** (the ASGI HTTP layer), its own multi-driver database layer and **Craft ORM** (SQLite, PostgreSQL, and MySQL with the same SQL), and **Jinja2** (preprocessed as the **Forge** engine), Craft Engine makes it easy to construct robust APIs and server-rendered web applications.
 
 ---
 

@@ -3,7 +3,7 @@
 **What it is, and how an AI builds real applications with it — from a blog to
 something running for the whole planet.**
 
-Craft is a batteries-included Python web framework. Its core is the **engine**:
+Craft Engine is a batteries-included Python web framework. Its core is the **engine**:
 the directory `engine/`, published to your application as the package `craft.*`.
 Everything around it — `app/`, `config/`, `routes/`, `database/`, `resources/` —
 is the skeleton you copy to start a new application.
@@ -13,7 +13,7 @@ from craft.facades import Route, DB, Auth, Cache, Queue, Event, Gate
 from craft.orm import Model
 ```
 
-Version 3.17.0 · **1200+ tests**, green on SQLite and on real PostgreSQL, Python
+Version 3.18.0 · **1200+ tests**, green on SQLite and on real PostgreSQL, Python
 3.14+ · MIT.
 
 ---

@@ -1,4 +1,4 @@
-# Craft Documentation
+# Craft Engine Documentation
 
 A batteries-included Python web framework built on Starlette.
 
@@ -10,7 +10,7 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 
 | Guide | What it covers |
 |---|---|
-| [Introduction](introduction.md) | What Craft is and how the pieces fit together |
+| [Introduction](introduction.md) | What Craft Engine is and how the pieces fit together |
 | [Installation](installation.md) | Requirements, setup, Docker, first run |
 | [Configuration](configuration.md) | `config/`, `.env`, and the `env()` helper |
 | [The dev CLI](cli.md) | Every command, and the generators |
