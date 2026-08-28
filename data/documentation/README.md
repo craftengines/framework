@@ -14,6 +14,7 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 | [Installation](installation.md) | Requirements, setup, Docker, first run |
 | [Configuration](configuration.md) | `config/`, `.env`, and the `env()` helper |
 | [The dev CLI](cli.md) | Every command, and the generators |
+| [DX Acceleration](dx_acceleration.md) | ORM mixins (Sluggable, Publishable), fast domain development for AI & Senior Devs |
 
 ## The essentials
 

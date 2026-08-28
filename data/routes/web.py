@@ -10,6 +10,7 @@ from app.Http.Controllers.Admin.GroupController import GroupController
 from app.Http.Controllers.Admin.RoleController import RoleController, PermissionController
 from app.Http.Controllers.Auth.AuthController import AuthController
 from app.Http.Controllers.Blog.PostController import PostController
+from app.Http.Controllers.Blog.BlogAcceleratorController import BlogAcceleratorController
 from app.Http.Controllers.Blog.DocsController import DocsController
 from app.Http.Controllers.Panel.PanelController import PanelController
 
@@ -102,3 +103,9 @@ Route.get("/panel/system", [PanelController, "system"]).middleware("auth", "role
 Route.resource("posts", PostController, write_middleware="auth")
 Route.get("/docs", [DocsController, "index"]).name("docs.index")
 Route.get("/docs/{page}", [DocsController, "show"]).name("docs.show")
+
+# Accelerated Blog Routes
+Route.get("/blog", [BlogAcceleratorController, "index"]).name("blog.index")
+Route.get("/blog/{slug}", [BlogAcceleratorController, "show"]).name("blog.show")
+Route.get("/blog/category/{slug}", [BlogAcceleratorController, "category"]).name("blog.category")
+Route.post("/blog/{slug}/comments", [BlogAcceleratorController, "comment"]).name("blog.comments")

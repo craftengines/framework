@@ -8,6 +8,8 @@ from engine.orm.query_builder import QueryBuilder
 from engine.orm.db import DatabaseManager
 from engine.orm.connection import Connection, Row
 from engine.orm.soft_deletes import SoftDeletes
+from engine.orm.sluggable import SluggableMixin, slugify
+from engine.orm.publishable import PublishableMixin
 from engine.orm.relationships import (
     Relation,
     HasOne,
@@ -29,6 +31,9 @@ __all__ = [
     "Connection",
     "Row",
     "SoftDeletes",
+    "SluggableMixin",
+    "slugify",
+    "PublishableMixin",
     "Relation",
     "HasOne",
     "HasMany",
