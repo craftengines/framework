@@ -15,6 +15,7 @@ scaling from a blog to multi-tenant, and what is not implemented yet? That is
 | [Configuration](configuration.md) | `config/`, `.env`, and the `env()` helper |
 | [The dev CLI](cli.md) | Every command, and the generators |
 | [DX Acceleration](dx_acceleration.md) | ORM mixins (Sluggable, Publishable), fast domain development for AI & Senior Devs |
+| [Market Evaluation](market_evaluation.md) | Technical assessment & positioning for AI Agents and Senior Developers |
 
 ## The essentials
 
