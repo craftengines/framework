@@ -17,6 +17,9 @@ from craft.orm.model import Model
 > [**`CRAFT_ENGINE.md`**](CRAFT_ENGINE.md): what the engine contains, the build
 > loop, how the same codebase carries an app from a blog to multi-tenant scale,
 > and an explicit list of what does *not* exist yet.
+>
+> Looking for an objective market comparison (Django vs FastAPI vs Laravel vs Rails)?
+> Check out the [**Market Evaluation & Framework Benchmark**](documentation/market_evaluation.md).
 
 ---
 
