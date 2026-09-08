@@ -28,7 +28,7 @@ class PostController(Controller):
 
     def store(self, request):
         user = Auth.user()
-        Gate.authorize("create", user)
+        Gate.authorize("create", user, Post)
         form = StorePostRequest(request)
 
         if form.fails():

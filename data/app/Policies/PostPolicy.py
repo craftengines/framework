@@ -10,7 +10,7 @@ class PostPolicy:
     def view(self, user, post):
         return True
 
-    def create(self, user):
+    def create(self, user, model=None):
         return user is not None
 
     def update(self, user, post):

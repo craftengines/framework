@@ -66,7 +66,10 @@ class GateManager:
             if policy_cls is not None:
                 method = getattr(policy_cls(), ability, None)
                 if callable(method):
-                    return bool(method(user, *args))
+                    try:
+                        return bool(method(user, *args))
+                    except TypeError:
+                        return bool(method(user))
 
         # Fall back to the grant tables: a permission slug works as a Gate
         # ability without anyone registering a closure for it. The resource —
