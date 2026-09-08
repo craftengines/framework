@@ -34,7 +34,7 @@ For PostgreSQL or MySQL, uncomment the matching block in `.env`.
 `APP_DEBUG` defaults to off in the framework; `.env.example` turns it on
 for local development.
 
-Or with Docker (app at `http://localhost:8300`):
+Or with Docker (app at `http://localhost:9000`):
 
 ```bash
 docker compose up -d --build
@@ -304,7 +304,7 @@ before, ~115 req/s from 10 clients up after, p95 falling from 1.9s to 0.57s.
 Scale further with processes, since the GIL caps one:
 
 ```bash
-python dev.py serve --host 0.0.0.0 --port 8000 --no-reload --workers 4
+python dev.py serve --host 0.0.0.0 --port 9000 --no-reload --workers 4
 ```
 
 Transaction depth, the tenant `search_path` and the authenticated user are all

@@ -25,9 +25,7 @@ RUN pip install --no-cache-dir ".[dev]"
 # Copy codebase
 COPY . .
 
-EXPOSE 8000
+EXPOSE 9000
 
-# Command names must match the craft CLI: `migrate fresh` (not migrate-fresh)
-# and `db seed` (not db:seed). Running the test-suite on every boot was also
-# dropped — a serve command should not depend on pytest.
-CMD ["sh", "-c", "python dev.py migrate fresh --seed && python dev.py serve --host 0.0.0.0 --port 8000 --no-reload"]
+# Forward-only database migrations and start server on default port 9000
+CMD ["sh", "-c", "python dev.py migrate && python dev.py serve --host 0.0.0.0 --port 9000 --no-reload"]

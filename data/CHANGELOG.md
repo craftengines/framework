@@ -18,6 +18,69 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.20.0] r00013 — 2026-09-08
+
+Authentication Scaffolding (`make:auth`), AI Agent Discovery Protocol (`agent:scaffold`), `llms.txt` Standards, and Framework Tooling.
+
+### Added
+
+- **Authentication Generator (`make:auth`)** (`engine/cli/auth_scaffolder.py`, `engine/cli/app.py`):
+  - Scaffolds a complete authentication slice: `app/Http/Controllers/Auth/AuthController.py`, `app/Http/Requests/Auth/LoginRequest.py`, `app/Http/Requests/Auth/RegisterRequest.py`.
+  - Scaffolds server-rendered Forge authentication views under `resources/views/auth/` (`login.forge.py`, `register.forge.py`, `dashboard.forge.py`) featuring `@csrf`, `@honeypot`, and `@error('field')` error presentation.
+  - Idempotently wires authentication web routes into `routes/web.py` (`/login`, `/register`, `/logout`, `/dashboard`).
+  - Supports `--views` flag for view-only generation and `--force` for safe overwrites.
+
+- **AI Agent Tooling & Discovery (`agent:scaffold`)** (`engine/cli/agent_scaffolder.py`, `engine/cli/app.py`):
+  - Added `python dev.py agent:scaffold` (and `agent:rules`) command to bootstrap full context for AI coding assistants (Cursor, Claude Code, Windsurf, AGY).
+  - Generates `.cursorrules` in project root with high-density framework rules, Active Record patterns, and database safety invariants.
+  - Generates standard `llms.txt` and `llms-full.txt` files (following the llmstxt.org specification) in repository root and `documentation/` for instant LLM indexing.
+  - Generates `.agents/mcp.json` configuration snippet for Model Context Protocol integrations.
+
+- **Developer Documentation & Guides**:
+  - `documentation/ai_agents.md`: Comprehensive guide for configuring and utilizing AI coding agents with Craft Engine.
+  - Updated `documentation/cli.md` with `make auth` and `agent:scaffold` documentation.
+  - Updated `documentation/validation.md` with complete form validation directives, file rules, and redirect error bag usage.
+
+- **Automated Test Coverage** (`tests/test_cli_auth_and_agent.py`):
+  - Comprehensive unit test suite covering `build_auth`, `scaffold_agent_stack`, idempotency, and `--force` safeguards.
+
+## [3.19.0] r00012 — 2026-09-08
+
+Form Validation, Anti-Spam Security Subsystem, Python 3.14+ Modernization, and Release Non-Regression Governance.
+
+### Added
+
+- **Comprehensive Form Validation Subsystem** (`engine/validation/`):
+  - Extended validation rules: `required_without`, `required_without_all`, `prohibited`, `prohibited_if`, `prohibited_unless`, `ip`, `ipv4`, `ipv6`, `json`, `digits`, `digits_between`, `decimal`, `starts_with`, `ends_with`, `timezone`, `spam_free`, `honeypot`, `file`, `image`, `mimes`, `max_file_size`, `min_file_size`, `alpha_spaces`, `no_html`, and `text`.
+  - `MessageBag` and `ViewErrorBag` (`engine/validation/error_bag.py`) providing structured error querying (`has`, `first`, `get`, `all`, `any`, `keys`, `items`, `values`), full dict compatibility, and seamless template inspection.
+  - Dynamic rule extensibility via `Validator.extend(name, callback, message)` allowing domain modules and capability plugins to register custom validation algorithms.
+  - Enhanced `FormRequest` (`engine/validation/form_request.py`) with native `antispam` flag, action binding, and `error_bag()` access.
+
+- **Enterprise Anti-Spam Subsystem** (`engine/security/antispam.py`, `AntiSpam` facade):
+  - Cryptographic time-traps: HMAC-SHA256 signed timestamp tokens (`generate_time_token`, `verify_time_token`) preventing instant bot submissions (< 2.0s) and expired stale form submissions (> 24h).
+  - Obfuscated honeypot traps (`generate_fields`): Screen-reader and accessible markup (`aria-hidden="true"`, `tabindex="-1"`, `autocomplete="new-password"`) that captures automated scrapers and headless submission bots while remaining completely invisible to human users.
+  - Content heuristics scoring: Scans form submissions for spam patterns (casino, pharma, phishing patterns), excessive hyperlink density (> 35%), and known disposable email providers (`tempmail`, `mailinator`, etc.).
+  - Integrated audit persistence: Trapped bot submissions record `FORM_SPAM_TRAP` events into the `security_events` table for correlation with WAF and IP cooldowns.
+
+- **Forge Template Engine Form Directives** (`engine/view/forge.py`):
+  - `@error('field') ... {{ message }} ... @enderror` directive for streamlined field validation error rendering.
+  - `@honeypot` and `@antispam` directives for one-line injection of hidden honeypot fields and time tokens.
+  - Global template helpers: `honeypot_field()`, `antispam_fields()`, `errors` (automatic `ViewErrorBag` injection from session flash).
+
+- **Fluent HTTP Redirect Responses** (`engine/http/response.py`):
+  - `RedirectResponse` with chaining: `.with_errors(validator_or_dict)` and `.with_input(request.all())`.
+  - `redirect.back(request, fallback="/")` helper for safe referer navigation following form validation failures.
+
+- **Release Non-Regression Governance Standard** (`.claude/rules/RELEASE_NON_REGRESSION_STANDARD.md` and `.agents/rules/RELEASE_NON_REGRESSION_STANDARD.md`):
+  - Seven Non-Regression Laws (NR-01 to NR-07) enforcing version synchronization, monotonic `rNNNNN` counter increments, absolute database persistence (banned drop/wipe commands), mandatory pre-release testing gates, immutable changelog contracts, facade backward compatibility, and form security standards.
+  - Automated non-regression test suite (`tests/test_release_non_regression.py`).
+
+### Fixed
+
+- Fixed Ruff `B009` constant attribute access in `engine/orm/sluggable.py`.
+- Prevented character encoding failure on Windows cp1252 consoles during language linter runs.
+- Enforced constant-time secret comparison (`hmac.compare_digest`) across all security challenge tokens.
+
 ## [3.18.0] r00011 — 2026-08-27
 
 High availability: the work needed before a second instance of the application

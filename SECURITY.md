@@ -6,7 +6,8 @@ Only the latest release receives security fixes.
 
 | Version | Supported |
 |---------|-----------|
-| 3.18.x  | Yes       |
+| 3.19.x  | Yes       |
+| 3.18.x  | Deprecated |
 
 ## Reporting a vulnerability
 
@@ -25,6 +26,7 @@ Understanding these boundaries helps assess whether a behavior is an intended pr
 - **Passwords**: Hashed with bcrypt (with PBKDF2-HMAC-SHA256 fallback if bcrypt is unavailable). Plaintext is never stored, and timing attacks are mitigated.
 - **Sessions**: Signed with HMAC-SHA256 using `APP_KEY`. Cookie tampering is prevented. `SESSION_DRIVER=file` or `redis` is recommended for high-sensitivity session data.
 - **CSRF Protection**: Automatically verified on mutating HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`) via `_token` or `X-CSRF-TOKEN`.
+- **Anti-Spam & Bot Defense**: Cryptographic time-tokens (HMAC-SHA256) and invisible honeypots protect forms from automated crawlers and submission bots.
 - **Authorization**: Denies by default (RBAC + ABAC Gate & Policies).
 - **SQL Injection Prevention**: Parameterized queries across all database drivers (SQLite, PostgreSQL, MySQL).
 - **Mass Assignment Protection**: Guarded attributes and strict `fillable` enforcement.

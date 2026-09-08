@@ -6,7 +6,7 @@ Usage:
     python dev.py migrate:status
     python dev.py make model Product -m
     python dev.py db seed
-    python dev.py serve --port 8000
+    python dev.py serve --port 9000
 """
 # Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>

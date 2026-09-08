@@ -41,12 +41,15 @@ def resolve_view_path(name: str) -> str:
 #: so `@endauth` is not partially matched by `@end`.
 DIRECTIVES = [
     (r"@csrf\b", "{{ csrf_field() }}"),
+    (r"@honeypot\b", "{{ honeypot_field() }}"),
+    (r"@antispam\b", "{{ antispam_fields() }}"),
     (r"@method\(\s*['\"](\w+)['\"]\s*\)", r'<input type="hidden" name="_method" value="\1">'),
     (r"@auth\b", "{% if auth() %}"),
     (r"@endauth\b", "{% endif %}"),
     (r"@guest\b", "{% if not auth() %}"),
     (r"@endguest\b", "{% endif %}"),
     (r"@endcan\b", "{% endif %}"),
+    (r"@enderror\b", "{% endif %}"),
     (r"@else\b", "{% else %}"),
     (r"@endif\b", "{% endif %}"),
     (r"@endforeach\b", "{% endfor %}"),
@@ -168,6 +171,11 @@ def _render_foreach(args: str) -> Optional[str]:
     return "{% for " + match.group(2).strip() + " in " + match.group(1).strip() + " %}"
 
 
+def _render_error(args: str) -> Optional[str]:
+    clean_arg = args.strip().strip("'\"")
+    return "{% if errors.has('" + clean_arg + "') %}{% set message = errors.first('" + clean_arg + "') %}"
+
+
 def compile_directives(source: str) -> str:
     """Rewrite Forge directives into Jinja syntax."""
     source = _EXTENDS_RE.sub(
@@ -182,6 +190,7 @@ def compile_directives(source: str) -> str:
     source = _replace_paren_directive(source, "if", lambda a: "{% if " + a + " %}")
     source = _replace_paren_directive(source, "foreach", _render_foreach)
     source = _replace_paren_directive(source, "can", lambda a: "{% if can(" + a + ") %}")
+    source = _replace_paren_directive(source, "error", _render_error)
 
     for pattern, replacement in _COMPILED:
         source = pattern.sub(replacement, source)
@@ -313,6 +322,28 @@ def old_input(key: str, default: Any = "") -> Any:
     return (session_value("_old_input") or {}).get(key, default)
 
 
+def current_errors() -> Any:
+    """Validation errors flashed back to the session."""
+    from engine.validation.error_bag import ViewErrorBag
+
+    raw = session_value("_errors") or session_value("errors") or {}
+    if isinstance(raw, ViewErrorBag):
+        return raw
+    return ViewErrorBag(raw)
+
+
+def honeypot_field(field_name: Optional[str] = None, action: str = "") -> Markup:
+    """Render anti-spam honeypot and time-trap fields for forms."""
+    from engine.security.antispam import AntiSpamService
+
+    return Markup(AntiSpamService().generate_fields(field_name=field_name, action=action))
+
+
+def antispam_fields(action: str = "") -> Markup:
+    """Convenience alias for honeypot_field."""
+    return honeypot_field(action=action)
+
+
 class Forge:
     """Renders templates from `resources/views`."""
 
@@ -332,6 +363,8 @@ class Forge:
             {
                 "csrf_token": csrf_token,
                 "csrf_field": csrf_field,
+                "honeypot_field": honeypot_field,
+                "antispam_fields": antispam_fields,
                 "auth": auth_user,
                 "can": can,
                 "route": route_url,
@@ -340,6 +373,7 @@ class Forge:
                 "locale": active_locale,
                 "session": session_value,
                 "old": old_input,
+                "errors": current_errors(),
             }
         )
 
@@ -363,14 +397,12 @@ class Forge:
         return resolve_view_path(template_name)
 
     def render(self, template_name: str, data: Optional[Dict[str, Any]] = None) -> str:
-        """Render a template.
-
-        Errors propagate. This used to catch every exception and return a
-        `<div>Rendered view: x</div>` placeholder, so a typo in a template — or
-        a missing variable — silently produced a page that looked fine.
-        """
+        """Render a template with request context and flashed validation errors."""
+        ctx = dict(data or {})
+        if "errors" not in ctx:
+            ctx["errors"] = current_errors()
         template = self.env.get_template(self._resolve(template_name))
-        return template.render(**(data or {}))
+        return template.render(**ctx)
 
 
-__all__ = ["Forge", "compile_directives", "csrf_token", "csrf_field"]
+__all__ = ["Forge", "compile_directives", "csrf_token", "csrf_field", "honeypot_field", "antispam_fields"]

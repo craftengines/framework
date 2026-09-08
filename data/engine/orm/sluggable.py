@@ -50,7 +50,7 @@ class SluggableMixin:
 
         raw_val = getattr(self, source_col, None)
         if not raw_val and hasattr(self, "name"):
-            raw_val = getattr(self, "name")
+            raw_val = self.name
 
         base_slug = slugify(raw_val or "untitled")
         slug = base_slug

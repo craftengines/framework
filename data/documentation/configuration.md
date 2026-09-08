@@ -69,7 +69,7 @@ Config.set("cache.default", "array")
 | In `.env` | Python value |
 |---|---|
 | `true` / `false` | `True` / `False` |
-| `8000` | `8000` (int) |
+| `9000` | `9000` (int) |
 | `null` / `none` / empty | the default you passed |
 | anything else | `str` |
 

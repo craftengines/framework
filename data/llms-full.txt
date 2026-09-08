@@ -1,0 +1,119 @@
+# Craft Engine — Full Specification for LLMs & AI Coding Agents
+
+Craft Engine is a full-stack Python web framework with Laravel-like syntax, async ASGI runtime, Active Record ORM, and integrated security and AI tooling.
+
+---
+
+## 1. Active Record Models
+File location: `app/Models/<ModelName>.py`
+```python
+from craft.orm.model import Model
+
+class Article(Model):
+    __table__ = "articles"
+    fillable = ["title", "slug", "body", "author_id", "is_published"]
+    casts = {"is_published": "boolean"}
+
+    def author(self):
+        return self.belongs_to("app.Models.User.User", "author_id")
+```
+
+Querying:
+```python
+# Create
+article = Article.create({"title": "Hello", "slug": "hello", "body": "World"})
+
+# Retrieve
+published = Article.where("is_published", True).order_by("created_at", "desc").get()
+first = Article.find(1)
+```
+
+---
+
+## 2. HTTP Routing & Controllers
+File location: `routes/web.py`
+```python
+from craft.facades import Route
+from app.Http.Controllers.ArticleController import ArticleController
+
+Route.get("/articles", [ArticleController, "index"]).name("articles.index")
+Route.get("/articles/{id}", [ArticleController, "show"]).name("articles.show")
+Route.post("/articles", [ArticleController, "store"]).middleware("auth", "throttle").name("articles.store")
+```
+
+Controller implementation: `app/Http/Controllers/ArticleController.py`
+```python
+from craft.http.controller import Controller
+from craft.http.response import redirect
+from craft.validation.validator import Validator
+from app.Models.Article import Article
+
+class ArticleController(Controller):
+    def index(self, request):
+        articles = Article.all()
+        return self.view("articles.index", {"articles": articles})
+
+    def store(self, request):
+        validator = Validator.make(request.all(), {
+            "title": ["required", "string", "min:3", "max:255"],
+            "body": ["required", "text", "no_html", "spam_free"],
+        })
+        if validator.fails():
+            return redirect.back().with_errors(validator.errors()).with_input()
+
+        Article.create(validator.validated())
+        return redirect(route="articles.index")
+```
+
+---
+
+## 3. Forge Views & Validation Errors
+File location: `resources/views/articles/create.forge.py`
+```html
+@extends("layouts.app")
+
+@section("content")
+<form action="/articles" method="POST">
+    @csrf
+    @honeypot
+
+    <div>
+        <label>Title</label>
+        <input type="text" name="title" value="{{ old('title', '') }}">
+        @error('title')
+            <p class="error">{{ message }}</p>
+        @enderror
+    </div>
+
+    <div>
+        <label>Body</label>
+        <textarea name="body">{{ old('body', '') }}</textarea>
+        @error('body')
+            <p class="error">{{ message }}</p>
+        @enderror
+    </div>
+
+    <button type="submit">Publish</button>
+</form>
+@endsection
+```
+
+---
+
+## 4. AntiSpam & Security Subsystems
+Craft Engine includes a built-in zero-dependency AntiSpam system:
+- **Invisible Honeypot**: `@honeypot` emits hidden CSS-cloaked trap fields.
+- **HMAC Time Traps**: Validates human interaction duration (rejects forms submitted under 2.5 seconds or older than 3 hours).
+- **Spam Free Heuristics**: Rejects known spam phrases, disposable domains, and malicious markup.
+- **Security Events**: Logs all suspicious attempts with IP and user-agent forensics.
+
+---
+
+## 5. Non-Regression & Release Laws (NR-01 to NR-07)
+- **NR-01**: `pyproject.toml` version must strictly match `engine.__version__`. Release counter matches monotonic `rNNNNN`.
+- **NR-02**: Banned CLI commands (`migrate:reset`, `migrate:refresh`, `migrate:fresh`, `db:wipe`, `db:drop`) must never be exposed or executed.
+- **NR-03**: Forward-only migrations (`python dev.py migrate`). No destructive SQL operations.
+- **NR-04**: `CHANGELOG.md` must document the current release with `## [X.Y.Z] rNNNNN` header and preserve `## [Unreleased]`.
+- **NR-05**: Public Facades (`Route`, `DB`, `Auth`, `AntiSpam`, `View`, `Cache`, `Firewall`) must preserve container accessors and support test mocking.
+- **NR-06**: Security & AntiSpam regression prevention: `antispam` singleton in container, Forge helpers registered.
+- **NR-07**: Zero linter errors under `ruff check engine` and 100% test pass rate.

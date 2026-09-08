@@ -37,6 +37,7 @@ def create_app() -> Application:
         CaptchaServiceProvider,
         FirewallServiceProvider,
         HoneypotServiceProvider,
+        AntiSpamServiceProvider,
         MediaServiceProvider,
         AIServiceProvider,
         AgentServiceProvider,
@@ -58,6 +59,7 @@ def create_app() -> Application:
     app.register_provider(ExceptionServiceProvider)
     app.register_provider(FirewallServiceProvider)
     app.register_provider(HoneypotServiceProvider)
+    app.register_provider(AntiSpamServiceProvider)
     app.register_provider(MediaServiceProvider)
     app.register_provider(AIServiceProvider)
     app.register_provider(AgentServiceProvider)

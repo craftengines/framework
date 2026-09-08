@@ -33,16 +33,22 @@ else is skipped, so an optional field left blank does not report a type error.
 
 ## Available rules
 
-**Presence**
+**Presence and Prohibitions**
 
 | Rule | Passes when |
 |---|---|
 | `required` | Not `None`, `""`, `[]` or `{}` (zero passes) |
 | `required_if:other,value` | Required only when `other` equals `value` |
 | `required_with:a,b` | Required when any listed field is present |
+| `required_without:a,b` | Required when any listed field is absent or empty |
+| `required_without_all:a,b` | Required when all listed fields are absent or empty |
+| `prohibited` | Must not be present or must be empty |
+| `prohibited_if:other,value` | Prohibited when `other` equals `value` |
+| `prohibited_unless:other,val` | Prohibited unless `other` equals `val` |
+| `honeypot` | Trap field must be completely empty |
 | `nullable` | Allows an empty value |
 
-**Types**
+**Types and Structure**
 
 | Rule | Passes when |
 |---|---|
@@ -52,11 +58,28 @@ else is skipped, so an optional field left blank does not report a type error.
 | `boolean` | `True`, `False`, `0`, `1`, `"0"`, `"1"`, `"true"`, `"false"` |
 | `array` | A list or tuple |
 | `date` | A date/datetime, or an ISO-8601 string |
+| `json` | Value is a valid JSON-encoded string |
 
-**Formats**
+**Formats, Networks, Text and Strings**
 
-`email`, `url`, `uuid`, `alpha`, `alpha_num`, `alpha_dash`,
-`regex:<pattern>`.
+- `email`: Valid email address (standard RFC format, valid domain).
+- `url`: Valid HTTP or HTTPS URL.
+- `text`: Plain text only (strictly rejects raw HTML tags and script injection).
+- `alpha_spaces`: Letters and whitespace only (supports all Unicode accents: á, é, ç, etc.).
+- `no_html`: Rejects any HTML tags (`<...>`).
+- `uuid`, `alpha`, `alpha_num`, `alpha_dash`, `regex:<pattern>`.
+- `ip` (IPv4 or IPv6), `ipv4`, `ipv6`, `digits:n`, `digits_between:min,max`.
+- `decimal:places`, `starts_with:a,b`, `ends_with:x,y`, `timezone`, `spam_free`.
+
+**File Uploads and MIME Types**
+
+| Rule | Passes when |
+|---|---|
+| `file` | Valid uploaded file object (`UploadFile`, dict with filename, or local path) |
+| `image` | Valid image file (MIME starting with `image/` or extension in `jpg`, `png`, `gif`, `webp`, `svg`, `bmp`, `ico`) |
+| `mimes:ext1,ext2,...` | File extension or MIME type matches allowed set (e.g. `mimes:pdf,docx,png`) |
+| `max_file_size:kb` | File size does not exceed specified kilobytes (e.g. `max_file_size:2048` for 2MB) |
+| `min_file_size:kb` | File size meets or exceeds specified kilobytes |
 
 **Size** — counts characters for strings, items for collections, and compares
 the value itself for numbers.
@@ -171,6 +194,34 @@ Inspect without raising:
 form = StorePostRequest(request)
 if form.fails():
     return self.view("posts.create", {"errors": form.errors})
+```
+
+## Views and Forge Directives
+
+Display validation errors cleanly using `@error` and protect forms with `@honeypot`:
+
+```html
+<form method="POST" action="/posts">
+    @csrf
+    @honeypot
+
+    <label for="title">Title</label>
+    <input type="text" name="title" id="title" value="{{ old('title') }}">
+    @error('title')
+        <p class="text-danger">{{ message }}</p>
+    @enderror
+
+    <button type="submit">Submit</button>
+</form>
+```
+
+When validation fails in a controller action, redirect back with errors and previous input:
+
+```python
+from craft.http.response import redirect
+
+if validator.fails():
+    return redirect.back(request).with_errors(validator).with_input(request.all())
 ```
 
 ## Localized messages

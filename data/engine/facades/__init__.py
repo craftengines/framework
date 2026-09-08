@@ -198,6 +198,14 @@ class Honeypot(Facade):
         return "honeypot"
 
 
+class AntiSpam(Facade):
+    """Form honeypot, cryptographic time-trap, and heuristic anti-spam facade."""
+
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "antispam"
+
+
 class Image(Facade):
     """Fluent image manipulation and optimization facade."""
 

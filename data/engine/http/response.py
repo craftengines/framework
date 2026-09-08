@@ -60,10 +60,73 @@ class JsonResponse(Response):
         return obj
 
 
-def redirect(url: str = "", route: Optional[str] = None, status: int = 302, **kwargs) -> StarletteResponse:
-    if route:
-        from engine.facades import Route
-        target_url = Route.url_for(route, **kwargs)
-    else:
-        target_url = url
-    return StarletteRedirectResponse(url=target_url, status_code=status)
+class RedirectResponse(StarletteRedirectResponse):
+    """Starlette RedirectResponse augmented with session flash helpers."""
+
+    def with_errors(self, errors: Any) -> RedirectResponse:
+        """Flash validation errors to the active session."""
+        from engine.http.session import get_current_session
+
+        session = get_current_session()
+        if session is not None:
+            if hasattr(errors, "to_dict"):
+                err_dict = errors.to_dict()
+            elif hasattr(errors, "errors"):
+                inner = errors.errors
+                err_dict = inner.to_dict() if hasattr(inner, "to_dict") else inner
+            elif isinstance(errors, dict):
+                err_dict = errors
+            else:
+                err_dict = {"error": [str(errors)]}
+            session.flash("_errors", err_dict)
+            session.flash("errors", err_dict)
+        return self
+
+    def with_input(self, input_data: Optional[Dict[str, Any]] = None) -> RedirectResponse:
+        """Flash old input data to the active session."""
+        from engine.http.session import get_current_session
+
+        session = get_current_session()
+        if session is not None:
+            session.flash("_old_input", input_data if input_data is not None else {})
+        return self
+
+    def with_flash(self, key: str, value: Any) -> RedirectResponse:
+        """Flash an arbitrary key-value pair to the active session."""
+        from engine.http.session import get_current_session
+
+        session = get_current_session()
+        if session is not None:
+            session.flash(key, value)
+        return self
+
+
+class RedirectHelper:
+    """Callable redirect factory providing named route and back helpers."""
+
+    def __call__(
+        self,
+        url: str = "",
+        route: Optional[str] = None,
+        status: int = 302,
+        **kwargs,
+    ) -> RedirectResponse:
+        if route:
+            from engine.facades import Route
+
+            target_url = Route.url_for(route, **kwargs)
+        else:
+            target_url = url
+        return RedirectResponse(url=target_url or "/", status_code=status)
+
+    def back(self, request: Any = None, fallback: str = "/", status: int = 302) -> RedirectResponse:
+        """Redirect back to the previous referer URL or fallback."""
+        referer = ""
+        if request is not None and hasattr(request, "headers"):
+            referer = request.headers.get("referer", "")
+        return RedirectResponse(url=referer or fallback, status_code=status)
+
+
+redirect = RedirectHelper()
+
+__all__ = ["Response", "JsonResponse", "RedirectResponse", "redirect"]

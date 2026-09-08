@@ -6,7 +6,8 @@ Only the latest release receives security fixes.
 
 | Version | Supported |
 |---------|-----------|
-| 3.18.x  | Yes       |
+| 3.19.x  | Yes       |
+| 3.18.x  | Deprecated |
 
 ## Reporting a vulnerability
 
@@ -44,6 +45,12 @@ the parsed body or the `X-CSRF-TOKEN` header. A token in the query string is
 ignored — a crafted cross-site link could plant one. Routes matching `api/*`
 are exempt by default. Logging in rotates the session id, which closes session
 fixation.
+
+**Anti-Spam and Honeypots** protect public forms against automated bot submissions.
+Cryptographic time-tokens signed with `APP_KEY` reject submissions faster than
+human reaction limits (< 2.0s) and expired form replay attacks (> 24h). Invisible
+honeypot fields trap automated bots while remaining screen-reader accessible.
+Spam heuristic analysis scores content against disposable emails and phishing patterns.
 
 **Authorization** denies by default: an ability with no matching gate or policy
 returns `False` rather than allowing the action.

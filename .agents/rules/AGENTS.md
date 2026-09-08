@@ -8,6 +8,7 @@ Read it before writing code. The full rationale it points to:
 - `.agents/rules/LANGUAGE_AND_I18N_STANDARD.md`
 - `.agents/rules/CRAFT_ENGINE_CONSTITUTION.md`
 - `.agents/rules/ENGINEERING_GOVERNANCE.md`
+- `.agents/rules/RELEASE_NON_REGRESSION_STANDARD.md`
 - `.agents/rules/database_safety.md`
 
 This file is a pointer on purpose. It held a byte-identical copy of the contract

@@ -45,6 +45,7 @@ user_app = typer.Typer(name="user", help="User management.", no_args_is_help=Tru
 firewall_app = typer.Typer(name="firewall", help="WAF & IP reputation management.", no_args_is_help=True)
 security_app = typer.Typer(name="security", help="Security audit logs and alerts.", no_args_is_help=True)
 docs_app = typer.Typer(name="docs", help="Documentation site.", no_args_is_help=True)
+agent_app = typer.Typer(name="agent", help="AI Agent discovery and scaffolding.", no_args_is_help=True)
 
 cli.add_typer(make_app)
 cli.add_typer(migrate_app)
@@ -61,6 +62,7 @@ cli.add_typer(user_app)
 cli.add_typer(firewall_app)
 cli.add_typer(security_app)
 cli.add_typer(docs_app)
+cli.add_typer(agent_app)
 
 
 
@@ -638,10 +640,32 @@ def make_crud(
         echo("  1. Review the generated migration and run:", "cyan")
         echo("     python dev.py migrate", bold=True)
         echo("  2. Access the Admin UI at:", "cyan")
-        echo(f"     http://127.0.0.1:8000/admin/{result['entity'].lower()}s", "cyan")
+        echo(f"     http://127.0.0.1:9000/admin/{result['entity'].lower()}s", "cyan")
         echo("  3. Access the JSON REST API at:", "cyan")
-        echo(f"     http://127.0.0.1:8000/api/v1/{result['entity'].lower()}s", "cyan")
+        echo(f"     http://127.0.0.1:9000/api/v1/{result['entity'].lower()}s", "cyan")
 
+
+@make_app.command("auth")
+def make_auth(
+    views_only: bool = typer.Option(False, "--views", help="Scaffold authentication Forge views only."),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
+) -> None:
+    """Scaffold complete authentication layer: Controller, Requests, Forge views, and routes."""
+    from engine.cli import auth_scaffolder
+
+    try:
+        result = auth_scaffolder.build_auth(base_path(), views_only=views_only, force=force)
+    except FileExistsError as exc:
+        echo(f"Authentication file already exists: {exc}. Use --force to overwrite.", "red")
+        raise typer.Exit(code=1) from None
+
+    echo("Authentication scaffolding generated successfully:", "green", bold=True)
+    for kind, path in result["files"].items():
+        echo(f"  -> {kind:<18} {path}", "green")
+
+    echo("\nNext steps:", bold=True)
+    echo("  1. Access the login screen at: http://127.0.0.1:9000/login", "cyan")
+    echo("  2. Access the registration screen at: http://127.0.0.1:9000/register", "cyan")
 
 
 def _simple_generator(kind: str, label: str):
@@ -1456,7 +1480,7 @@ def security_audit(limit: int = typer.Option(20, help="Number of audit logs to d
 @cli.command("serve")
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host."),
-    port: int = typer.Option(8000, help="Bind port."),
+    port: int = typer.Option(9000, help="Bind port."),
     reload: bool = typer.Option(True, help="Reload on file changes."),
     workers: int = typer.Option(
         1, help="Worker processes. Ignored with --reload, which requires one."
@@ -1566,6 +1590,34 @@ def key_generate() -> None:
         handle.write("\n".join(lines) + "\n")
 
     echo(f"Application key set: {key}", "green")
+
+
+@agent_app.command("scaffold")
+def agent_scaffold(
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
+) -> None:
+    """Scaffold AI agent discovery and configuration files (.cursorrules, llms.txt, mcp.json)."""
+    from engine.cli import agent_scaffolder
+
+    try:
+        result = agent_scaffolder.scaffold_agent_stack(base_path(), force=force)
+    except FileExistsError as exc:
+        echo(f"Agent file already exists: {exc}. Use --force to overwrite.", "red")
+        raise typer.Exit(code=1) from None
+
+    echo("AI Agent configuration generated successfully:", "green", bold=True)
+    for kind, path in result["files"].items():
+        echo(f"  -> {kind:<18} {path}", "green")
+
+    echo("\nCraft Engine is now primed for AI coding agents (Cursor, Claude Code, Windsurf, AGY).", "cyan")
+
+
+@agent_app.command("rules")
+def agent_rules(
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
+) -> None:
+    """Alias for `dev.py agent scaffold`."""
+    agent_scaffold(force=force)
 
 
 def main() -> None:

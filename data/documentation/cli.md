@@ -56,8 +56,8 @@ Colon-separated commands work, and so does the plain form: `migrate:status` and
 | `make listener NotifyTeam` | Listener |
 | `make policy Product` | Policy |
 | `make seeder Product` | Seeder |
-| `make factory Product` | Factory |
 | `make service Billing` | Plain service class |
+| `make auth [--views] [-f]` | Full authentication stack (Controller, FormRequests, Forge views, routes) |
 
 Names are normalised: `service_order`, `service-order` and `ServiceOrder` all
 produce `ServiceOrder`. Suffixes are added once — `make controller Product` and
@@ -106,6 +106,19 @@ python dev.py firewall list
 python dev.py firewall allow 192.168.1.100
 python dev.py firewall block 203.0.113.55 -r "Port scanner detected"
 python dev.py security audit --limit 50
+```
+
+## AI Coding Agents & Discovery
+
+Craft Engine is optimized for autonomous AI coding agents (Cursor, Claude Code, Windsurf, AGY):
+
+| Command | What it does |
+|---|---|
+| `agent:scaffold [-f]` | Bootstrap AI context files (`.cursorrules`, `llms.txt`, `llms-full.txt`, `.agents/mcp.json`) |
+| `agent:rules` | Alias for `agent:scaffold` |
+
+```bash
+python dev.py agent:scaffold
 ```
 
 ## Application

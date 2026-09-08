@@ -5,5 +5,6 @@
 
 from engine.validation.validator import Validator
 from engine.validation.form_request import FormRequest
+from engine.validation.error_bag import MessageBag, ViewErrorBag
 
-__all__ = ["Validator", "FormRequest"]
+__all__ = ["Validator", "FormRequest", "MessageBag", "ViewErrorBag"]

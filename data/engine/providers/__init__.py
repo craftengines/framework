@@ -19,6 +19,27 @@ from engine.providers.service_providers import (
     CaptchaServiceProvider,
     FirewallServiceProvider,
     HoneypotServiceProvider,
+    AntiSpamServiceProvider,
     FrameworkSubsystemsServiceProvider,
 )
+
+__all__ = [
+    "ServiceProvider",
+    "DatabaseServiceProvider",
+    "RouterServiceProvider",
+    "ViewServiceProvider",
+    "AuthServiceProvider",
+    "EventServiceProvider",
+    "QueueServiceProvider",
+    "LoggingServiceProvider",
+    "CacheServiceProvider",
+    "MigratorServiceProvider",
+    "ExceptionServiceProvider",
+    "PQCServiceProvider",
+    "CaptchaServiceProvider",
+    "FirewallServiceProvider",
+    "HoneypotServiceProvider",
+    "AntiSpamServiceProvider",
+    "FrameworkSubsystemsServiceProvider",
+]
 

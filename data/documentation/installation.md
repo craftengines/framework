@@ -74,7 +74,7 @@ README's Demo accounts section](../README.md#demo-accounts) or
 python dev.py serve
 ```
 
-The application is at `http://127.0.0.1:8000`. Use `--host`, `--port` and
+The application is at `http://127.0.0.1:9000`. Use `--host`, `--port` and
 `--no-reload` to change how it runs.
 
 ## Docker
@@ -85,7 +85,7 @@ The application is at `http://127.0.0.1:8000`. Use `--host`, `--port` and
 docker compose up -d --build
 ```
 
-- Application: `http://localhost:8300`
+- Application: `http://localhost:9000`
 - PostgreSQL: `localhost:5499` (user `craft`, database `craft_db`)
 
 Run the suite inside the container to check the minimum Python version:

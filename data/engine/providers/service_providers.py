@@ -195,6 +195,12 @@ class HoneypotServiceProvider(ServiceProvider):
         self.app.singleton("honeypot", lambda c: HoneypotService(c))
 
 
+class AntiSpamServiceProvider(ServiceProvider):
+    def register(self):
+        from engine.security.antispam import AntiSpamService
+        self.app.singleton("antispam", lambda c: AntiSpamService(c))
+
+
 class FrameworkSubsystemsServiceProvider(ServiceProvider):
     def register(self):
         from engine.modules.manager import ModuleManager

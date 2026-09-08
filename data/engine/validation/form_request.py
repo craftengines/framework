@@ -39,6 +39,9 @@ class FormRequest:
         self.request = request
         self._validator: Optional[Validator] = None
 
+    antispam: bool = False
+    antispam_action: str = ""
+
     # -- to override -----------------------------------------------------------
 
     def authorize(self) -> bool:
@@ -84,11 +87,26 @@ class FormRequest:
         return self._validator
 
     @property
-    def errors(self) -> Dict[str, List[str]]:
+    def errors(self) -> Any:
         return self.validator().errors
 
+    def error_bag(self) -> Any:
+        return self.validator().error_bag()
+
+    def passes_antispam(self) -> bool:
+        from engine.security.antispam import AntiSpamService
+
+        data = self.data()
+        if self.antispam or self.antispam_action or "_craft_hp_name" in data or "_craft_hp_time" in data:
+            antispam = AntiSpamService()
+            is_clean, reason = antispam.verify(self.request or data, action=self.antispam_action)
+            if not is_clean:
+                self.validator().errors.setdefault("_antispam", []).append(f"Submission rejected ({reason})")
+                return False
+        return True
+
     def passes(self) -> bool:
-        return self.authorize() and self.validator().passes()
+        return self.authorize() and self.passes_antispam() and self.validator().passes()
 
     def fails(self) -> bool:
         return not self.passes()
@@ -104,6 +122,11 @@ class FormRequest:
             from engine.exceptions.handler import AuthorizationException
 
             raise AuthorizationException("This action is unauthorized.")
+
+        if not self.passes_antispam():
+            from engine.exceptions.handler import ValidationException
+
+            raise ValidationException(self.validator().errors.to_dict())
 
         return self.validator().validated()
 

@@ -180,7 +180,7 @@
                 <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">Dynamic Operations Active</span>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="text-xs text-slate-400 font-mono">Port: 8300 &mdash; SQLite/PgSQL</span>
+                <span class="text-xs text-slate-400 font-mono">Port: 9000 &mdash; SQLite/PgSQL</span>
             </div>
         </header>
         {% endif %}

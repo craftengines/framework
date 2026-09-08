@@ -146,7 +146,7 @@ Route.get(<span class="code-string">"/admin"</span>, [AdminController, <span cla
                     <div class="step-terminal">
                         <div class="terminal-line"><span class="terminal-prompt">$</span> <code>docker compose up -d --build</code></div>
                     </div>
-                    <p class="step-note">App ready on <a href="http://localhost:8300" target="_blank" class="text-orange-600 font-semibold hover:underline">localhost:8300</a></p>
+                    <p class="step-note">App ready on <a href="http://localhost:9000" target="_blank" class="text-orange-600 font-semibold hover:underline">localhost:9000</a></p>
                 </div>
             </div>
         </div>

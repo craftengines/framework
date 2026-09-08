@@ -67,7 +67,7 @@ The default database is SQLite, so no database server is needed:
 2. Copy the environment file: `cp .env.example .env`.
 3. Generate the key that signs session cookies: `python dev.py key:generate`.
 4. Create and seed the schema: `python dev.py migrate --seed`.
-5. Serve it: `python dev.py serve` — the app is at `http://127.0.0.1:8000`.
+5. Serve it: `python dev.py serve` — the app is at `http://127.0.0.1:9000`.
 
 Or with Docker, which brings up the app and PostgreSQL together:
 
@@ -75,4 +75,4 @@ Or with Docker, which brings up the app and PostgreSQL together:
 docker compose up -d --build
 ```
 
-Access it at `http://localhost:8300`.
+Access it at `http://localhost:9000`.

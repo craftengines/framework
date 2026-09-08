@@ -32,11 +32,11 @@ Run it with any ASGI server:
 
 ```bash
 gunicorn -w 4 -k uvicorn.workers.UvicornWorker public.index:application \
-  --bind 0.0.0.0:8000
+  --bind 0.0.0.0:9000
 ```
 
 ```bash
-uvicorn public.index:application --host 0.0.0.0 --port 8000 --workers 4
+uvicorn public.index:application --host 0.0.0.0 --port 9000 --workers 4
 ```
 
 `dev serve` is for development. It enables reload and binds to localhost.
@@ -76,7 +76,7 @@ connected and ~115 req/s at 10+ clients.
 Scale further with processes, not threads — the GIL caps a single process:
 
 ```bash
-python dev.py serve --host 0.0.0.0 --port 8000 --no-reload --workers 4
+python dev.py serve --host 0.0.0.0 --port 9000 --no-reload --workers 4
 ```
 
 `--workers` needs `--no-reload` (the reloader runs a single process; asking for

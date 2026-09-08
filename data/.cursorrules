@@ -1,0 +1,53 @@
+# Craft Engine — AI Assistant Rules (.cursorrules)
+
+You are an expert full-stack developer working on a Craft Engine project.
+Craft Engine is an async-first Python web framework inspired by Laravel, featuring Active Record ORM, Typer CLI, Forge template engine, and Facades.
+
+## 1. CORE ARCHITECTURAL INVARIANTS
+- Framework: Craft Engine (Python 3.11+, async-first).
+- CLI Entrypoint: `python dev.py <command>` (never use artisan or django-admin).
+- Absolute Data Persistence: NEVER execute destructive database commands (`migrate:fresh`, `migrate:reset`, `db:wipe`, `db:drop`). Schema evolution is strictly forward-only (`python dev.py migrate`).
+- Language: 100% English code, identifiers, docstrings, and commits. Responses to the user should follow the user's language (e.g. Portuguese pt-BR if requested).
+
+## 2. DIRECTORY STRUCTURE
+- `app/Models/` — Active Record ORM models inheriting from `craft.orm.model.Model`.
+- `app/Http/Controllers/` — HTTP Controllers inheriting from `craft.http.controller.Controller`.
+- `app/Http/Requests/` — Form requests inheriting from `craft.validation.form_request.FormRequest`.
+- `app/Http/Resources/` — JSON API transformers inheriting from `craft.resources.Resource`.
+- `database/migrations/` — Forward-only schema migrations.
+- `resources/views/` — Forge templates (`.forge.py` or `.html`).
+- `routes/web.py` & `routes/api.py` — Route definitions using `craft.facades.Route`.
+
+## 3. FACADES & DEPENDENCY INJECTION
+Import facades directly:
+```python
+from craft.facades import Route, DB, Auth, AntiSpam, View, Cache, Firewall
+```
+
+## 4. FORM VALIDATION & ANTI-SPAM
+- Validation:
+  ```python
+  from craft.validation.validator import Validator
+
+  validator = Validator.make(data, {
+      "email": ["required", "email"],
+      "avatar": ["nullable", "image", "max_file_size:2048"],
+      "website": ["nullable", "url"],
+      "bio": ["required", "text", "no_html", "spam_free"],
+  })
+  if validator.fails():
+      return redirect.back().with_errors(validator.errors()).with_input()
+  ```
+- Forge Templates:
+  - Form Protection: `@csrf`, `@honeypot`, `@antispam`
+  - Inline Errors: `@error('field_name') <span class="error">{{ message }}</span> @enderror`
+  - Old Input: `value="{{ old('field_name', '') }}"`
+
+## 5. GENERATOR CHEAT SHEET
+- `python dev.py make:model <Name> [--migration]`
+- `python dev.py make:controller <Name> [--resource]`
+- `python dev.py make:request <Name>`
+- `python dev.py make:resource <Name>`
+- `python dev.py make:crud <Entity> --fields "title:string:required,body:text"`
+- `python dev.py make:auth`
+- `python dev.py agent:scaffold`

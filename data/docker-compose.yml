@@ -59,7 +59,7 @@ services:
     build: .
     container_name: framework
     ports:
-      - "8300:8000"
+      - "9000:9000"
     volumes:
       - .:/app
     environment:
