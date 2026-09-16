@@ -749,6 +749,19 @@ class QueryBuilder(PostgresMacros):
     # -- writes ----------------------------------------------------------------
 
     def insert(self, values: Dict[str, Any]) -> Any:
+        """Insert a row, stamping the bound tenant when the model is tenant-scoped.
+
+        `TenantModel.query().insert({...})` bypasses `Model.force_create()`
+        (no cast/uuid/event handling), but it must not also bypass tenant
+        stamping — an explicit `tenant_id` in `values` still wins, matching
+        `TenantScoped.force_create()`'s own precedent for data-import use.
+        """
+        tenant_column = getattr(self.model_class, "tenant_column", None)
+        if tenant_column:
+            from engine.orm.tenancy import TenantManager
+
+            values = dict(values)
+            values.setdefault(tenant_column, TenantManager().id_or_fail())
         return self.db.insert_get_id(self.table_name, values)
 
     def update(self, values: Dict[str, Any]) -> int:
@@ -774,6 +787,23 @@ class QueryBuilder(PostgresMacros):
         return result.rowcount if result.rowcount and result.rowcount > 0 else 0
 
     def truncate(self) -> None:
+        """Remove every row in the table.
+
+        Raises:
+            DestructiveOperationRefused: `model_class` is tenant-scoped.
+                `truncate()` has no WHERE clause by construction, so on a
+                tenant-scoped table it would wipe every tenant's rows.
+        """
+        tenant_column = getattr(self.model_class, "tenant_column", None)
+        if tenant_column:
+            from engine.migrations.safety import DestructiveOperationRefused
+
+            raise DestructiveOperationRefused(
+                f"truncate:{self.table_name}",
+                self.table_name,
+                environment="n/a",
+                reason="the query builder is scoped to a tenant",
+            )
         driver = getattr(self.db, "driver", "sqlite")
         if driver == "sqlite":
             self.db.statement(f"DELETE FROM {self.table_name}")

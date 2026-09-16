@@ -33,16 +33,20 @@ class DestructiveOperationRefused(RuntimeError):
     code = "DATABASE_DESTRUCTIVE_OPERATION_REFUSED"
     message_key = "database.safety.destructive_operation_refused"
 
-    def __init__(self, operation: str, database: str, environment: str) -> None:
+    def __init__(self, operation: str, database: str, environment: str, reason: str | None = None) -> None:
         """Build the refusal.
 
         Args:
             operation: The refused operation, e.g. `drop_all_tables`.
             database: The target database name.
             environment: The application environment at refusal time.
+            reason: Optional context beyond the environment, e.g. "the query
+                builder is scoped to a tenant" for a refusal that has nothing
+                to do with which environment is running.
         """
-        super().__init__(f"{self.code}: {operation} on '{database}' ({environment})")
-        self.params = {"operation": operation, "database": database, "environment": environment}
+        detail = reason if reason is not None else environment
+        super().__init__(f"{self.code}: {operation} on '{database}' ({detail})")
+        self.params = {"operation": operation, "database": database, "environment": environment, "reason": reason}
 
 
 def is_disposable_database(driver: str, database: str, allowlist: Iterable[str] = ()) -> bool:

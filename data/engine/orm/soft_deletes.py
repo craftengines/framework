@@ -32,10 +32,11 @@ class SoftDeletes:
         class Note(SoftDeletes, Model):
             __table__ = "notes"
 
-    The scopes below build their own QueryBuilder rather than calling
-    `super().query()`, so a model that lists the bases the other way round
-    still gets working `with_trashed()` / `only_trashed()` helpers instead of
-    an AttributeError.
+    Combines cleanly with `TenantScoped` in either base order: both mixins
+    add their predicate through the shared `_base_query()`/`_write_predicate()`
+    chains (see `Model._base_query()`), so a model like
+    `class Invoice(TenantScoped, SoftDeletes, Model)` keeps both the
+    trashed-row filter and the tenant predicate.
     """
 
     deleted_at_column: str = "deleted_at"
@@ -68,14 +69,14 @@ class SoftDeletes:
     # -- query scopes ----------------------------------------------------------
 
     @classmethod
-    def _base_query(cls) -> Any:
-        from engine.orm.query_builder import QueryBuilder
-
-        return QueryBuilder(model_class=cls)
-
-    @classmethod
     def query(cls) -> Any:
-        """Default query — excludes soft-deleted rows."""
+        """Default query — excludes soft-deleted rows.
+
+        `cls._base_query()` is inherited, not overridden here: for a model
+        that also mixes in `TenantScoped`, that resolves to
+        `TenantScoped._base_query()` (via the MRO), which already carries the
+        tenant predicate — this only adds the trashed-row filter on top.
+        """
         return cls._base_query().where_null(cls.deleted_at_column)
 
     @classmethod
@@ -91,7 +92,13 @@ class SoftDeletes:
     # -- instance operations ---------------------------------------------------
 
     def delete(self) -> bool:
-        """Soft delete: stamp `deleted_at` instead of removing the row."""
+        """Soft delete: stamp `deleted_at` instead of removing the row.
+
+        Addressed through `self._write_predicate()` rather than a bare
+        `id = ?`, so a model that also mixes in `TenantScoped` cannot soft-
+        delete another tenant's row (and raises, per that mixin's fail-closed
+        `_write_predicate()`, if the instance has no tenant on its loaded row).
+        """
         from engine.container.application import Container
 
         key = self.primary_key
@@ -99,38 +106,39 @@ class SoftDeletes:
             return False
 
         stamp = _now()
+        predicate, bindings = self._write_predicate()
         db = Container.getInstance().make("db")
         db.statement(
-            f"UPDATE {self.get_table_name()} SET {self.deleted_at_column} = ? WHERE {key} = ?",
-            [stamp, self._attributes[key]],
+            f"UPDATE {self.get_table_name()} SET {self.deleted_at_column} = ? WHERE {predicate}",
+            [stamp] + bindings,
         )
         self._attributes[self.deleted_at_column] = stamp
         return True
 
     def force_delete(self) -> bool:
-        """Permanently remove the row."""
+        """Permanently remove the row. See `delete()` for the addressing rationale."""
         from engine.container.application import Container
 
         key = self.primary_key
         if self._attributes.get(key) is None:
             return False
+        predicate, bindings = self._write_predicate()
         db = Container.getInstance().make("db")
-        db.statement(
-            f"DELETE FROM {self.get_table_name()} WHERE {key} = ?", [self._attributes[key]]
-        )
+        db.statement(f"DELETE FROM {self.get_table_name()} WHERE {predicate}", bindings)
         return True
 
     def restore(self) -> bool:
-        """Undo a soft delete."""
+        """Undo a soft delete. See `delete()` for the addressing rationale."""
         from engine.container.application import Container
 
         key = self.primary_key
         if self._attributes.get(key) is None:
             return False
+        predicate, bindings = self._write_predicate()
         db = Container.getInstance().make("db")
         db.statement(
-            f"UPDATE {self.get_table_name()} SET {self.deleted_at_column} = NULL WHERE {key} = ?",
-            [self._attributes[key]],
+            f"UPDATE {self.get_table_name()} SET {self.deleted_at_column} = NULL WHERE {predicate}",
+            bindings,
         )
         self._attributes[self.deleted_at_column] = None
         return True

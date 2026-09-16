@@ -22,9 +22,11 @@ import pytest
 
 from craft.facades import DB, Tenant
 from craft.migrations.schema import Blueprint, Grammar, SchemaBuilder
+from craft.migrations.safety import DestructiveOperationRefused
 from craft.orm.dialect import UnsupportedFeatureError
 from craft.orm.model import Model
-from craft.orm.tenancy import TenantManager, TenantNotBoundError, current_tenant_id
+from craft.orm.soft_deletes import SoftDeletes
+from craft.orm.tenancy import TenantManager, TenantNotBoundError, UnaddressableTenantRowError, current_tenant_id
 from craft.orm.tenant_scoped import TenantScoped
 
 ACME = "11111111-1111-1111-1111-111111111111"
@@ -465,3 +467,140 @@ class _FakeRequest:
     @staticmethod
     def header(name):
         return "" if name == "host" else None
+
+
+# -- Slice 1: write-path hardening ----------------------------------------------
+
+
+def test_save_on_an_instance_with_no_loaded_tenant_raises(invoices_table):
+    """A hand-built instance has no `_original` tenant to address its write by."""
+    with Tenant.scope(ACME):
+        created = Invoice.create({"reference": "INV-2"})
+
+    with Tenant.scope(ACME):
+        forged = Invoice({"id": created.id, "reference": "INV-2"})
+        forged.set_attribute("reference", "HIJACKED")
+        with pytest.raises(UnaddressableTenantRowError):
+            forged.save()
+
+
+def test_delete_on_an_instance_with_no_loaded_tenant_raises(invoices_table):
+    with Tenant.scope(ACME):
+        created = Invoice.create({"reference": "INV-3"})
+
+    with Tenant.scope(ACME):
+        forged = Invoice({"id": created.id})
+        with pytest.raises(UnaddressableTenantRowError):
+            forged.delete()
+
+
+class TenantSoftDeletable(TenantScoped, SoftDeletes, Model):
+    __table__ = "tenant_soft_deletables"
+    fillable = ["reference"]
+    uses_uuid = False
+
+
+class SoftDeletableTenant(SoftDeletes, TenantScoped, Model):
+    __table__ = "tenant_soft_deletables"
+    fillable = ["reference"]
+    uses_uuid = False
+
+
+@pytest.fixture
+def soft_deletables_table(migrated_database):
+    schema = SchemaBuilder(migrated_database.make("db"))
+    schema.drop_if_exists("tenant_soft_deletables")
+    schema.create_table("tenant_soft_deletables", lambda t: (
+        t.id(type="integer"),
+        t.string("reference"),
+        t.tenant_scoped(references=None),
+        t.soft_deletes(),
+        t.timestamps(),
+    ))
+    yield "tenant_soft_deletables"
+    schema.drop_if_exists("tenant_soft_deletables")
+
+
+@pytest.mark.parametrize("model_class", [TenantSoftDeletable, SoftDeletableTenant])
+def test_tenant_scoped_and_soft_deletes_compose_in_either_order(model_class, soft_deletables_table):
+    """Both mixins' predicates apply regardless of which is listed first."""
+    with Tenant.scope(ACME):
+        acme_row = model_class.create({"reference": "acme-row"})
+    with Tenant.scope(BETA):
+        model_class.create({"reference": "beta-row"})
+
+    with Tenant.scope(ACME):
+        acme_row.delete()
+        # query() excludes trashed rows AND is tenant-scoped: gone from both.
+        assert model_class.query().where("reference", "acme-row").first() is None
+        # with_trashed() keeps the tenant predicate — still not BETA's row.
+        trashed = model_class.with_trashed().where("reference", "acme-row").first()
+        assert trashed is not None
+        assert model_class.with_trashed().where("reference", "beta-row").first() is None
+
+    with Tenant.scope(BETA):
+        # BETA's row was never touched by ACME's delete.
+        assert model_class.query().where("reference", "beta-row").first() is not None
+
+
+def test_soft_delete_never_reaches_a_row_of_another_tenant(soft_deletables_table):
+    """A forged instance with the wrong (but present) tenant_id addresses no row."""
+    with Tenant.scope(BETA):
+        victim = TenantSoftDeletable.create({"reference": "beta-victim"})
+    with Tenant.scope(ACME):
+        forged = TenantSoftDeletable({"id": victim.id, "tenant_id": ACME})
+        forged.delete()
+    with Tenant.scope(BETA):
+        survivor = TenantSoftDeletable.find(victim.id)
+        assert survivor is not None
+        assert not survivor.trashed()
+
+
+def test_soft_delete_on_an_instance_with_no_loaded_tenant_raises(soft_deletables_table):
+    with Tenant.scope(BETA):
+        victim = TenantSoftDeletable.create({"reference": "no-tenant"})
+    with Tenant.scope(BETA):
+        forged = TenantSoftDeletable({"id": victim.id})
+        with pytest.raises(UnaddressableTenantRowError):
+            forged.delete()
+
+
+def test_query_builder_insert_stamps_the_bound_tenant(invoices_table):
+    with Tenant.scope(ACME):
+        new_id = Invoice.query().insert({"reference": "raw-insert"})
+    with Tenant.scope(ACME):
+        row = Invoice.find(new_id)
+        assert row.get_attribute("tenant_id") == ACME
+
+
+def test_query_builder_insert_respects_an_explicit_tenant(invoices_table):
+    """Documents the existing setdefault precedent: explicit tenant_id wins."""
+    with Tenant.scope(ACME):
+        new_id = Invoice.query().insert({"reference": "import-row", "tenant_id": BETA})
+    with Tenant.scope(BETA):
+        row = Invoice.find(new_id)
+        assert row.get_attribute("tenant_id") == BETA
+
+
+def test_query_builder_truncate_refuses_on_a_tenant_scoped_table(invoices_table):
+    with Tenant.scope(ACME):
+        with pytest.raises(DestructiveOperationRefused):
+            Invoice.query().truncate()
+
+
+def test_query_builder_truncate_still_works_on_a_plain_table(migrated_database):
+    schema = SchemaBuilder(migrated_database.make("db"))
+    schema.drop_if_exists("plain_truncatable")
+    schema.create_table("plain_truncatable", lambda t: (t.id(type="integer"), t.string("name"), t.timestamps()))
+    try:
+
+        class Plain(Model):
+            __table__ = "plain_truncatable"
+            fillable = ["name"]
+            uses_uuid = False
+
+        Plain.create({"name": "row"})
+        Plain.query().truncate()
+        assert Plain.query().count() == 0
+    finally:
+        schema.drop_if_exists("plain_truncatable")

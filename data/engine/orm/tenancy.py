@@ -55,6 +55,18 @@ class TenantIsolationError(RuntimeError):
     """The policies exist but cannot apply to the connecting role."""
 
 
+class UnaddressableTenantRowError(RuntimeError):
+    """A tenant-scoped instance has no tenant to address its own row with.
+
+    Raised instead of silently degrading to an unscoped `WHERE id = ?`, which
+    would let `save()`/`delete()` on a hand-built instance reach a row under
+    any tenant.
+    """
+
+    code = "TENANT_ROW_UNADDRESSABLE"
+    message_key = "orm.tenancy.unaddressable_row"
+
+
 class TenantManager:
     """Binds the current tenant to the connection's session variable."""
 

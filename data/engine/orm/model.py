@@ -191,8 +191,19 @@ class Model:
         return name
 
     @classmethod
-    def query(cls) -> QueryBuilder:
+    def _base_query(cls) -> QueryBuilder:
+        """The unscoped starting point every mixin's `query()` builds from.
+
+        `TenantScoped` and `SoftDeletes` each add their own predicate here via
+        `super()._base_query()`, so both cooperate through this one chain
+        regardless of which order they're listed in — a model mixing in both
+        keeps every predicate no matter its base order.
+        """
         return QueryBuilder(model_class=cls)
+
+    @classmethod
+    def query(cls) -> QueryBuilder:
+        return cls._base_query()
 
     # -- UUID identity ---------------------------------------------------------
 

@@ -67,16 +67,23 @@ class TenantScoped:
 
     @classmethod
     def _base_query(cls) -> Any:
-        from engine.orm.query_builder import QueryBuilder
+        """The tenant-scoped starting point every query builds from.
 
-        return QueryBuilder(model_class=cls)
-
-    @classmethod
-    def query(cls) -> Any:
-        """Scoped to the bound tenant. Raises if there is none."""
+        Chains through `super()._base_query()` (ultimately `Model._base_query()`)
+        rather than building a bare `QueryBuilder` directly, so a model mixing
+        in both `TenantScoped` and `SoftDeletes` keeps both predicates no
+        matter which order the two are listed in — each mixin adds its own
+        `where` on top of what the other already applied.
+        """
         from engine.orm.tenancy import TenantManager
 
-        return cls._base_query().where(cls.tenant_column, TenantManager().id_or_fail())
+        return super()._base_query().where(cls.tenant_column, TenantManager().id_or_fail())
+
+    # No `query()` override here on purpose: `Model.query()` is `cls._base_query()`,
+    # and that alone is enough to pick up this mixin's tenant predicate. Adding
+    # one here would shadow `SoftDeletes.query()` in the MRO whenever
+    # `TenantScoped` is listed before it, silently dropping the trashed-row
+    # filter for a model combining both mixins.
 
     @classmethod
     def across_tenants(cls) -> Any:
@@ -88,7 +95,9 @@ class TenantScoped:
         granted BYPASSRLS on purpose — which is the point, because that grant is
         auditable and this method call is grep-able.
         """
-        return cls._base_query()
+        from engine.orm.query_builder import QueryBuilder
+
+        return QueryBuilder(model_class=cls)
 
     # -- writes ----------------------------------------------------------------
 
@@ -101,11 +110,24 @@ class TenantScoped:
 
         Returns:
             The WHERE clause and its bindings.
+
+        Raises:
+            UnaddressableTenantRowError: The instance has no tenant on its
+                loaded row to address the write by — e.g. it was constructed
+                by hand instead of loaded through `query()`. Degrading to a
+                bare `id = ?` here would let the write reach any tenant's row.
         """
         predicate, bindings = super()._write_predicate()
         tenant = self._original.get(self.tenant_column)
         if tenant is None:
-            return predicate, bindings
+            from engine.orm.tenancy import UnaddressableTenantRowError
+
+            raise UnaddressableTenantRowError(
+                f"{type(self).__name__} has no {self.tenant_column!r} on its "
+                f"loaded row, so this write cannot be addressed by tenant. "
+                f"Load it through {type(self).__name__}.query() instead of "
+                f"constructing it directly."
+            )
         return f"{predicate} AND {self.tenant_column} = ?", bindings + [tenant]
 
     @classmethod
