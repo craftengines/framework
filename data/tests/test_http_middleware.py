@@ -117,6 +117,43 @@ class TestCsrf:
         response = client.post("/t/echo", data={"a": "1", "_token": token})
         assert response.status_code == 200
 
+    def test_a_matching_origin_header_is_accepted(self, client):
+        """Origin-based CSRF (Slice 2): the app's own origin, present and correct."""
+        token = csrf_for(client)
+        response = client.post(
+            "/t/echo",
+            data={"a": "1", "_token": token},
+            headers={"origin": "http://localhost:9000"},
+        )
+        assert response.status_code == 200
+
+    def test_a_cross_site_origin_header_is_rejected_even_with_a_valid_token(self, client):
+        """A stolen-token scenario: the token is right, but the browser itself
+        says the request came from somewhere else - rejected on that alone.
+        """
+        token = csrf_for(client)
+        response = client.post(
+            "/t/echo",
+            data={"a": "1", "_token": token},
+            headers={"origin": "https://evil.example.com"},
+        )
+        assert response.status_code == 403
+
+    def test_a_mismatched_referer_is_rejected_when_origin_is_absent(self, client):
+        token = csrf_for(client)
+        response = client.post(
+            "/t/echo",
+            data={"a": "1", "_token": token},
+            headers={"referer": "https://evil.example.com/attack-page"},
+        )
+        assert response.status_code == 403
+
+    def test_no_origin_or_referer_header_does_not_fail_on_its_own(self, client):
+        """Some legitimate clients omit both - the token remains the primary check."""
+        token = csrf_for(client)
+        response = client.post("/t/echo", data={"a": "1", "_token": token})
+        assert response.status_code == 200
+
 
 class TestSecurityHeaders:
     def test_baseline_headers_are_present(self, client):

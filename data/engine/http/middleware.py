@@ -316,6 +316,50 @@ class VerifyCsrfToken(Middleware):
             return request.post("_token")
         return None
 
+    def _expected_origin(self, request: Any) -> str:
+        """The origin this request must have come from: `scheme://host[:port]`.
+
+        `app.APP_URL` when configured (the deployment's own canonical
+        address); falls back to the request's own `Host` header for a
+        same-origin check when it is not.
+        """
+        try:
+            app_url = str(_container(self.app).make("config").get("app.APP_URL", "") or "")
+        except Exception:
+            app_url = ""
+        if app_url:
+            return app_url.rstrip("/")
+        host = str(getattr(request, "header", lambda _n: "")("host") or "")
+        scheme = "https" if getattr(request, "is_secure", lambda: False)() else "http"
+        return f"{scheme}://{host}" if host else ""
+
+    def origin_is_trusted(self, request: Any) -> bool:
+        """Extra defense-in-depth layer, alongside the token check.
+
+        The token proves the request carries a value only same-origin
+        JavaScript could have read (from the DOM or a cookie the same-origin
+        policy protects); `Origin`/`Referer` proves the *browser* itself
+        believes the request came from this origin - a second, independent
+        signal an attacker who somehow obtained a valid token (an XSS
+        elsewhere on the same origin, say) still cannot forge, because the
+        browser sets these headers itself and refuses script control over
+        them. Absent both headers (some legitimate older clients, or a
+        same-origin `fetch` under some privacy settings) this does not fail
+        the request on its own - only a header that is PRESENT and WRONG
+        does. The token check is still the primary defense.
+        """
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        if not origin:
+            return True
+        expected = self._expected_origin(request)
+        if not expected:
+            return True
+        from urllib.parse import urlsplit
+
+        origin_root = urlsplit(origin)
+        expected_root = urlsplit(expected)
+        return (origin_root.scheme, origin_root.netloc) == (expected_root.scheme, expected_root.netloc)
+
     def handle(self, request: Any, next_callable: Callable) -> Any:
         if (
             request.method.upper() in self.READ_METHODS
@@ -331,6 +375,13 @@ class VerifyCsrfToken(Middleware):
                 "VerifyCsrfToken requires a session. Add StartSession before it "
                 "in the middleware stack in bootstrap/app.py."
             )
+
+        if not self.origin_is_trusted(request):
+            from engine.exceptions.handler import CraftException
+
+            error = CraftException("Cross-origin request rejected.")
+            error.status_code = 403
+            raise error
 
         expected = request.session().token()
         provided = self.token_from(request) or ""
