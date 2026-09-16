@@ -100,6 +100,12 @@ class Hash(Facade):
         return "hash"
 
 
+class Vault(Facade):
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "vault"
+
+
 class Migrator(Facade):
     @classmethod
     def get_facade_accessor(cls) -> str:

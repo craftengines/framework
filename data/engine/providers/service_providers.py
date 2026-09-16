@@ -183,6 +183,15 @@ class CaptchaServiceProvider(ServiceProvider):
         self.app.singleton("captcha", lambda c: Captcha())
 
 
+class VaultServiceProvider(ServiceProvider):
+    def register(self):
+        # Lazy: constructing eagerly would demand APP_KEY at boot even for an
+        # app that never stores a secret. `container.make("vault")` on first
+        # use is where VaultKeyMissingError should actually surface.
+        from engine.security.vault import Vault
+        self.app.singleton("vault", lambda c: Vault())
+
+
 class FirewallServiceProvider(ServiceProvider):
     def register(self):
         from engine.security.firewall import Firewall
