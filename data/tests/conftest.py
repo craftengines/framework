@@ -78,20 +78,6 @@ def _check_database_safety() -> None:
 _check_database_safety()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def migrated_database():
-    """Build the test schema with the real migrator, once per session."""
-    from bootstrap.app import app
-    from craft.migrations.migrator import Migrator
-
-    migrator = Migrator(app)
-    if TEST_DB != "sqlite":
-        # A real server keeps state between runs — start from a clean schema.
-        migrator.drop_all_tables()
-    migrator.run()
-    yield app
-
-
 @pytest.fixture
 def is_postgres() -> bool:
     """Return whether tests are running against PostgreSQL."""
@@ -152,9 +138,9 @@ def two_tenants(migrated_database) -> Generator[tuple[str, str], None, None]:
     tenant_a_id = str(uuid.uuid4())
     tenant_b_id = str(uuid.uuid4())
 
-    # Insert both tenants into the database.
-    DB.table("tenants").insert({"id": tenant_a_id, "status": "active"})
-    DB.table("tenants").insert({"id": tenant_b_id, "status": "active"})
+    # Insert both tenants into the database (is_active defaults to True).
+    DB.table("tenants").insert({"id": tenant_a_id})
+    DB.table("tenants").insert({"id": tenant_b_id})
 
     yield tenant_a_id, tenant_b_id
 
