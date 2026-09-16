@@ -18,8 +18,29 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Security
+
+- **Reverse-proxy IP spoofing** (`engine/security/net.py`, `engine/security/firewall.py`, `engine/http/request.py`): `Request.ip()` and the firewall used to trust the left-most `X-Forwarded-For` entry, which a client controls. Reads from the right now, skipping a configurable number of trusted proxy hops (`config/app.py: trusted_proxy_hops`, `TRUSTED_PROXY_HOPS`).
+- **Captcha code readable in markup** (`engine/security/captcha.py`): the challenge is rendered as a distorted PNG (Pillow) instead of plain-text rotated `<span>` characters a script could read straight from the DOM.
+- **SQL LIKE-binding percent escaping** (`engine/orm/connection.py`): `normalize_placeholders()` now escapes literal `%` in the query text when bindings are present, so a bound `%` cannot be misread as a driver format specifier.
+- **Error responses leaked internals** (`engine/http/kernel.py`): unhandled exceptions now return a stable `code`/`message_key` instead of `str(exc)`; the full exception is still logged server-side.
+- **Tenant write predicate silently degraded** (`engine/orm/tenant_scoped.py`, `engine/orm/tenancy.py`): a `TenantScoped` instance with no tenant on its loaded row now raises `UnaddressableTenantRowError` on `save()`/`delete()` instead of falling back to an unscoped `WHERE id = ?`.
+
+### Fixed
+
+- **Destructive database operations on a permanent database** (`engine/migrations/safety.py`, `engine/cli/app.py`, `engine/migrations/migrator.py`): `migrate fresh/reset/refresh` and `db wipe --force` now refuse (NR-02) unless the target database is disposable (in-memory SQLite, a `_test` suffix, or explicitly allowlisted via `DB_DISPOSABLE_DATABASES`).
+- **Scoped container instances leaked across concurrent requests** (`engine/container/application.py`, `engine/http/kernel.py`): scoped bindings now live in a `ContextVar` opened per request (`Container.begin_request_scope()`/`end_request_scope()`) instead of a class-level dict shared by every in-flight request.
+- **Lost updates on concurrent model edits** (`engine/orm/model.py`): `Model` now tracks dirty state (`sync_original()`, `get_dirty()`, `is_dirty()`) and `save()` writes only the changed columns, so two editors touching different fields on the same row no longer clobber each other.
+- **RGBA-to-JPEG export inverted transparent regions** (`engine/media/image.py`): transparent pixels are composited over white before the RGB conversion instead of a bare `convert("RGB")`.
+- **Settings shared across tenants** (`engine/support/settings.py`): values are namespaced per tenant (`storage_key()`) with fallback to the installation-wide value, instead of one shared dictionary for every tenant.
+- **A caught statement failure aborted the whole PostgreSQL transaction** (`engine/orm/connection.py`): each statement inside a transaction now runs under its own `SAVEPOINT`, so a caught failure rolls back only that statement.
+- **`TenantScoped` combined with `SoftDeletes` silently dropped one mixin's guarantee** (`engine/orm/model.py`, `engine/orm/tenant_scoped.py`, `engine/orm/soft_deletes.py`): both mixins now compose through a shared, cooperative `_base_query()`/`_write_predicate()` chain regardless of declaration order; `SoftDeletes.delete()`/`force_delete()`/`restore()` address their row through `_write_predicate()` instead of a hardcoded `WHERE id = ?`, so they inherit tenant-safe addressing automatically.
+- **`QueryBuilder.insert()`/`.truncate()` bypassed tenant safety** (`engine/orm/query_builder.py`): `insert()` now stamps the bound tenant on a tenant-scoped model (explicit value still wins, matching `force_create()`'s existing data-import precedent); `truncate()` now refuses (`DestructiveOperationRefused`) on a tenant-scoped model, since it has no `WHERE` clause by construction.
+- **`BelongsToMany.attach()`/`.detach()`/`.sync()` bypassed tenant safety** (`engine/orm/relationships.py`): pivot-table writes now stamp and scope by the bound tenant when the pivot table itself carries a tenant column; a pivot without one is unaffected.
+
 ### Added
 
+- **Multi-agent pytest harness** (`tests/conftest.py`): per-worker test database naming for parallel runs (always ending in `_test`, so the existing disposable-database check accepts it), a refusal to run against a non-disposable database, a PostgreSQL advisory lock coordinating schema-mutating fixtures across workers, a shared `two_tenants` fixture, a `client_for_host()` test-client helper, and an `unprivileged_postgres_role` fixture for row-level-security enforcement tests.
 - **Development agent catalog** (`engine/cli/agent_catalog/`, `engine/cli/app.py`, `engine/cli/agent_scaffolder.py`):
   - Installable Markdown catalog adapted to Craft Engine: 4 agents (`code-reviewer`, `security-auditor`, `test-engineer`, `web-performance-auditor`), 25 workflow skills (spec, planning, incremental build, TDD, debugging, review, simplification, security, performance, observability, API design, frontend, documentation and ADRs, git and release, CI, deprecation and migration, shipping, and the `using-agent-catalog` router), 9 commands (`/spec`, `/plan-tasks`, `/build`, `/test`, `/review-change`, `/code-simplify`, `/constraints`, `/ship`, `/webperf`) and 7 shared reference checklists.
   - `python dev.py agent:list [--kind]` lists the catalog; `python dev.py agent:install NAME... | --all [--force]` installs into `.claude/`, checking every conflict before writing.
