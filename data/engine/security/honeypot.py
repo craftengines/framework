@@ -13,6 +13,7 @@ References:
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -29,6 +30,11 @@ class HoneypotService:
 
     MAX_FAILED_ATTEMPTS: int = 5
     COOLDOWN_MINUTES: int = 30
+    #: Failures older than this many minutes no longer count toward the
+    #: current streak — a sliding window, not a lifetime counter, so an
+    #: account that failed once last week and once today is not treated the
+    #: same as five failures in the last minute.
+    WINDOW_MINUTES: int = 15
 
     def __init__(self, app: Any = None):
         self.app = app
@@ -52,6 +58,18 @@ class HoneypotService:
     def _format_time(self, dt: datetime) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
+    @staticmethod
+    def _hash_username(username: str) -> str:
+        """A username often is an email address - PII with no business being
+        stored in clear in a table whose only job is counting attempts. A
+        plain SHA-256 (not keyed) is enough here: the goal is not secrecy
+        against a determined attacker, it is not leaking the value at rest
+        in a table an operator, a backup, or a support ticket might expose,
+        while `check_cooldown()` still needs an exact-match lookup, which a
+        deterministic hash gives for free.
+        """
+        return hashlib.sha256(username.encode("utf-8")).hexdigest()
+
     def _parse_time(self, val: Any) -> Optional[datetime]:
         if isinstance(val, datetime):
             return val if val.tzinfo is not None else val.replace(tzinfo=timezone.utc)
@@ -71,11 +89,13 @@ class HoneypotService:
         """
         now = datetime.now(timezone.utc)
         clean_user = (username or "").strip().lower()
+        user_hash = self._hash_username(clean_user) if clean_user else None
 
         db = self._db()
         try:
+            lookup = [ip] + ([user_hash] if user_hash else [])
             records = db.table("auth_cooldowns") \
-                .where_in("identifier_value", [ip, clean_user]) \
+                .where_in("identifier_value", lookup) \
                 .get()
         except Exception:
             return False, None, None
@@ -123,9 +143,19 @@ class HoneypotService:
                     "score_increment": 40,
                     "created_at": now_str,
                 })
-                # Enforce immediate 30-minute block on the attacking IP
+                # Enforce immediate 30-minute block on the attacking IP - a
+                # direct override (not an increment), so a plain upsert is
+                # enough; nothing here depends on an existing count.
                 blocked_until = self._format_time(now + timedelta(minutes=self.COOLDOWN_MINUTES))
-                self._upsert_cooldown(ip, "ip", self.MAX_FAILED_ATTEMPTS, blocked_until, now_str)
+                db.statement(
+                    "INSERT INTO auth_cooldowns "
+                    "(identifier_type, identifier_value, failed_attempts, blocked_until, created_at, updated_at) "
+                    "VALUES ('ip', ?, ?, ?, ?, ?) "
+                    "ON CONFLICT (identifier_type, identifier_value) "
+                    "DO UPDATE SET failed_attempts = ?, blocked_until = excluded.blocked_until, "
+                    "updated_at = excluded.updated_at",
+                    [ip, self.MAX_FAILED_ATTEMPTS, blocked_until, now_str, now_str, self.MAX_FAILED_ATTEMPTS],
+                )
             except Exception:
                 pass
             return {"status": "HONEYPOT", "blocked": True, "reason": "ABUSED_USERNAME_TRAP"}
@@ -146,71 +176,82 @@ class HoneypotService:
         except Exception:
             pass
 
+        user_hash = self._hash_username(clean_user) if clean_user and clean_user != "empty" else None
+
         if success:
-            # Clear previous failed attempts
+            # Clear previous failed attempts.
             try:
                 db.table("auth_cooldowns").where("identifier_value", ip).delete()
-                db.table("auth_cooldowns").where("identifier_value", clean_user).delete()
+                if user_hash:
+                    db.table("auth_cooldowns").where("identifier_value", user_hash).delete()
             except Exception:
                 pass
             return {"status": "SUCCESS", "blocked": False, "reason": final_reason}
 
-        # 3. Failed Attempt Cooldown Tracking
+        # 3. Failed Attempt Cooldown Tracking — atomic increment (see
+        # _atomic_increment_cooldown's docstring for why this cannot be a
+        # separate read-then-write).
         blocked = False
-        for id_val, id_type in [(ip, "ip"), (clean_user, "username")]:
-            if not id_val or id_val == "empty":
-                continue
+        candidates = [(ip, "ip")] + ([(user_hash, "username")] if user_hash else [])
+        for id_val, id_type in candidates:
             try:
-                existing = db.table("auth_cooldowns") \
-                    .where("identifier_type", id_type) \
-                    .where("identifier_value", id_val) \
-                    .first()
-
-                attempts = (int(existing.get("failed_attempts") or 0) + 1) if existing else 1
+                attempts = self._atomic_increment_cooldown(id_val, id_type, now_str)
                 if attempts >= self.MAX_FAILED_ATTEMPTS:
                     blocked = True
                     blocked_until = self._format_time(now + timedelta(minutes=self.COOLDOWN_MINUTES))
-                else:
-                    blocked_until = now_str
-
-                self._upsert_cooldown(id_val, id_type, attempts, blocked_until, now_str)
+                    db.table("auth_cooldowns") \
+                        .where("identifier_type", id_type) \
+                        .where("identifier_value", id_val) \
+                        .update({"blocked_until": blocked_until, "updated_at": now_str})
             except Exception:
                 pass
 
         return {"status": "FAILED", "blocked": blocked, "reason": final_reason}
 
-    def _upsert_cooldown(
-        self,
-        identifier_value: str,
-        identifier_type: str,
-        attempts: int,
-        blocked_until: str,
-        now_str: str,
-    ) -> None:
-        db = self._db()
-        existing = db.table("auth_cooldowns") \
-            .where("identifier_type", identifier_type) \
-            .where("identifier_value", identifier_value) \
-            .first()
+    def _atomic_increment_cooldown(self, identifier_value: str, identifier_type: str, now_str: str) -> int:
+        """Atomically increment `failed_attempts`, returning the new count.
 
-        if existing:
-            db.table("auth_cooldowns") \
-                .where("identifier_type", identifier_type) \
-                .where("identifier_value", identifier_value) \
-                .update({
-                    "failed_attempts": attempts,
-                    "blocked_until": blocked_until,
-                    "updated_at": now_str,
-                })
-        else:
-            db.table("auth_cooldowns").insert({
-                "identifier_type": identifier_type,
-                "identifier_value": identifier_value,
-                "failed_attempts": attempts,
-                "blocked_until": blocked_until,
-                "created_at": now_str,
-                "updated_at": now_str,
-            })
+        The previous implementation read the current count, added one in
+        Python, and wrote it back in a separate statement — two concurrent
+        failed logins for the same IP or username (exactly what an automated
+        brute-force tool produces) could both read the same count and both
+        write `count + 1`, silently losing an increment. `INSERT ... ON
+        CONFLICT ... DO UPDATE SET failed_attempts = failed_attempts + 1` is
+        a single, database-level atomic operation instead: the increment
+        happens inside the database's own row lock, so no interleaving of two
+        concurrent calls can lose one.
+
+        Only `blocked_until` is set separately, once the caller knows whether
+        this count crossed the threshold — that second write does not need to
+        be atomic with the first, because every racing caller that crosses
+        the threshold computes the same `blocked_until` value from the same
+        clock read, so a "lost" second write just means a harmless duplicate.
+
+        A sliding window, not a lifetime counter: the `CASE` resets the count
+        to 1 instead of incrementing when the row's last update falls outside
+        `WINDOW_MINUTES`, so a failure from last week does not sit in the same
+        streak as one from a minute ago — still one atomic statement, the
+        window check included.
+        """
+        db = self._db()
+        window_start = self._format_time(
+            datetime.now(timezone.utc) - timedelta(minutes=self.WINDOW_MINUTES)
+        )
+        result = db.statement(
+            "INSERT INTO auth_cooldowns "
+            "(identifier_type, identifier_value, failed_attempts, blocked_until, created_at, updated_at) "
+            "VALUES (?, ?, 1, ?, ?, ?) "
+            "ON CONFLICT (identifier_type, identifier_value) "
+            "DO UPDATE SET failed_attempts = CASE "
+            "    WHEN auth_cooldowns.updated_at < ? THEN 1 "
+            "    ELSE auth_cooldowns.failed_attempts + 1 "
+            "  END, "
+            "  updated_at = excluded.updated_at "
+            "RETURNING failed_attempts",
+            [identifier_type, identifier_value, now_str, now_str, now_str, window_start],
+        )
+        row = result.fetchone()
+        return int(row["failed_attempts"]) if row is not None else 1
 
 
 __all__ = ["HoneypotService"]

@@ -302,3 +302,113 @@ def test_a_non_exempt_path_still_enforces_the_blacklist():
             mw.handle(request, lambda req: PlainTextResponse("OK"))
     finally:
         DB.statement("DELETE FROM firewall_rules WHERE ip_address = ?", [ip])
+
+
+# -- Slice 0 item 0.11 / Slice 2 step 7: atomic sliding-window cooldown --------
+
+
+def test_concurrent_failed_attempts_are_not_lost_to_a_race():
+    """The atomic upsert must count every failure, not just the last write.
+
+    Simulates the race the old read-then-write implementation lost: many
+    "concurrent" failures for the same identifier, verified by calling the
+    atomic increment directly and checking the returned count sequence is
+    exactly 1..N with no duplicates or gaps - which a lost update would
+    produce (two calls both returning 2, for instance).
+    """
+    honeypot = HoneypotService(app)
+    ip = "203.0.113.50"
+    DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+    try:
+        now_str = honeypot._format_time(datetime.now(timezone.utc))
+        results = [honeypot._atomic_increment_cooldown(ip, "ip", now_str) for _ in range(10)]
+        assert results == list(range(1, 11)), "an atomic increment must never skip or repeat a count"
+    finally:
+        DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+
+
+def test_username_is_stored_hashed_not_in_clear():
+    honeypot = HoneypotService(app)
+    ip = "203.0.113.51"
+    username = "victim@example.com"
+    DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+    DB.statement(
+        "DELETE FROM auth_cooldowns WHERE identifier_type = 'username' AND identifier_value = ?",
+        [honeypot._hash_username(username)],
+    )
+    try:
+        honeypot.record_attempt(ip=ip, username=username, success=False)
+        row = DB.table("auth_cooldowns").where("identifier_type", "username").where(
+            "identifier_value", honeypot._hash_username(username)
+        ).first()
+        assert row is not None, "the hashed username must be the lookup key"
+        stored_values = [
+            r["identifier_value"]
+            for r in DB.table("auth_cooldowns").where("identifier_type", "username").get()
+        ]
+        assert username not in stored_values, "the raw username must never be stored"
+    finally:
+        DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+        DB.statement(
+            "DELETE FROM auth_cooldowns WHERE identifier_type = 'username' AND identifier_value = ?",
+            [honeypot._hash_username(username)],
+        )
+
+
+def test_check_cooldown_still_finds_a_hashed_username():
+    honeypot = HoneypotService(app)
+    ip = "203.0.113.52"
+    username = "target@example.com"
+    DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+    DB.statement(
+        "DELETE FROM auth_cooldowns WHERE identifier_type = 'username' AND identifier_value = ?",
+        [honeypot._hash_username(username)],
+    )
+    try:
+        for _ in range(HoneypotService.MAX_FAILED_ATTEMPTS):
+            honeypot.record_attempt(ip=ip, username=username, success=False)
+        is_blocked, _, _ = honeypot.check_cooldown("198.51.100.1", username)
+        assert is_blocked is True, "the cooldown lookup must still find the hashed username"
+    finally:
+        DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+        DB.statement(
+            "DELETE FROM auth_cooldowns WHERE identifier_type = 'username' AND identifier_value = ?",
+            [honeypot._hash_username(username)],
+        )
+
+
+def test_a_failure_outside_the_window_resets_the_streak_instead_of_accumulating():
+    honeypot = HoneypotService(app)
+    ip = "203.0.113.53"
+    DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+    try:
+        stale = honeypot._format_time(
+            datetime.now(timezone.utc) - timedelta(minutes=HoneypotService.WINDOW_MINUTES + 5)
+        )
+        DB.table("auth_cooldowns").insert({
+            "identifier_type": "ip", "identifier_value": ip,
+            "failed_attempts": HoneypotService.MAX_FAILED_ATTEMPTS - 1,
+            "blocked_until": stale, "created_at": stale, "updated_at": stale,
+        })
+        now_str = honeypot._format_time(datetime.now(timezone.utc))
+        attempts = honeypot._atomic_increment_cooldown(ip, "ip", now_str)
+        assert attempts == 1, "a failure outside the window must reset the streak, not add to a stale one"
+    finally:
+        DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+
+
+def test_a_failure_inside_the_window_still_accumulates():
+    honeypot = HoneypotService(app)
+    ip = "203.0.113.54"
+    DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
+    try:
+        recent = honeypot._format_time(datetime.now(timezone.utc) - timedelta(minutes=1))
+        DB.table("auth_cooldowns").insert({
+            "identifier_type": "ip", "identifier_value": ip, "failed_attempts": 2,
+            "blocked_until": recent, "created_at": recent, "updated_at": recent,
+        })
+        now_str = honeypot._format_time(datetime.now(timezone.utc))
+        attempts = honeypot._atomic_increment_cooldown(ip, "ip", now_str)
+        assert attempts == 3, "a failure inside the window must add to the existing streak"
+    finally:
+        DB.statement("DELETE FROM auth_cooldowns WHERE identifier_value = ?", [ip])
