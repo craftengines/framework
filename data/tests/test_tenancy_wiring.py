@@ -264,3 +264,56 @@ def test_a_scoped_table_isolates_once_a_tenant_is_bound(migrated_database):
         schema.drop_if_exists("wiring_notes")
         DB.statement("DELETE FROM tenants WHERE slug IN (?, ?)", ["acme-e2e", "beta-e2e"])
         Tenant.clear()
+
+
+# -- Slice 1: db:audit-rls CLI regression (already-implemented behaviour) ------
+
+
+def test_audit_rls_reports_a_properly_scoped_table_as_protected(migrated_database, is_postgres):
+    """A table built with `t.tenant_scoped()` is reported `ok`, never `UNPROTECTED`.
+
+    Does not assert the audit's overall exit code: that reflects every
+    tenant-scoped table and the connecting role's own privileges across the
+    whole database, neither of which this test controls or should reset.
+    """
+    if not is_postgres:
+        pytest.skip("db:audit-rls only has something to audit on PostgreSQL")
+    from typer.testing import CliRunner
+
+    from craft.cli import app as cli
+
+    schema = SchemaBuilder(migrated_database.make("db"))
+    schema.drop_if_exists("wiring_audit_protected")
+    schema.create_table("wiring_audit_protected", lambda t: (
+        t.id(type="integer"), t.tenant_scoped(references=None),
+    ))
+    try:
+        result = CliRunner().invoke(cli.cli, ["db", "audit-rls"])
+        assert "ok           wiring_audit_protected" in result.output, result.output
+        assert "UNPROTECTED  wiring_audit_protected" not in result.output
+    finally:
+        schema.drop_if_exists("wiring_audit_protected")
+
+
+def test_audit_rls_exits_non_zero_when_a_tenant_table_is_unprotected(migrated_database, is_postgres):
+    """A table with tenant_id but no RLS policy - the realistic way isolation decays."""
+    if not is_postgres:
+        pytest.skip("db:audit-rls only has something to audit on PostgreSQL")
+    from typer.testing import CliRunner
+
+    from craft.cli import app as cli
+
+    db = migrated_database.make("db")
+    schema = SchemaBuilder(db)
+    schema.drop_if_exists("wiring_audit_unprotected")
+    # A plain tenant_id column with no RLS policy at all - built by hand rather
+    # than via t.tenant_scoped(), which is exactly the drift this audit exists
+    # to catch.
+    db.statement("CREATE TABLE wiring_audit_unprotected (id serial PRIMARY KEY, tenant_id uuid)")
+    try:
+        result = CliRunner().invoke(cli.cli, ["db", "audit-rls"])
+        assert result.exit_code == 1
+        assert "UNPROTECTED" in result.output
+        assert "wiring_audit_unprotected" in result.output
+    finally:
+        schema.drop_if_exists("wiring_audit_unprotected")
