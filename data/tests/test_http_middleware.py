@@ -168,6 +168,85 @@ class TestSecurityHeaders:
         assert response.status_code == 419
         assert response.headers["x-content-type-options"] == "nosniff"
 
+    def test_csp_prefix_match_picks_the_longest_matching_prefix(self):
+        from craft.http.middleware import SecurityHeaders
+
+        class _Config:
+            @staticmethod
+            def get(key, default=None):
+                values = {
+                    "security.csp.prefixes": {
+                        "/admin": "default-src 'self'",
+                        "/admin/reports": "default-src 'none'",
+                    },
+                    "security.csp.default": "default-src *",
+                }
+                return values.get(key, default)
+
+        headers = SecurityHeaders()
+        assert headers._csp_for_path(_Config(), "/admin/reports/q4") == "default-src 'none'"
+        assert headers._csp_for_path(_Config(), "/admin/dashboard") == "default-src 'self'"
+        assert headers._csp_for_path(_Config(), "/blog/post-1") == "default-src *"
+
+    def test_csp_falls_back_to_default_with_no_prefix_match(self):
+        from craft.http.middleware import SecurityHeaders
+
+        class _Config:
+            @staticmethod
+            def get(key, default=None):
+                values = {"security.csp.prefixes": {}, "security.csp.default": "default-src 'self'"}
+                return values.get(key, default)
+
+        assert SecurityHeaders()._csp_for_path(_Config(), "/anything") == "default-src 'self'"
+
+    def test_csp_is_absent_with_no_policy_configured(self):
+        from craft.http.middleware import SecurityHeaders
+
+        class _Config:
+            @staticmethod
+            def get(key, default=None):
+                return default
+
+        assert SecurityHeaders()._csp_for_path(_Config(), "/anything") is None
+
+    def test_csp_header_is_sent_when_configured(self, client, migrated_database):
+        config = migrated_database.make("config")
+        original = config.get("security.csp.default")
+        config.set("security.csp.default", "default-src 'self'")
+        try:
+            response = client.get("/t/counter")
+            assert response.headers["content-security-policy"] == "default-src 'self'"
+            assert "content-security-policy-report-only" not in response.headers
+        finally:
+            config.set("security.csp.default", original)
+
+    def test_report_only_mode_sends_the_report_only_header_instead(self, client, migrated_database):
+        config = migrated_database.make("config")
+        original_default = config.get("security.csp.default")
+        original_report_only = config.get("security.csp.report_only")
+        config.set("security.csp.default", "default-src 'self'")
+        config.set("security.csp.report_only", True)
+        try:
+            response = client.get("/t/counter")
+            assert response.headers["content-security-policy-report-only"] == "default-src 'self'"
+            assert "content-security-policy" not in response.headers
+        finally:
+            config.set("security.csp.default", original_default)
+            config.set("security.csp.report_only", original_report_only)
+
+    def test_report_uri_is_appended_to_the_policy(self, client, migrated_database):
+        config = migrated_database.make("config")
+        original_default = config.get("security.csp.default")
+        original_uri = config.get("security.csp.report_uri")
+        config.set("security.csp.default", "default-src 'self'")
+        config.set("security.csp.report_uri", "/csp-reports")
+        try:
+            response = client.get("/t/counter")
+            assert "report-uri /csp-reports" in response.headers["content-security-policy"]
+        finally:
+            config.set("security.csp.default", original_default)
+            config.set("security.csp.report_uri", original_uri)
+
 
 class _FakeConfig:
     def __init__(self, values):

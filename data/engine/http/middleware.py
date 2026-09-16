@@ -813,6 +813,25 @@ class SecurityHeaders(Middleware):
     def __init__(self, app: Any = None):
         self.app = app
 
+    def _csp_for_path(self, config: Any, path: str) -> Optional[str]:
+        """The policy for this path: the longest matching prefix wins.
+
+        `/admin/reports` matches a configured `/admin` prefix over a bare
+        `/` default, so an admin console and a public site can carry
+        different policies without one route accidentally inheriting the
+        other's.
+        """
+        prefixes = config.get("security.csp.prefixes", {}) or {}
+        best_match: Optional[str] = None
+        best_length = -1
+        for prefix, policy in prefixes.items():
+            if path.startswith(str(prefix)) and len(str(prefix)) > best_length:
+                best_match, best_length = str(policy), len(str(prefix))
+        if best_match is not None:
+            return best_match
+        default = config.get("security.csp.default", "") or config.get("app.CSP", "")
+        return str(default) if default else None
+
     def handle(self, request: Any, next_callable: Callable) -> Any:
         response = next_callable(request)
         starlette_response = _as_starlette(response)
@@ -828,9 +847,18 @@ class SecurityHeaders(Middleware):
 
         try:
             config = _container(self.app).make("config")
-            csp = config.get("security.csp") or config.get("app.CSP")
-            if csp:
-                starlette_response.headers.setdefault("Content-Security-Policy", str(csp))
+            path = str(getattr(getattr(request, "url", None), "path", "") or "")
+            policy = self._csp_for_path(config, path)
+            if policy:
+                report_uri = config.get("security.csp.report_uri", "")
+                if report_uri:
+                    policy = f"{policy}; report-uri {report_uri}"
+                header_name = (
+                    "Content-Security-Policy-Report-Only"
+                    if config.get("security.csp.report_only", False)
+                    else "Content-Security-Policy"
+                )
+                starlette_response.headers.setdefault(header_name, policy)
             hsts = config.get("security.hsts") or config.get("app.HSTS")
             if hsts:
                 starlette_response.headers.setdefault("Strict-Transport-Security", str(hsts))
