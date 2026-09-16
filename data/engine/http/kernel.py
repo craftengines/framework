@@ -389,6 +389,7 @@ class Kernel:
             "permission": mw.RequirePermission,
             "group": mw.RequireGroup,
             "firewall": mw.FirewallMiddleware,
+            "fresh": mw.RequireFreshAuth,
         }
 
 

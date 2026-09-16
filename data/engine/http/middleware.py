@@ -589,6 +589,42 @@ class RequireRole(Middleware):
         raise AuthorizationException(f"Missing role: {self.role}")
 
 
+class RequireFreshAuth(Middleware):
+    """Terminate the request unless the session authenticated recently enough.
+
+    Resolved from the `fresh:<seconds>` route middleware alias (e.g.
+    `fresh:300` for five minutes) or bare `fresh` for the default window —
+    see `Kernel.route_middleware_aliases`. For a sensitive action (change
+    password, view billing, grant admin) where "logged in" is not enough;
+    "logged in within the last few minutes" is what step-up auth checks.
+    Register AFTER `auth`/`RequireAuth`, so a guest gets the "please log in"
+    redirect rather than a confusing "please re-authenticate."
+    """
+
+    def __init__(self, max_age_seconds: Any = None, app: Any = None, redirect_to: str = "/login"):
+        from engine.auth.step_up import DEFAULT_MAX_AGE_SECONDS
+
+        self.max_age_seconds = int(max_age_seconds) if max_age_seconds else DEFAULT_MAX_AGE_SECONDS
+        self.app = app
+        self.redirect_to = redirect_to
+
+    def handle(self, request: Any, next_callable: Callable) -> Any:
+        from engine.auth.step_up import StepUpAuth
+
+        session = request.session() if getattr(request, "has_session", lambda: False)() else None
+        if StepUpAuth.is_fresh(session, self.max_age_seconds):
+            return next_callable(request)
+
+        if getattr(request, "expects_json", lambda: False)():
+            from engine.exceptions.handler import AuthorizationException
+
+            raise AuthorizationException("Re-authentication required.")
+
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(self.redirect_to, status_code=302)
+
+
 class RequireGroup(Middleware):
     """Terminate the request unless the authenticated user is in the group.
 

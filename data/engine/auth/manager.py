@@ -164,6 +164,11 @@ class AuthManager:
         # valid afterwards (session fixation).
         session.regenerate()
         session.put(self._session_key(), user.get_attribute(self.primary_key_name()))
+        # Step-up auth's freshness clock — every login (including a step-up
+        # re-authentication that calls this indirectly) resets it.
+        from engine.auth.step_up import StepUpAuth
+
+        StepUpAuth.confirm(session)
 
     def _forget_session(self) -> None:
         session = self._current_session()
