@@ -32,6 +32,8 @@ import contextlib
 from contextvars import ContextVar
 from typing import Any, Iterator, List, Optional
 
+from engine.exceptions.handler import AuthorizationException, NotFoundHttpException
+
 #: Per-request / per-task, never process-wide.
 #:
 #: A `ContextVar` rather than a `threading.local`: the HTTP kernel serves each
@@ -65,6 +67,60 @@ class UnaddressableTenantRowError(RuntimeError):
 
     code = "TENANT_ROW_UNADDRESSABLE"
     message_key = "orm.tenancy.unaddressable_row"
+
+
+class UnboundTenantHostError(NotFoundHttpException):
+    """The request's host does not resolve to any known tenant.
+
+    A 404, not a fall-through to the authenticated user's tenant: a host that
+    names no tenant is a missing page, not "try somewhere else."
+    """
+
+    code = "TENANT_HOST_UNBOUND"
+    message_key = "tenancy.host.unbound"
+
+    def __init__(self, host: str) -> None:
+        super().__init__(f"{self.code}: no tenant is bound to host {host!r}")
+        self.params = {"host": host}
+
+
+class TenantSuspendedError(AuthorizationException):
+    """The host resolves to a tenant whose account is suspended.
+
+    Distinguished from `UnboundTenantHostError` on purpose: a suspended
+    tenant's host is a real customer being told why they're locked out, not a
+    stranger being told the page doesn't exist.
+    """
+
+    code = "TENANT_SUSPENDED"
+    message_key = "tenancy.host.suspended"
+
+    def __init__(self, tenant_id: str) -> None:
+        super().__init__(f"{self.code}: tenant {tenant_id!r} is suspended")
+        self.params = {"tenant_id": tenant_id}
+
+
+class TenantHostMismatchError(AuthorizationException):
+    """The host names one tenant but the session belongs to another.
+
+    Host wins on which tenant to bind, but a mismatch means either a stale
+    session cookie or an attempt to reuse one tenant's session on another
+    tenant's host — served with a 403, not silently rebound.
+    """
+
+    code = "TENANT_HOST_MISMATCH"
+    message_key = "tenancy.host.mismatch"
+
+    def __init__(self, host: str, host_tenant_id: str, session_tenant_id: str) -> None:
+        super().__init__(
+            f"{self.code}: host {host!r} resolves to tenant {host_tenant_id!r}, "
+            f"but the session belongs to {session_tenant_id!r}"
+        )
+        self.params = {
+            "host": host,
+            "host_tenant_id": host_tenant_id,
+            "session_tenant_id": session_tenant_id,
+        }
 
 
 class TenantManager:

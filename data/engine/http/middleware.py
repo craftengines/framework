@@ -419,31 +419,62 @@ class ScopeTenant(Middleware):
         return next_callable(request)
 
     def resolve(self, request: Any, container: Any) -> Any:
-        """Tenant from the host, then from the authenticated user.
+        """Tenant from the host, checked against the session's own tenant.
 
         Host first, because it is the boundary a customer can see and an
-        operator can reason about; the user's own tenant is the fallback for
-        single-domain deployments. Override this method to resolve differently -
-        a header, a path segment, an API token claim.
+        operator can reason about. A host naming a subdomain that isn't
+        reserved MUST resolve to a real, active tenant, or this raises rather
+        than quietly falling through to the authenticated user's tenant — a
+        fall-through there is how a stale session or a typo'd subdomain would
+        otherwise land a request in someone else's data. Override this method
+        to resolve differently - a header, a path segment, an API token claim.
         """
         host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0]
         subdomain = host.split(".")[0] if host.count(".") >= 2 else None
         if subdomain and subdomain not in self.RESERVED_SUBDOMAINS:
-            resolved = self.tenant_for_subdomain(subdomain)
-            if resolved is not None:
-                return resolved
+            from engine.orm.tenancy import TenantHostMismatchError, TenantSuspendedError, UnboundTenantHostError
 
-        try:
-            user = container.make("auth").user()
-        except Exception:
-            user = None
+            record = self.tenant_record_for_subdomain(subdomain)
+            if record is None:
+                raise UnboundTenantHostError(host)
+            if record["status"] == "suspended":
+                raise TenantSuspendedError(record["id"])
+
+            user = self._authenticated_user(container)
+            session_tenant_id = user.get_attribute("tenant_id") if user is not None else None
+            if session_tenant_id not in (None, record["id"]):
+                raise TenantHostMismatchError(host, record["id"], session_tenant_id)
+            return record["id"]
+
+        user = self._authenticated_user(container)
         return user.get_attribute("tenant_id") if user is not None else None
+
+    @staticmethod
+    def _authenticated_user(container: Any) -> Any:
+        try:
+            return container.make("auth").user()
+        except Exception:
+            return None
 
     #: Hosts that never name a tenant. `api` is here because an API host is
     #: usually shared and identifies its tenant by token, not by name.
     RESERVED_SUBDOMAINS = ("www", "app", "api", "admin", "static", "cdn")
 
     def tenant_for_subdomain(self, subdomain: str) -> Any:
+        """Resolve a subdomain to a tenant id, or `None`.
+
+        Kept for backward compatibility (NR-05): its original contract
+        collapsed "no such tenant" and "suspended tenant" into the same
+        `None`, so this preserves that. `resolve()` itself uses
+        `tenant_record_for_subdomain()` instead, specifically to keep those
+        two cases distinguishable.
+        """
+        record = self.tenant_record_for_subdomain(subdomain)
+        if record is None or record["status"] == "suspended":
+            return None
+        return record["id"]
+
+    def tenant_record_for_subdomain(self, subdomain: str) -> Any:
         """Resolve a subdomain against the framework's `tenants` table.
 
         A query rather than a hook returning None: `tenants` ships with the
@@ -451,16 +482,20 @@ class ScopeTenant(Middleware):
         to read it. Override this to resolve from somewhere else - a header, a
         path segment, a cache in front of the lookup.
 
-        Inactive and soft-deleted tenants resolve to nothing, so suspending a
-        tenant is a row update rather than a deployment.
+        Soft-deleted tenants resolve to nothing (indistinguishable from a
+        subdomain that never existed) — a suspended tenant, still present but
+        with `status = 'suspended'`, resolves to its record instead, so
+        `resolve()` can tell the two apart.
+
+        Returns:
+            A `{"id": ..., "status": ...}` mapping, or `None` if the slug
+            matches no non-deleted tenant.
         """
         container = _container(self.app)
         try:
             row = container.make("db").statement(
-                "SELECT id FROM tenants WHERE slug = ? "
-                "  AND (is_active IS NULL OR is_active = ?) "
-                "  AND deleted_at IS NULL",
-                [subdomain, True],
+                "SELECT id, status, is_active FROM tenants WHERE slug = ? AND deleted_at IS NULL",
+                [subdomain],
                 read=True,
             ).fetchone()
         except Exception:
@@ -470,7 +505,17 @@ class ScopeTenant(Middleware):
                 "Could not resolve tenant for subdomain %r", subdomain, exc_info=True
             )
             return None
-        return row["id"] if row is not None else None
+        if row is None:
+            return None
+        # `is_active` predates `status` and some callers still only write that
+        # boolean - honour it as "suspended" until a later release drops the
+        # column, so a row that never got a `status` write doesn't silently
+        # read as active. SQLite has no boolean type, so this is a falsiness
+        # check (0/False), not an identity check - `is False` would miss the
+        # integer 0 that SQLite actually stores.
+        is_active = row["is_active"]
+        status = "suspended" if is_active is not None and not is_active else (row["status"] or "active")
+        return {"id": row["id"], "status": status}
 
 
 class RequireAuth(Middleware):

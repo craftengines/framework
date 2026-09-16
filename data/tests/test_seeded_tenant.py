@@ -113,10 +113,17 @@ def test_a_request_on_the_tenant_host_binds_it_for_the_whole_request(
         migrated_database.make("db").release()
 
 
-def test_an_unknown_host_leaves_no_tenant_bound(seeded, migrated_database):
-    """Fail closed: an unrecognised host must not inherit whatever was bound."""
+def test_an_unknown_host_never_reaches_the_next_middleware(seeded, migrated_database):
+    """Fail closed: an unrecognised host must not inherit whatever was bound.
+
+    Raises before `next_callable` ever runs (Slice 1) - stronger than the
+    previous behaviour of quietly leaving no tenant bound and letting the
+    request proceed, which left the door open for a downstream handler to read
+    `current_tenant_id()` as `None` and mistake that for "no isolation needed."
+    """
     from craft.facades import Tenant
     from craft.http.middleware import ScopeTenant
+    from craft.orm.tenancy import UnboundTenantHostError
 
     class _Request:
         @staticmethod
@@ -137,8 +144,9 @@ def test_an_unknown_host_leaves_no_tenant_bound(seeded, migrated_database):
         middleware, request, _Container()
     )
     try:
-        middleware.handle(_Request(), lambda r: seen.setdefault("bound", Tenant.id()))
-        assert seen["bound"] is None, "a stale tenant survived into the next request"
+        with pytest.raises(UnboundTenantHostError):
+            middleware.handle(_Request(), lambda r: seen.setdefault("bound", Tenant.id()))
+        assert "bound" not in seen, "the next middleware must never run for an unbound host"
     finally:
         Tenant.clear()
         migrated_database.make("db").release()
