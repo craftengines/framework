@@ -20,10 +20,15 @@ APP_KEY = env("APP_KEY", "")
 trusted_proxy_hops = env("TRUSTED_PROXY_HOPS", 0)
 APP_LOCALE = env("APP_LOCALE", "en")
 APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
-# NOTE: there is deliberately no APP_TIMEZONE here. Craft writes every
-# timestamp in UTC (`engine/orm/model.py`, `soft_deletes.py`, `queue/`), and
-# nothing in the framework ever read the setting - changing it did nothing at
-# all. A display-timezone feature can reintroduce it once something honours it.
+#: The single clock `ScheduleManager` (`engine/schedule/manager.py`) reads
+#: `now` from — an IANA zone name (e.g. `"America/Sao_Paulo"`), not an offset.
+#: Everything the framework WRITES stays UTC (`engine/orm/model.py`,
+#: `soft_deletes.py`, `queue/`) regardless of this setting; this only decides
+#: what wall-clock hour a cron expression like `daily_at("02:00")` means, so a
+#: schedule fires at 2am local time on this server's clock, not 2am UTC on a
+#: server in a different timezone. Previously absent on purpose because
+#: nothing read it - the scheduler is what reintroduces it.
+APP_TIMEZONE = env("APP_TIMEZONE", "UTC")
 # The framework's own version, from the package - it used to be hardcoded to
 # "v3.11", which is the minimum Python version, not a release of Craft.
 from craft import __release__ as APP_RELEASE  # noqa: E402

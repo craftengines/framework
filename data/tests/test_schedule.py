@@ -258,3 +258,199 @@ class TestRegistry:
         scheduler = Container.getInstance().make("schedule")
         assert isinstance(scheduler, ScheduleManager)
         assert hasattr(scheduler, "run_due")
+
+
+class TestAppTimezone:
+    """`ScheduleManager.now()` is the single clock every cron expression is
+    matched against - it must honour app.APP_TIMEZONE, not the OS clock's
+    local zone."""
+
+    def test_now_reflects_the_configured_timezone(self, migrated_database):
+        from datetime import timezone
+
+        config = migrated_database.make("config")
+        original = config.get("app.APP_TIMEZONE")
+        config.set("app.APP_TIMEZONE", "America/Sao_Paulo")
+        try:
+            manager = ScheduleManager(migrated_database)
+            moment = manager.now()
+            # America/Sao_Paulo is UTC-3 (no DST since 2019).
+            expected_offset = moment.utcoffset()
+            assert expected_offset.total_seconds() == -3 * 3600
+        finally:
+            config.set("app.APP_TIMEZONE", original)
+
+    def test_now_defaults_to_utc(self, migrated_database):
+        config = migrated_database.make("config")
+        original = config.get("app.APP_TIMEZONE")
+        config.set("app.APP_TIMEZONE", "UTC")
+        try:
+            manager = ScheduleManager(migrated_database)
+            assert manager.now().utcoffset().total_seconds() == 0
+        finally:
+            config.set("app.APP_TIMEZONE", original)
+
+    def test_an_unknown_timezone_falls_back_to_utc_instead_of_raising(self, migrated_database):
+        config = migrated_database.make("config")
+        original = config.get("app.APP_TIMEZONE")
+        config.set("app.APP_TIMEZONE", "Not/A_Real_Zone")
+        try:
+            manager = ScheduleManager(migrated_database)
+            assert manager.now().utcoffset().total_seconds() == 0
+        finally:
+            config.set("app.APP_TIMEZONE", original)
+
+    def test_a_standalone_manager_with_no_app_defaults_to_utc(self):
+        manager = ScheduleManager()
+        assert manager.now().utcoffset().total_seconds() == 0
+
+
+class TestOncePerWindowClaim:
+    """Multiple scheduler processes must not both run the same minute's
+    tasks; a scheduler that was briefly down should catch up on what it
+    missed."""
+
+    @pytest.fixture(autouse=True)
+    def cleanup(self, migrated_database):
+        db = migrated_database.make("db")
+        db.statement("DELETE FROM scheduler_runs")
+        yield
+        db.statement("DELETE FROM scheduler_runs")
+
+    def test_claiming_a_window_the_first_time_succeeds(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        assert manager.claim_window("2026-01-01 00:00") is True
+
+    def test_claiming_the_same_window_twice_only_succeeds_once(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        assert manager.claim_window("2026-01-01 00:01") is True
+        assert manager.claim_window("2026-01-01 00:01") is False
+
+    def test_two_managers_racing_the_same_window_only_one_wins(self, migrated_database):
+        """Simulates two scheduler processes (two manager instances, same DB)."""
+        first = ScheduleManager(migrated_database)
+        second = ScheduleManager(migrated_database)
+        window = "2026-01-01 00:02"
+        results = [first.claim_window(window), second.claim_window(window)]
+        assert sorted(results) == [False, True]
+
+    def test_run_due_with_catchup_runs_the_current_window(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        ran = []
+        manager.call(lambda: ran.append(1)).every_minute()
+        now = datetime(2026, 2, 1, 12, 30)
+        result = manager.run_due_with_catchup(now, catch_up_minutes=0)
+        assert len(result) == 1
+        assert ran == [1]
+
+    def test_run_due_with_catchup_does_not_rerun_an_already_claimed_window(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        ran = []
+        manager.call(lambda: ran.append(1)).every_minute()
+        now = datetime(2026, 2, 1, 12, 31)
+        manager.run_due_with_catchup(now, catch_up_minutes=0)
+        manager.run_due_with_catchup(now, catch_up_minutes=0)
+        assert ran == [1], "the same window must not run twice"
+
+    def test_run_due_with_catchup_runs_missed_windows_within_the_lookback(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        ran = []
+        manager.call(lambda: ran.append(1)).every_minute()
+        now = datetime(2026, 2, 1, 12, 40)
+        # 3 minutes of "catch-up": the current minute plus 3 before it = 4 runs.
+        result = manager.run_due_with_catchup(now, catch_up_minutes=3)
+        assert len(result) == 4
+        assert ran == [1, 1, 1, 1]
+
+    def test_no_database_bound_never_blocks_a_run(self):
+        """A standalone manager (no app) has nothing to race against - the
+        claim always succeeds rather than silently skipping every task."""
+        manager = ScheduleManager()
+        ran = []
+        manager.call(lambda: ran.append(1)).every_minute()
+        now = datetime(2026, 2, 1, 12, 45)
+        result = manager.run_due_with_catchup(now, catch_up_minutes=0)
+        assert len(result) == 1
+        assert ran == [1]
+
+
+class TestPerTenant:
+    @pytest.fixture(autouse=True)
+    def cleanup(self, migrated_database):
+        db = migrated_database.make("db")
+        db.statement("DELETE FROM tenants WHERE slug LIKE ?", ["schedtest-%"])
+        yield
+        db.statement("DELETE FROM tenants WHERE slug LIKE ?", ["schedtest-%"])
+
+    def _create_tenant(self, migrated_database, slug, status="active"):
+        from craft.orm.model import Model
+
+        tenant_id = Model.new_uuid()
+        migrated_database.make("db").table("tenants").insert({
+            "id": tenant_id, "name": slug, "slug": slug, "status": status,
+        })
+        return tenant_id
+
+    def test_per_tenant_runs_the_call_once_for_each_active_tenant(self, migrated_database):
+        from craft.facades import Tenant
+
+        tenant_a = self._create_tenant(migrated_database, "schedtest-a")
+        tenant_b = self._create_tenant(migrated_database, "schedtest-b")
+
+        seen = []
+        manager = ScheduleManager(migrated_database)
+        task = manager.call(lambda: seen.append(Tenant.id())).every_minute().per_tenant()
+        task.run()
+
+        # Other test files may leave their own tenant rows behind in the
+        # shared session-scoped database - this asserts ours were reached,
+        # not that ours were the only ones (which is the real, correct
+        # production behaviour: every active tenant, not just these two).
+        assert tenant_a in seen
+        assert tenant_b in seen
+
+    def test_per_tenant_skips_a_suspended_tenant(self, migrated_database):
+        from craft.facades import Tenant
+
+        active = self._create_tenant(migrated_database, "schedtest-active")
+        suspended = self._create_tenant(migrated_database, "schedtest-suspended", status="suspended")
+
+        seen = []
+        manager = ScheduleManager(migrated_database)
+        task = manager.call(lambda: seen.append(Tenant.id())).every_minute().per_tenant()
+        task.run()
+
+        assert active in seen
+        assert suspended not in seen
+
+    def test_one_tenants_failure_does_not_block_the_others(self, migrated_database):
+        from craft.facades import Tenant
+
+        tenant_a = self._create_tenant(migrated_database, "schedtest-fails")
+        tenant_b = self._create_tenant(migrated_database, "schedtest-ok")
+
+        seen = []
+
+        def maybe_explode():
+            if Tenant.id() == tenant_a:
+                raise RuntimeError("boom")
+            seen.append(Tenant.id())
+
+        manager = ScheduleManager(migrated_database)
+        task = manager.call(maybe_explode).every_minute().per_tenant()
+        task.run()  # must not raise
+
+        assert tenant_b in seen
+        assert tenant_a not in seen
+
+    def test_per_tenant_on_a_command_task_raises(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        task = manager.command("queue work").every_minute()
+        with pytest.raises(ValueError):
+            task.per_tenant()
+
+    def test_per_tenant_on_a_job_task_raises(self, migrated_database):
+        manager = ScheduleManager(migrated_database)
+        task = manager.job(object()).every_minute()
+        with pytest.raises(ValueError):
+            task.per_tenant()

@@ -20,8 +20,9 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, List, Optional
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger("craft")
 
@@ -94,6 +95,7 @@ class ScheduledTask:
         self._constraints: List[Callable[[], bool]] = []
         self._overlap_lock_minutes: Optional[int] = None
         self._description: Optional[str] = None
+        self._per_tenant: bool = False
 
     # -- identity ----------------------------------------------------------
 
@@ -230,6 +232,27 @@ class ScheduledTask:
         self._overlap_lock_minutes = minutes
         return self
 
+    def per_tenant(self) -> "ScheduledTask":
+        """Run once for every active tenant, with that tenant bound, instead
+        of once globally — a nightly report or digest job, say, where "run
+        it" means "run it for each customer separately," not "run it once for
+        whichever tenant happens to be bound at cron time" (which, in a
+        scheduler process, is normally none at all).
+
+        `call` tasks only: a `command`/`job` task runs in its own process or
+        the queue, where binding a tenant here would not reach the actual
+        execution, so setting this on one raises rather than silently doing
+        nothing.
+        """
+        if self.kind != "call":
+            raise ValueError(
+                f"per_tenant() only applies to Schedule.call() tasks, not "
+                f"{self.kind!r} — a command or job runs outside this process, "
+                f"so binding a tenant here would not reach it."
+            )
+        self._per_tenant = True
+        return self
+
     # -- evaluation --------------------------------------------------------
 
     def is_due(self, now: datetime) -> bool:
@@ -307,8 +330,46 @@ class ScheduledTask:
         finally:
             cache.forget(self.lock_key)
 
+    def _execute_per_tenant(self) -> List[str]:
+        """Run `self.target()` once per active tenant, tenant bound.
+
+        One tenant's failure must not skip the rest — the same reasoning as
+        `ScheduleManager.run_due()` isolating one task's exception from the
+        others, applied at the tenant level instead of the task level.
+
+        Returns:
+            The ids of tenants the call actually ran for (empty if the
+            `tenants` table is unreachable, rather than raising and losing
+            every other scheduled task behind this one).
+        """
+        from engine.orm.tenancy import TenantManager
+
+        db = self._manager._make("db")
+        if db is None:
+            return []
+        try:
+            rows = db.table("tenants").where("status", "!=", "suspended").where_null("deleted_at").get()
+        except Exception:
+            logger.warning("per_tenant task %s could not list tenants", self.name, exc_info=True)
+            return []
+
+        ran_for: List[str] = []
+        for row in rows:
+            tenant_id = row["id"]
+            try:
+                with TenantManager().scope(tenant_id):
+                    self.target()
+                ran_for.append(tenant_id)
+            except Exception:
+                logger.warning(
+                    "per_tenant task %s raised for tenant %s", self.name, tenant_id, exc_info=True
+                )
+        return ran_for
+
     def _execute(self) -> Any:
         if self.kind == "call":
+            if self._per_tenant:
+                return self._execute_per_tenant()
             return self.target()
 
         if self.kind == "job":
@@ -362,6 +423,29 @@ class ScheduleManager:
     def base_path(self) -> str:
         return getattr(self.app, "base_path", None) or "."
 
+    def now(self) -> datetime:
+        """The current time in `app.APP_TIMEZONE` — the single clock every
+        cron expression is matched against.
+
+        A schedule stays correct if the server's own local timezone changes
+        (a redeploy to a different region, a container with no timezone data
+        at all) because it never depends on it: `datetime.now()` without a
+        zone reads the OS clock's local zone, which is exactly the dependency
+        this removes.
+        """
+        zone_name = "UTC"
+        if self.app is not None:
+            try:
+                zone_name = str(self.app.make("config").get("app.APP_TIMEZONE", "UTC") or "UTC")
+            except Exception:
+                zone_name = "UTC"
+        try:
+            zone = ZoneInfo(zone_name)
+        except Exception:
+            logger.warning("Unknown APP_TIMEZONE %r; falling back to UTC", zone_name)
+            zone = ZoneInfo("UTC")
+        return datetime.now(timezone.utc).astimezone(zone)
+
     # -- registration ------------------------------------------------------
 
     def command(self, command: str) -> ScheduledTask:
@@ -389,7 +473,7 @@ class ScheduleManager:
     # -- execution ---------------------------------------------------------
 
     def due_tasks(self, now: Optional[datetime] = None) -> List[ScheduledTask]:
-        now = now or datetime.now()
+        now = now or self.now()
         return [
             task for task in self._tasks
             if task.is_due(now) and task.filters_pass()
@@ -411,6 +495,68 @@ class ScheduleManager:
                 logger.warning(
                     "Scheduled task %s raised", task.name, exc_info=True
                 )
+        return ran
+
+    # -- once-per-window claim, with catch-up -------------------------------
+
+    @staticmethod
+    def _window_key(moment: datetime) -> str:
+        return moment.strftime("%Y-%m-%d %H:%M")
+
+    def claim_window(self, window_key: str) -> bool:
+        """Atomically claim a one-minute window. True the first time; False
+        if another process (or an earlier call) already claimed it.
+
+        A plain `INSERT`, not an upsert: the primary key on `window_key`
+        makes a second claim fail with a constraint violation, which is
+        exactly the "someone already got there first" signal — no read
+        before the write for two processes to race between.
+        """
+        db = self._make("db")
+        if db is None:
+            return True  # No database bound (standalone use) — nothing to race.
+        try:
+            db.table("scheduler_runs").insert({
+                "window_key": window_key,
+                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            })
+            return True
+        except Exception:
+            # Overwhelmingly a unique-constraint violation (already claimed);
+            # a genuine connectivity failure would also land here, and
+            # skipping this window is the safer failure mode either way —
+            # missing one run is recoverable, running it twice may not be.
+            return False
+
+    def run_due_with_catchup(
+        self, now: Optional[datetime] = None, catch_up_minutes: int = 15
+    ) -> List[str]:
+        """Like `run_due()`, but claims each window first and looks back for
+        any recent window nobody has claimed yet.
+
+        Covers two gaps `run_due()` alone leaves: multiple scheduler
+        processes racing the same minute (the claim), and a scheduler that
+        was down for a few minutes and would otherwise silently skip whatever
+        was due while it was gone (the catch-up, bounded so a scheduler down
+        for days does not attempt to replay all of them).
+        """
+        from datetime import timedelta
+
+        current = now or self.now()
+        ran: List[str] = []
+        for offset in range(catch_up_minutes, -1, -1):
+            moment = current - timedelta(minutes=offset)
+            window_key = self._window_key(moment)
+            if not self.claim_window(window_key):
+                continue
+            for task in self.due_tasks(moment):
+                try:
+                    task.run()
+                    ran.append(task.name)
+                except Exception:
+                    logger.warning(
+                        "Scheduled task %s raised", task.name, exc_info=True
+                    )
         return ran
 
 

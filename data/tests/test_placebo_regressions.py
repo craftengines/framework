@@ -230,10 +230,16 @@ class TestConfigKeysThatNothingRead:
             Config.set("auth.guards.admin", None)
 
     def test_the_unwired_keys_are_gone(self):
-        """`APP_TIMEZONE` and `password_timeout` were removed rather than left
-        as knobs with no wiring — Craft stores timestamps in UTC and has no
-        confirm-password window."""
+        """`password_timeout` was removed rather than left as a knob with no
+        wiring — Craft has no confirm-password window.
+
+        `APP_TIMEZONE` is the opposite case, not an unwired leftover: it was
+        absent for the same reason until `ScheduleManager.now()` (Slice 3)
+        became the something that actually reads it — a cron expression like
+        `daily_at("02:00")` now means 2am in this zone, not 2am UTC on every
+        server regardless of region. See `config/app.py`'s own comment.
+        """
         from craft.facades import Config
 
-        assert Config.get("app.APP_TIMEZONE") is None
+        assert Config.get("app.APP_TIMEZONE") == "UTC"
         assert Config.get("auth.password_timeout") is None
