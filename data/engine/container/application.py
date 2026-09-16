@@ -19,10 +19,17 @@ References:
 import inspect
 import os
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from contextvars import ContextVar, Token
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 # Importing the package installs the `craft.*` -> `engine.*` import alias.
 import engine  # noqa: F401
+
+
+#: Per-request cache of `scoped()` bindings. A ContextVar rather than a
+#: container attribute: requests run concurrently on a thread pool, so a shared
+#: dict handed one request's (and one tenant's) instance to the next.
+_request_scope: ContextVar[Optional[Dict[str, Any]]] = ContextVar("craft_request_scope", default=None)
 
 
 class Container:
@@ -76,8 +83,10 @@ class Container:
 
     def bind(self, abstract: Union[str, Type], concrete: Optional[Union[Callable, Type, str]] = None, shared: bool = False) -> None:
         key = self._normalize_key(abstract)
+        # A class bound to itself builds itself; its normalized key is a string
+        # that would resolve back to this same binding forever.
         if concrete is None:
-            concrete = key
+            concrete = abstract
 
         self._bindings[key] = {
             "concrete": concrete,
@@ -94,7 +103,7 @@ class Container:
     def scoped(self, abstract: Union[str, Type], concrete: Optional[Union[Callable, Type, str]] = None) -> None:
         key = self._normalize_key(abstract)
         self._bindings[key] = {
-            "concrete": concrete or key,
+            "concrete": concrete or abstract,
             "shared": False,
             "scoped": True,
         }
@@ -115,8 +124,9 @@ class Container:
             return self._instances[key]
 
         # Return cached scoped instance
-        if key in self._scoped_instances:
-            return self._scoped_instances[key]
+        scoped_key, scoped_store = self._scoped_slot(key)
+        if scoped_key in scoped_store:
+            return scoped_store[scoped_key]
 
         binding = self._bindings.get(key)
         if binding:
@@ -136,7 +146,7 @@ class Container:
             if shared:
                 self._instances[key] = obj
             elif is_scoped:
-                self._scoped_instances[key] = obj
+                scoped_store[scoped_key] = obj
 
             return obj
 
@@ -198,8 +208,44 @@ class Container:
             return f"{abstract.__module__}.{abstract.__qualname__}"
         return str(abstract)
 
+    def _scoped_slot(self, key: str) -> Tuple[str, Dict[str, Any]]:
+        """Return the cache key and store for a scoped binding.
+
+        Inside a request scope the store belongs to that request; outside one
+        (console, worker, tests) it is this container's own dict.
+        """
+        store = _request_scope.get()
+        if store is None:
+            return key, self._scoped_instances
+        return f"{id(self)}:{key}", store
+
+    @staticmethod
+    def begin_request_scope() -> Token:
+        """Open a fresh scoped-instance cache for the current request.
+
+        Returns:
+            The token to pass to `end_request_scope`.
+        """
+        return _request_scope.set({})
+
+    @staticmethod
+    def end_request_scope(token: Token) -> None:
+        """Discard the request's scoped instances and restore the outer scope.
+
+        Args:
+            token: The token returned by `begin_request_scope`.
+        """
+        _request_scope.reset(token)
+
     def forget_scoped_instances(self) -> None:
-        self._scoped_instances.clear()
+        """Drop the scoped instances visible from the current context."""
+        store = _request_scope.get()
+        if store is None:
+            self._scoped_instances.clear()
+            return
+        prefix = f"{id(self)}:"
+        for scoped_key in [k for k in store if k.startswith(prefix)]:
+            del store[scoped_key]
 
 
 class Application(Container):

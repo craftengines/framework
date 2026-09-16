@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, List, Optional
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Annotated, Any, List, Optional
 
 import typer
 
@@ -133,6 +135,20 @@ def migrate(
         _run_seeder("DatabaseSeeder")
 
 
+@contextmanager
+def _destructive_guard() -> Iterator[None]:
+    """Turn a refused destructive operation into a clean CLI failure."""
+    from engine.migrations.safety import DestructiveOperationRefused
+
+    try:
+        yield
+    except DestructiveOperationRefused as refused:
+        echo(f"Refused: {refused.params['operation']} on permanent database "
+             f"'{refused.params['database']}'. Only in-memory SQLite, '*_test' or "
+             "DB_DISPOSABLE_DATABASES may be wiped (NR-02).", "red")
+        raise typer.Exit(code=1) from refused
+
+
 @migrate_app.command("rollback")
 def migrate_rollback(step: int = typer.Option(1, help="How many batches to revert.")) -> None:
     """Roll back the last batch of migrations."""
@@ -146,7 +162,8 @@ def migrate_rollback(step: int = typer.Option(1, help="How many batches to rever
 def migrate_reset() -> None:
     """Roll back every migration."""
     migrator = get_migrator()
-    migrator.reset()
+    with _destructive_guard():
+        migrator.reset()
     for note in migrator.notes:
         echo(note, "yellow")
 
@@ -155,7 +172,8 @@ def migrate_reset() -> None:
 def migrate_refresh(seed: bool = typer.Option(False, help="Seed after refreshing.")) -> None:
     """Roll back and re-run every migration."""
     migrator = get_migrator()
-    migrator.refresh()
+    with _destructive_guard():
+        migrator.refresh()
     for note in migrator.notes:
         echo(note, "green")
     if seed:
@@ -166,7 +184,8 @@ def migrate_refresh(seed: bool = typer.Option(False, help="Seed after refreshing
 def migrate_fresh(seed: bool = typer.Option(False, help="Seed after rebuilding.")) -> None:
     """Drop every table and re-run all migrations."""
     migrator = get_migrator()
-    migrator.fresh()
+    with _destructive_guard():
+        migrator.fresh()
     for note in migrator.notes:
         echo(note, "green")
     if seed:
@@ -501,7 +520,8 @@ def db_wipe(
     if not confirm:
         echo("Refusing to wipe without --force.", "red")
         raise typer.Exit(code=1)
-    get_migrator().drop_all_tables()
+    with _destructive_guard():
+        get_migrator().drop_all_tables()
     echo("Database wiped.", "yellow")
 
 
@@ -758,7 +778,7 @@ def docs_build(
     try:
         written = DocsSiteBuilder(docs_dir, out_dir, project).build()
     except BrokenLink as exc:
-        echo(str(exc), "red")
+        echo(f"Unknown catalog kind: {exc}", "red")
         raise typer.Exit(code=1) from None
 
     echo(f"Wrote {len(written)} file(s) to {out_dir}.", "green")
@@ -1618,6 +1638,43 @@ def agent_rules(
 ) -> None:
     """Alias for `dev.py agent scaffold`."""
     agent_scaffold(force=force)
+
+
+@agent_app.command("list")
+def agent_list(
+    kind: Optional[str] = typer.Option(None, "--kind", "-k", help="agent, skill, command or reference."),
+) -> None:
+    """List the development agents, skills and commands the catalog can install."""
+    from engine.cli import agent_catalog
+
+    try:
+        entries = agent_catalog.list_entries(kind)
+    except ValueError as exc:
+        echo(f"Unknown catalog kind: {exc}", "red")
+        raise typer.Exit(code=1) from None
+    for entry in entries:
+        echo(f"  {entry.kind:<10} {entry.name:<36} {entry.description[:80]}")
+
+
+@agent_app.command("install")
+def agent_install(
+    names: Annotated[Optional[List[str]], typer.Argument(help="Agent, skill or command names.")] = None,
+    all_entries: bool = typer.Option(False, "--all", "-a", help="Install the whole catalog."),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
+) -> None:
+    """Install catalog entries into `.claude/` (agents, skills, commands, references)."""
+    from engine.cli import agent_catalog
+
+    if not names and not all_entries:
+        echo("Name at least one entry or pass --all. See `dev.py agent:list`.", "red")
+        raise typer.Exit(code=1)
+    try:
+        installed = agent_catalog.install(base_path(), None if all_entries else names, force=force)
+    except (agent_catalog.UnknownCatalogEntryError, FileExistsError) as exc:
+        echo(f"Install refused: {exc}. Use --force to overwrite existing files.", "red")
+        raise typer.Exit(code=1) from None
+    for kind, paths in installed.items():
+        echo(f"  -> {kind:<10} {len(paths)} installed", "green")
 
 
 def main() -> None:

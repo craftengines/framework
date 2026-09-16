@@ -13,6 +13,11 @@ APP_ENV = env("APP_ENV", "local")
 APP_DEBUG = env("APP_DEBUG", False)
 APP_URL = env("APP_URL", "http://localhost:8000")
 APP_KEY = env("APP_KEY", "")
+#: Reverse proxies between the internet and this process. `X-Forwarded-For` is
+#: read from the right, skipping this many hops; `0` ignores the header. Measure
+#: the topology before changing it — too high trusts a proxy's own address, too
+#: low lets the client choose its address.
+trusted_proxy_hops = env("TRUSTED_PROXY_HOPS", 0)
 APP_LOCALE = env("APP_LOCALE", "en")
 APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
 # NOTE: there is deliberately no APP_TIMEZONE here. Craft writes every

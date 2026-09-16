@@ -159,3 +159,20 @@ class TestImageFormatsAndExport:
         resp = Image.load(sample_image_bytes).format("webp").response(filename="avatar.webp")
         assert resp.headers["Content-Type"] == "image/webp"
         assert "avatar.webp" in resp.headers["Content-Disposition"]
+
+
+def test_transparent_png_exported_as_jpeg_is_flattened_on_white():
+    from PIL import Image as PILImage
+
+    source = PILImage.new("RGBA", (8, 8), (0, 0, 0, 0))
+    exported = PILImage.open(io.BytesIO(Image(source, original_format="PNG").to_bytes(format="JPEG")))
+    red, green, blue = exported.convert("RGB").getpixel((4, 4))
+    assert min(red, green, blue) > 240
+
+
+def test_palette_image_with_transparency_is_flattened_on_white():
+    from PIL import Image as PILImage
+
+    source = PILImage.new("RGBA", (8, 8), (0, 0, 0, 0)).convert("P")
+    exported = PILImage.open(io.BytesIO(Image(source, original_format="PNG").to_bytes(format="JPEG")))
+    assert min(exported.convert("RGB").getpixel((4, 4))) > 240

@@ -129,3 +129,31 @@ class TestModulePersistence:
 
     def test_unknown_module_is_not_enabled(self):
         assert ModuleManager().is_enabled("does-not-exist") is False
+
+
+class TestTenantSettings:
+    def test_a_tenant_never_reads_another_tenants_value(self):
+        from craft.orm.tenancy import TenantManager
+
+        with TenantManager().scope("tenant-a"):
+            Setting.set("site_title", "Alpha Funeral Home")
+        with TenantManager().scope("tenant-b"):
+            assert Setting.get("site_title", "default") == "default"
+
+    def test_a_tenant_falls_back_to_the_installation_value(self):
+        from craft.orm.tenancy import TenantManager
+
+        Setting.set("site_title", "Installation")
+        with TenantManager().scope("tenant-a"):
+            assert Setting.get("site_title") == "Installation"
+            Setting.set("site_title", "Alpha")
+            assert Setting.get("site_title") == "Alpha"
+        assert Setting.get("site_title") == "Installation"
+
+    def test_global_scope_writes_the_installation_value_from_a_tenant(self):
+        from craft.orm.tenancy import TenantManager
+
+        with TenantManager().scope("tenant-a"):
+            Setting.set("site_title", "Everyone", global_scope=True)
+        with TenantManager().scope("tenant-b"):
+            assert Setting.get("site_title") == "Everyone"

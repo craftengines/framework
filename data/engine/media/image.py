@@ -385,6 +385,25 @@ class Image:
         self._strip_exif = strip_exif
         return self
 
+    @staticmethod
+    def _flatten_on_white(image: Any) -> Any:
+        """Composite a transparent image over white for formats without alpha.
+
+        A bare `convert("RGB")` drops the alpha channel and keeps whatever
+        colour the transparent pixels stored — usually black, so a transparent
+        logo exported as JPEG came out on a black box.
+
+        Args:
+            image: A PIL image in a mode that may carry transparency.
+
+        Returns:
+            An RGB image.
+        """
+        rgba = image.convert("RGBA")
+        canvas = PILImage.new("RGB", rgba.size, (255, 255, 255))
+        canvas.paste(rgba, mask=rgba.getchannel("A"))
+        return canvas
+
     def to_bytes(
         self,
         format: Optional[str] = None,
@@ -399,8 +418,8 @@ class Image:
         out_img = self._image
 
         # Handle color mode compatibility
-        if target_fmt == "JPEG" and out_img.mode in ("RGBA", "P", "LA"):
-            out_img = out_img.convert("RGB")
+        if target_fmt == "JPEG" and out_img.mode in ("RGBA", "P", "LA", "PA"):
+            out_img = self._flatten_on_white(out_img)
         elif target_fmt == "PNG" and out_img.mode not in ("RGB", "RGBA", "L", "LA", "P"):
             out_img = out_img.convert("RGBA")
 

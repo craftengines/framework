@@ -11,7 +11,7 @@
     timing does not reveal which accounts are real.
 
     Context:
-      captcha_html  str   pre-rendered, obfuscated CAPTCHA markup
+      captcha_image str   data: URI of the CAPTCHA challenge image
       error         str   set on a failed attempt
       old           dict  the submitted email, so it is not retyped
 #}
@@ -78,9 +78,8 @@
             <div>
                 <label for="captcha" class="block text-xs font-semibold text-slate-600 uppercase mb-1">CAPTCHA Security Code</label>
                 <div class="flex items-center space-x-3">
-                    <div class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2 flex items-center justify-center font-mono tracking-widest text-lg font-bold select-none h-11">
-                        {{ captcha_html | safe }}
-                    </div>
+                    <img src="{{ captcha_image }}" width="150" height="44" alt=""
+                         class="border border-slate-200 rounded-xl select-none h-11">
                     <input type="text" name="captcha" id="captcha" required placeholder="Enter code" autocomplete="off"
                            class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition h-11">
                 </div>

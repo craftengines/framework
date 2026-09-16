@@ -208,11 +208,10 @@ class FirewallMiddleware:
         self._firewall = Firewall(app)
 
     def _extract_ip(self, request: Any) -> str:
-        forwarded = getattr(request, "headers", {}).get("x-forwarded-for")
-        if forwarded:
-            return str(forwarded).split(",")[0].strip()
-        client = getattr(request, "client", None)
-        return getattr(client, "host", None) or "127.0.0.1"
+        """Return the client address, never the client-chosen forwarded prefix."""
+        from engine.security.net import client_ip
+
+        return client_ip(request)
 
     def handle(self, request: Any, next_callable: Callable) -> Any:
         ip = self._extract_ip(request)

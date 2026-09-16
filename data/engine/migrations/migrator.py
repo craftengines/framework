@@ -25,6 +25,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from engine.migrations.safety import assert_disposable
+
 MIGRATION_FILE_RE = re.compile(r"^\d{4}_\d{2}_\d{2}_\d{6}_[\w]+\.py$")
 
 
@@ -326,7 +328,12 @@ class Migrator:
         return reverted
 
     def reset(self) -> List[str]:
-        """Revert every applied migration."""
+        """Revert every applied migration.
+
+        Raises:
+            DestructiveOperationRefused: When the database is not disposable.
+        """
+        assert_disposable(self.app, self.db, "reset")
         return self.rollback(step=self.last_batch() or 1)
 
     def refresh(self) -> List[str]:
@@ -355,6 +362,12 @@ class Migrator:
         ]
 
     def drop_all_tables(self) -> None:
+        """Drop every table in the current schema.
+
+        Raises:
+            DestructiveOperationRefused: When the database is not disposable.
+        """
+        assert_disposable(self.app, self.db, "drop_all_tables")
         driver = getattr(self.db, "driver", "sqlite")
         if driver == "sqlite":
             rows = self.db.statement(

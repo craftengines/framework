@@ -18,6 +18,15 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **Development agent catalog** (`engine/cli/agent_catalog/`, `engine/cli/app.py`, `engine/cli/agent_scaffolder.py`):
+  - Installable Markdown catalog adapted to Craft Engine: 4 agents (`code-reviewer`, `security-auditor`, `test-engineer`, `web-performance-auditor`), 25 workflow skills (spec, planning, incremental build, TDD, debugging, review, simplification, security, performance, observability, API design, frontend, documentation and ADRs, git and release, CI, deprecation and migration, shipping, and the `using-agent-catalog` router), 9 commands (`/spec`, `/plan-tasks`, `/build`, `/test`, `/review-change`, `/code-simplify`, `/constraints`, `/ship`, `/webperf`) and 7 shared reference checklists.
+  - `python dev.py agent:list [--kind]` lists the catalog; `python dev.py agent:install NAME... | --all [--force]` installs into `.claude/`, checking every conflict before writing.
+  - `agent:scaffold` now installs the whole catalog alongside the context files.
+  - Catalog files ship as package data (`pyproject.toml`); third-party license notice in `engine/cli/agent_catalog/references/third-party-notices.md (installed with every selection)`.
+  - `tests/test_agent_catalog.py` covers content completeness, frontmatter, install selection, overwrite refusal and the CLI commands.
+
 ## [3.20.0] r00013 — 2026-09-08
 
 Authentication Scaffolding (`make:auth`), AI Agent Discovery Protocol (`agent:scaffold`), `llms.txt` Standards, and Framework Tooling.

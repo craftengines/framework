@@ -432,10 +432,10 @@ def test_captcha_security():
     assert len(code) == 5
     assert request.session().get("captcha_code") == code
 
-    # Test obfuscation HTML outputs stylized tags
+    # The legacy helper renders an image: the code is never readable from markup
     html = CaptchaClass.get_obfuscated_html(code)
-    assert "span" in html
-    assert code[0] in html
+    assert html.startswith("<img") and "data:image/png;base64," in html
+    assert code not in html
 
     # Valid validation resolves to true and clears key to prevent reuse
     assert Captcha.validate(request, code) is True

@@ -92,6 +92,22 @@ class TenantScoped:
 
     # -- writes ----------------------------------------------------------------
 
+    def _write_predicate(self) -> tuple[str, list[Any]]:
+        """Address the row by primary key AND the tenant it was loaded under.
+
+        An UPDATE or DELETE by id alone reaches another tenant's row whenever
+        row-level security is absent (SQLite) or bypassed (an owner role), so
+        the tenant it was read from is part of the address, not a suggestion.
+
+        Returns:
+            The WHERE clause and its bindings.
+        """
+        predicate, bindings = super()._write_predicate()
+        tenant = self._original.get(self.tenant_column)
+        if tenant is None:
+            return predicate, bindings
+        return f"{predicate} AND {self.tenant_column} = ?", bindings + [tenant]
+
     @classmethod
     def force_create(cls, attributes: Dict[str, Any]) -> Any:
         """Stamp the tenant on insert, so callers never have to remember it.

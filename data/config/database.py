@@ -9,6 +9,11 @@ from craft.config import env
 # box; Docker and production set DB_CONNECTION explicitly.
 default = env("DB_CONNECTION", "sqlite")
 
+#: Databases, besides in-memory SQLite and names ending in `_test`, that
+#: `migrate fresh|reset|refresh` and `db wipe` may destroy. Comma-separated.
+#: Everything else is permanent (NR-02); production is always permanent.
+disposable_databases = env("DB_DISPOSABLE_DATABASES", "")
+
 connections = {
     "sqlite": {
         "driver": "sqlite",

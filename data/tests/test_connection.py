@@ -9,6 +9,23 @@ from craft.orm.connection import Connection, Row, normalize_placeholders
 
 
 class TestPlaceholderNormalization:
+    def test_literal_percent_is_doubled_when_bindings_are_formatted(self):
+        sql, params = normalize_placeholders(
+            "SELECT * FROM t WHERE name LIKE 'a%' AND id % 2 = ?", [1], "pyformat"
+        )
+        assert sql == "SELECT * FROM t WHERE name LIKE 'a%%' AND id %% 2 = %s"
+        assert params == [1]
+
+    def test_literal_percent_is_untouched_without_bindings(self):
+        sql, _ = normalize_placeholders("SELECT 5 % 2", None, "pyformat")
+        assert sql == "SELECT 5 % 2"
+
+    def test_literal_percent_with_named_bindings(self):
+        sql, _ = normalize_placeholders(
+            "SELECT * FROM t WHERE code LIKE '10%' AND id = :id", {"id": 1}, "pyformat"
+        )
+        assert sql == "SELECT * FROM t WHERE code LIKE '10%%' AND id = %(id)s"
+
     def test_sqlite_passes_through_untouched(self):
         sql, params = normalize_placeholders(
             "SELECT * FROM users WHERE id = ?", [1], "qmark"

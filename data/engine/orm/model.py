@@ -15,6 +15,7 @@ References:
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
+import copy
 from typing import Any, Dict, List, Optional, Type
 from datetime import datetime, timezone
 
@@ -70,6 +71,39 @@ class Model:
         self._relations: Dict[str, Any] = {}
         if self.casts:
             self._hydrate()
+        self.sync_original()
+
+    # -- change tracking -------------------------------------------------------
+
+    def sync_original(self) -> None:
+        """Record the current attributes as the persisted state.
+
+        A deep copy: cast values such as `jsonb` dicts are mutated in place, and
+        a shared reference would make every such change look clean.
+        """
+        self._original: Dict[str, Any] = copy.deepcopy(self._attributes)
+
+    def get_dirty(self) -> Dict[str, Any]:
+        """Return the attributes changed since the last load or save.
+
+        Returns:
+            Column -> new value, excluding the primary key.
+        """
+        original = self.__dict__.get("_original", {})
+        return {
+            column: value
+            for column, value in self._attributes.items()
+            if column != self.primary_key and (column not in original or original[column] != value)
+        }
+
+    def is_dirty(self) -> bool:
+        """Return whether any attribute changed since the last load or save."""
+        return bool(self.get_dirty())
+
+    def _write_predicate(self) -> tuple[str, List[Any]]:
+        """Return the WHERE clause and bindings that address this row on write."""
+        key = self.primary_key
+        return f"{key} = ?", [self._original.get(key, self._attributes.get(key))]
 
     # -- attribute casting -----------------------------------------------------
 
@@ -287,6 +321,7 @@ class Model:
             import uuid
 
             inst._attributes[cls.primary_key] = str(uuid.uuid4())
+        inst.sync_original()
 
         from engine.events.lifecycle import ModelCreated, fire
 
@@ -294,31 +329,38 @@ class Model:
         return inst
 
     def save(self) -> 'Model':
-        """Insert or update this record."""
+        """Insert or update this record.
+
+        An update writes only the columns changed since the row was loaded, so
+        two users editing different fields of the same record do not overwrite
+        each other. A record with no changes issues no statement at all.
+
+        Returns:
+            This model.
+        """
         from engine.container.application import Container
 
-        db = Container.getInstance().make("db")
-        now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-        key = self.primary_key
-
-        if self._attributes.get(key) is None:
+        if self._attributes.get(self.primary_key) is None:
             created = self.__class__.create(dict(self._attributes))
             self._attributes = created._attributes
+            self.sync_original()
+            return self
+        if not self.is_dirty():
             return self
 
-        self._attributes["updated_at"] = now
+        self._attributes["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         # Dehydrated for the write only — `self._attributes` keeps the Python
         # values, so the model reads the same before and after a save.
-        updates = self._dehydrate(
-            {k: v for k, v in self._attributes.items() if k != key}
-        )
+        updates = self._dehydrate(self.get_dirty())
         for column in updates:
             _assert_identifier(column)
         assignments = ", ".join(f"{column} = ?" for column in updates)
-        db.statement(
-            f"UPDATE {self.get_table_name()} SET {assignments} WHERE {key} = ?",
-            list(updates.values()) + [self._attributes[key]],
+        predicate, bindings = self._write_predicate()
+        Container.getInstance().make("db").statement(
+            f"UPDATE {self.get_table_name()} SET {assignments} WHERE {predicate}",
+            list(updates.values()) + bindings,
         )
+        self.sync_original()
 
         from engine.events.lifecycle import ModelUpdated, fire
 
@@ -346,13 +388,10 @@ class Model:
         from engine.container.application import Container
 
         db = Container.getInstance().make("db")
-        key = self.primary_key
-        if self._attributes.get(key) is None:
+        if self._attributes.get(self.primary_key) is None:
             return False
-        db.statement(
-            f"DELETE FROM {self.get_table_name()} WHERE {key} = ?",
-            [self._attributes[key]],
-        )
+        predicate, bindings = self._write_predicate()
+        db.statement(f"DELETE FROM {self.get_table_name()} WHERE {predicate}", bindings)
 
         from engine.events.lifecycle import ModelDeleted, fire
 

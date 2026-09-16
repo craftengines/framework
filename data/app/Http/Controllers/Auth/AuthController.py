@@ -11,18 +11,18 @@ from app.Models.User import User
 
 class AuthController(Controller):
     def show_login(self, request):
-        code = Captcha.generate(request)
-        obfuscated_html = Captcha.get_obfuscated_html(code)
-        return self.view("auth.login", {"captcha_html": obfuscated_html})
+        return self.view("auth.login", {"captcha_image": self._captcha_image(request)})
+
+    @staticmethod
+    def _captcha_image(request):
+        return Captcha.image_data_uri(Captcha.generate(request))
 
     def login(self, request):
         captcha_input = request.get_input("captcha")
         if not Captcha.validate(request, captcha_input):
-            code = Captcha.generate(request)
-            obfuscated_html = Captcha.get_obfuscated_html(code)
             return self.view("auth.login", {
                 "error": "Security check: Invalid CAPTCHA code.",
-                "captcha_html": obfuscated_html
+                "captcha_image": self._captcha_image(request),
             })
 
         credentials = {
@@ -32,11 +32,9 @@ class AuthController(Controller):
         if Auth.attempt(credentials):
             return redirect(route="home")
 
-        code = Captcha.generate(request)
-        obfuscated_html = Captcha.get_obfuscated_html(code)
         return self.view("auth.login", {
             "error": "Invalid credentials",
-            "captcha_html": obfuscated_html
+            "captcha_image": self._captcha_image(request),
         })
 
     def show_register(self, request):

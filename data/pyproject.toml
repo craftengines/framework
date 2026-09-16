@@ -67,6 +67,10 @@ dev = "engine.cli.app:main"
 where = ["."]
 include = ["engine*"]
 
+[tool.setuptools.package-data]
+# Markdown definitions installed by `dev.py agent:install`.
+"engine.cli.agent_catalog" = ["**/*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

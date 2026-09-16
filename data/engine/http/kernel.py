@@ -13,6 +13,7 @@ References:
 # Licensed under the MIT License. See LICENSE in the project root.
 
 import inspect
+import logging
 import os
 from typing import Any, List, Optional
 from starlette.applications import Starlette
@@ -21,6 +22,9 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse, HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Route as StarletteRoute, Mount
 from starlette.staticfiles import StaticFiles
+from engine.container.application import Container
+
+logger = logging.getLogger("craft.http")
 
 
 def render_exception(app: Any, request: Any, exc: Exception) -> StarletteResponse:
@@ -44,7 +48,109 @@ def render_exception(app: Any, request: Any, exc: Exception) -> StarletteRespons
         wants_json = getattr(request, "expects_json", lambda: True)()
         return handler.render(exc, wants_json=wants_json)
 
-    return JSONResponse({"error": str(exc)}, status_code=status or 500)
+    return _fallback_response(exc, status or 500)
+
+
+def _fallback_response(exc: Exception, status: int) -> StarletteResponse:
+    """Answer without an exception handler, never echoing the exception text.
+
+    `str(exc)` of a database error carries the SQL, constraint names and row
+    values (`DETAIL: Key (email)=(...)`); it belongs in the log, not the body.
+
+    Args:
+        exc: The unhandled exception.
+        status: The HTTP status to answer with.
+
+    Returns:
+        A JSON error carrying only a stable code and translation key.
+    """
+    logger.error("unhandled_exception", exc_info=exc, extra={"status": status})
+    code = getattr(exc, "code", None) if status < 500 else None
+    message_key = getattr(exc, "message_key", None) if status < 500 else None
+    return JSONResponse(
+        {"error": {"code": code or "SERVER_ERROR", "message_key": message_key or "error.server"}},
+        status_code=status,
+    )
+
+
+_SCALAR_CASTS = {int: int, float: float, str: str}
+
+
+def cast_route_value(value: str, annotation: Any) -> Any:
+    """Convert a path segment to the type its parameter declares.
+
+    Args:
+        value: The raw path segment.
+        annotation: The parameter annotation (`int`, `float`, `bool`, `UUID`...).
+
+    Returns:
+        The converted value, or `value` unchanged for undeclared types.
+
+    Raises:
+        NotFoundHttpException: When the segment cannot be converted — `/posts/abc`
+            for `id: int` is a missing page, not a server error.
+    """
+    import uuid
+
+    from engine.exceptions.handler import NotFoundHttpException
+
+    caster = _SCALAR_CASTS.get(annotation) or ({bool: _to_bool, uuid.UUID: uuid.UUID}).get(annotation)
+    if caster is None:
+        return value
+    try:
+        return caster(value)
+    except (TypeError, ValueError) as exc:
+        raise NotFoundHttpException(f"ROUTE_PARAMETER_INVALID: {value!r}") from exc
+
+
+def _to_bool(value: str) -> bool:
+    lowered = str(value).lower()
+    if lowered in ("1", "true", "yes", "on"):
+        return True
+    if lowered in ("0", "false", "no", "off"):
+        return False
+    raise ValueError(value)
+
+
+def _is_request_parameter(position: int, name: str, param: inspect.Parameter, path_params: dict) -> bool:
+    """Whether a parameter receives the request object.
+
+    By name (`request`), by annotation, or — for handlers written as
+    `def show(req, id)` — by being the first parameter while not naming a
+    path placeholder.
+    """
+    if name == "request" or getattr(param.annotation, "__name__", "") in ("Request", "StarletteRequest"):
+        return True
+    return position == 0 and name not in path_params and param.annotation is inspect.Parameter.empty
+
+
+def bind_route_arguments(target: Any, request: Any) -> dict:
+    """Build the keyword arguments for a route action.
+
+    Path parameters bind by name and are cast to the declared annotation. A
+    placeholder whose name matches no parameter binds positionally, and only to
+    a parameter WITHOUT a default: a defaulted parameter such as `page=1` used
+    to receive an unrelated path segment.
+
+    Args:
+        target: The controller method or route function.
+        request: The current request.
+
+    Returns:
+        Keyword arguments for `target`.
+    """
+    path_params = dict(getattr(request, "path_params", {}) or {})
+    parameters = inspect.signature(target).parameters
+    spare = [key for key in path_params if key not in parameters]
+    kwargs: dict = {}
+    for position, (name, param) in enumerate(parameters.items()):
+        if _is_request_parameter(position, name, param, path_params):
+            kwargs[name] = request
+        elif name in path_params:
+            kwargs[name] = cast_route_value(path_params[name], param.annotation)
+        elif spare and param.default is inspect.Parameter.empty:
+            kwargs[name] = cast_route_value(path_params[spare.pop(0)], param.annotation)
+    return kwargs
 
 
 class DynamicStarletteApp:
@@ -76,7 +182,12 @@ class DynamicStarletteApp:
             self._version = version
 
         scope, receive = await self._apply_method_override(scope, receive)
-        await self._app(scope, receive, send)
+        # Every request gets its own `scoped()` instances, discarded on exit.
+        token = Container.begin_request_scope()
+        try:
+            await self._app(scope, receive, send)
+        finally:
+            Container.end_request_scope(token)
 
     async def _lifespan(self, scope: Any, receive: Any, send: Any) -> None:
         """Run the process-level startup and shutdown protocol.
@@ -434,32 +545,10 @@ class Kernel:
                     controller_inst = self.app.make(controller_cls) if isinstance(controller_cls, type) else controller_cls()
                     method = getattr(controller_inst, method_name)
 
-                    path_params = dict(req.path_params)
-                    unused_values = list(path_params.values())
-
-                    sig = inspect.signature(method)
-                    call_kwargs = {}
-                    for param_name, param in sig.parameters.items():
-                        if param_name == "request" or (param.annotation and getattr(param.annotation, "__name__", "") in ("Request", "StarletteRequest")):
-                            call_kwargs[param_name] = req
-                        elif param_name in path_params:
-                            call_kwargs[param_name] = path_params[param_name]
-                            if path_params[param_name] in unused_values:
-                                unused_values.remove(path_params[param_name])
-                        elif unused_values:
-                            # Positional fallback when parameter name in signature differs from route placeholder (e.g. 'posts' vs 'id')
-                            call_kwargs[param_name] = unused_values.pop(0)
-                        elif param.default is not inspect.Parameter.empty:
-                            call_kwargs[param_name] = param.default
-
-                    result = method(**call_kwargs)
+                    result = method(**bind_route_arguments(method, req))
 
                 elif callable(action):
-                    sig = inspect.signature(action)
-                    if len(sig.parameters) == 0:
-                        result = action()
-                    else:
-                        result = action(req)
+                    result = action(**bind_route_arguments(action, req))
                 else:
                     result = action
 

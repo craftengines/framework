@@ -169,21 +169,15 @@ class Request(StarletteRequest):
         return None
 
     def ip(self) -> Optional[str]:
-        # X-Forwarded-For is client-controlled: honour it only when the app is
-        # explicitly deployed behind a trusted proxy (config, default off).
-        trusted = None
-        try:
-            from engine.container.application import Container
+        """Return the client address, honouring only declared proxy hops.
 
-            trusted = Container.getInstance().make("config").get("app.trusted_proxies")
-        except Exception:
-            trusted = None
+        Returns:
+            The client address, or `None` when no connection address exists.
+        """
+        from engine.security.net import UNKNOWN_ADDRESS, client_ip
 
-        if trusted:
-            forwarded = self.headers.get("x-forwarded-for")
-            if forwarded:
-                return forwarded.split(",")[0].strip()
-        return self.client.host if self.client else None
+        address = client_ip(self)
+        return None if address == UNKNOWN_ADDRESS else address
 
     def path(self) -> str:
         return self.url.path

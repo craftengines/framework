@@ -1,11 +1,12 @@
 """
-AgentScaffolder — AI Agent discovery and integration scaffolding for Craft Engine.
+AgentScaffolder: AI agent discovery and integration scaffolding for Craft Engine.
 
 Category: Core Framework (CLI).
 Relations:
   - Invoked from `dev.py agent:scaffold` (`engine/cli/app.py`).
   - Generates `.cursorrules`, `.claude/rules/AGENTS.md`, `.agents/rules/AGENTS.md`,
     `llms.txt`, `llms-full.txt`, and `.agents/mcp.json`.
+  - Installs the development agent catalog (`engine/cli/agent_catalog/`) into `.claude/`.
 References:
   - Guide: `documentation/ai_agents.md`
 """
@@ -17,6 +18,8 @@ from __future__ import annotations
 
 import os
 from typing import Any, Dict
+
+from engine.cli import agent_catalog
 
 
 def _write_file(path: str, content: str, force: bool = False) -> str:
@@ -82,6 +85,7 @@ from craft.facades import Route, DB, Auth, AntiSpam, View, Cache, Firewall
 - `python dev.py make:crud <Entity> --fields "title:string:required,body:text"`
 - `python dev.py make:auth`
 - `python dev.py agent:scaffold`
+- `python dev.py agent:install <name>... | --all`
 """
 
 
@@ -105,6 +109,7 @@ def llms_txt_content() -> str:
 - `python dev.py make:crud <Entity> --fields "<spec>"` — Generate full vertical slice (model, migration, controller, request, resource, views, routes).
 - `python dev.py make:auth` — Scaffold login, registration, dashboard, requests, and Forge templates.
 - `python dev.py agent:scaffold` — Bootstrap AI agent context files (.cursorrules, llms.txt, AGENTS.md, mcp.json).
+- `python dev.py agent:list` / `python dev.py agent:install <name>... | --all` — Install development agents, skills and commands into `.claude/`.
 
 ## Documentation Links
 - [Complete Architecture Guide](llms-full.txt)
@@ -283,5 +288,8 @@ def scaffold_agent_stack(base_path: str, force: bool = False) -> Dict[str, Any]:
     mcp_path = os.path.join(base_path, ".agents", "mcp.json")
     _write_file(mcp_path, mcp_config_content(), force=force)
     result["files"]["mcp"] = mcp_path
+
+    # 5. Development agents, skills, commands and references in .claude/
+    result["catalog"] = agent_catalog.install(base_path, force=force)
 
     return result

@@ -165,6 +165,11 @@ def normalize_placeholders(sql: str, bindings: Bindings, paramstyle: str):
     if paramstyle == "qmark":  # sqlite3 understands both forms natively
         return sql, bindings if bindings is not None else []
 
+    if bindings:
+        # With parameters the driver formats the query, so every literal `%`
+        # (`LIKE 'a%'`, `id % 2`) must be doubled or it is read as a
+        # placeholder. Without parameters the query is sent verbatim.
+        sql = sql.replace("%", "%%")
     protected, literals = _protect_strings(sql)
 
     if isinstance(bindings, dict):
@@ -702,17 +707,42 @@ class Connection:
             return self.pdo.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         return self.pdo.cursor()
 
+    #: Savepoint wrapped around each statement inside a PostgreSQL transaction.
+    STATEMENT_SAVEPOINT = "craft_statement"
+
+    def _execute(self, cursor: Any, query: str, params: Any, guarded: bool) -> None:
+        """Run one statement, under a savepoint when inside a PostgreSQL transaction.
+
+        Without it, one failed statement a caller catches (a unique violation
+        answered with "already exists") aborts the whole PostgreSQL transaction:
+        every later statement fails with "current transaction is aborted".
+        """
+        if guarded:
+            cursor.execute(f"SAVEPOINT {self.STATEMENT_SAVEPOINT}")
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+
+    def _rollback_statement(self, cursor: Any) -> None:
+        """Undo only the failed statement, keeping the transaction usable."""
+        try:
+            cursor.execute(f"ROLLBACK TO SAVEPOINT {self.STATEMENT_SAVEPOINT}")
+        except Exception:  # noqa: BLE001 - the original error is re-raised by the caller
+            pass
+
     def statement(self, sql: str, bindings: Bindings = None) -> StatementResult:
         sql = sql.strip()
         query, params = normalize_placeholders(sql, bindings, self.paramstyle)
         cursor = self._cursor()
+        guarded = self.driver == "postgresql" and bool(self._in_transaction)
         try:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
+            self._execute(cursor, query, params, guarded)
             rows = self._fetch(cursor)
             result = StatementResult(rows, cursor.rowcount, self._last_id(cursor))
+            if guarded:
+                # After the result is read: RELEASE replaces the cursor's result.
+                cursor.execute(f"RELEASE SAVEPOINT {self.STATEMENT_SAVEPOINT}")
             if not self._in_transaction:
                 self.pdo.commit()
             return result
@@ -727,6 +757,8 @@ class Connection:
                 session.applied_schema = session.applied_tenant = None
                 self._discard(pdo)
                 raise
+            if guarded:
+                self._rollback_statement(cursor)
             if not session.in_transaction:
                 try:
                     self.pdo.rollback()
