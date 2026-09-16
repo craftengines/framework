@@ -22,6 +22,7 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse, HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Route as StarletteRoute, Mount
 from starlette.staticfiles import StaticFiles
+from engine.http.static_files import CachedStaticFiles
 from engine.container.application import Container
 
 logger = logging.getLogger("craft.http")
@@ -461,7 +462,7 @@ class Kernel:
         public_dir = os.path.join(self.app.base_path, "public")
         if os.path.isdir(public_dir):
             routes.append(
-                Mount("/", app=StaticFiles(directory=public_dir), name="static")
+                Mount("/", app=CachedStaticFiles(directory=public_dir), name="static")
             )
 
         # Never hardcode debug - it leaks stack traces to clients in production.

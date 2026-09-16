@@ -18,6 +18,14 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+### Added
+
+- **RFC-compliant static files caching** (`engine/http/static_files.py`, `engine/http/kernel.py`): introduces `CachedStaticFiles` subclassing Starlette's `StaticFiles`. Emits `Cache-Control: public, max-age=31536000, immutable` for fingerprinted asset URLs (`?v=...`) and `Cache-Control: public, max-age=300, must-revalidate` for bare URLs.
+- **ICU MessageFormat & CLDR Plurals** (`engine/support/icu.py`, `engine/support/translation.py`): pure Python, zero-dependency renderer supporting `{name}` substitution and CLDR pluralization syntax `{count, plural, =0 {No items} one {# item} other {# items}}`. Integrated directly into `translate()` and `__()` helpers.
+- **Application Clock & Timezone Management** (`engine/support/clock.py`, `engine/support/__init__.py`): unified application clock (`clock.now()`, `clock.now_naive()`, `clock.today()`, `clock.to_app_tz()`) synchronizing time across container environment, scheduler jobs, and database timestamps based on `APP_TIMEZONE`.
+- **Server-Side DataGrid Engine** (`engine/http/datagrid.py`, `engine/http/__init__.py`): parameterized SQL compilation for complex listing filters, strict column allowlists, safe operator mappings, ordering, grouping, and direct database subtotal calculations (`aggregate_rows`).
+- **Brazil Validator Plugin v2.0.0** (`app/plugins/brazil_validator/`): upgraded with the new 2026 Receita Federal Alphanumeric CNPJ standard (IN RFB 2.229/2024), full 27-state Inscrição Estadual (SINTEGRA specification), RG validation, and CEP/Phone normalizers while maintaining 100% backward compatibility with `DocumentValidatorEngine`.
+
 ## [3.21.0] r00014 — 2026-09-16
 
 ### Security

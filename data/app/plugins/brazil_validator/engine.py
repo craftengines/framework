@@ -1,117 +1,167 @@
-"""Pure Modulo 11 validation algorithms for CPF and CNPJ documents."""
+"""The main entry point class for Craft Engine's BrazilValidator plugin."""
 # Craft Framework
 # Copyright (c) 2026 Antonio Santos <snarthost@gmail.com>
 # Licensed under the MIT License. See LICENSE in the project root.
 
-import re
-from app.plugins.brazil_validator.schemas import DocumentValidationResult
+from typing import Any, Dict, List, Mapping
+
+from .enums import ErrorCode
+from .normalizers.address import normalize_address
+from .normalizers.cep import normalize_cep
+from .normalizers.cnae import normalize_cnae, normalize_cnae_list
+from .normalizers.phone import normalize_phone
+from .schemas import DocumentValidationResult, ValidationResult, fail
+from .validators.cnpj import mask_cnpj, validate_cnpj
+from .validators.cpf import mask_cpf, only_alnum, only_digits, validate_cpf
+from .validators.ie import validate_ie
+from .validators.rg import validate_rg
 
 
-class DocumentValidatorEngine:
-    """Stateless engine providing Modulo 11 validation for Brazilian documents."""
+class BrazilValidator:
+    """Brazilian personal and company identity document validation and normalization.
+
+    Stateless, pure-function implementation for Craft Engine framework.
+    """
+
+    # -- Cleaning & Formatting -----------------------------------------------
 
     @staticmethod
-    def _extract_digits(value: str) -> str:
-        return re.sub(r"\D", "", str(value or ""))
+    def clean(value: Any, alphanumeric: bool = False) -> str:
+        """Canonical storage form: unmasked and, for CNPJ, uppercase."""
+        if alphanumeric:
+            return only_alnum(value)
+        return only_digits(value)
 
-    @classmethod
-    def validate_cpf(cls, value: str) -> DocumentValidationResult:
-        """Validate a 11-digit CPF using standard Modulo 11 verification."""
-        digits = cls._extract_digits(value)
-        if len(digits) != 11 or len(set(digits)) == 1:
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CPF",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CPF must contain 11 non-identical digits.",
-            )
+    @staticmethod
+    def format_document(value: Any) -> str:
+        """Mask a stored CPF or CNPJ for display, without validating it."""
+        chars = only_alnum(value)
+        if len(chars) == 14:
+            return mask_cnpj(chars)
+        if len(chars) == 11 and chars.isdigit():
+            return mask_cpf(chars)
+        return str(value or "").strip()
 
-        # Validate first check digit
-        factor = 10
-        total = sum(int(digit) * (factor - i) for i, digit in enumerate(digits[:9]))
-        remainder = (total * 10) % 11
-        first_check = 0 if remainder == 10 else remainder
+    @staticmethod
+    def mask_privacy_document(value: Any) -> str:
+        """Mask CPF/CNPJ document digits for workplace screen privacy."""
+        chars = only_alnum(value)
+        if not chars:
+            return "—"
+        if len(chars) == 11 and chars.isdigit():
+            return f"***.{chars[3:6]}.{chars[6:9]}-**"
+        if len(chars) == 14:
+            return f"**.***.{chars[5:8]}/{chars[8:12]}-**"
+        if len(chars) > 4:
+            return "*" * (len(chars) - 4) + chars[-4:]
+        return "*" * len(chars)
 
-        if first_check != int(digits[9]):
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CPF",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CPF first verification digit is invalid.",
-            )
+    # -- Validators ----------------------------------------------------------
 
-        # Validate second check digit
-        factor = 11
-        total = sum(int(digit) * (factor - i) for i, digit in enumerate(digits[:10]))
-        remainder = (total * 10) % 11
-        second_check = 0 if remainder == 10 else remainder
+    @staticmethod
+    def validate_cpf(value: Any) -> ValidationResult:
+        """Validate an 11-digit CPF using standard Modulo 11 arithmetic."""
+        return validate_cpf(value)
 
-        if second_check != int(digits[10]):
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CPF",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CPF second verification digit is invalid.",
-            )
+    @staticmethod
+    def validate_cnpj(value: Any) -> ValidationResult:
+        """Validate a 14-character CNPJ (numeric or 2026 alphanumeric)."""
+        return validate_cnpj(value)
 
-        formatted = f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
-        return DocumentValidationResult(
-            is_valid=True,
-            document_type="CPF",
-            formatted_document=formatted,
-            raw_digits=digits,
+    @staticmethod
+    def validate_document(value: Any) -> ValidationResult:
+        """Route to CPF or CNPJ based on character length."""
+        raw = str(value or "").strip()
+        if not raw:
+            return fail("document", ErrorCode.EMPTY_VALUE)
+
+        chars = only_alnum(raw)
+        if len(chars) == 11:
+            return validate_cpf(chars)
+        if len(chars) == 14:
+            return validate_cnpj(chars)
+
+        return fail(
+            "document", ErrorCode.UNKNOWN_VERSION, clean=chars, actual=len(chars)
         )
 
-    @classmethod
-    def validate_cnpj(cls, value: str) -> DocumentValidationResult:
-        """Validate a 14-digit CNPJ using standard Modulo 11 verification."""
-        digits = cls._extract_digits(value)
-        if len(digits) != 14 or len(set(digits)) == 1:
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CNPJ",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CNPJ must contain 14 non-identical digits.",
-            )
+    @staticmethod
+    def validate_rg(value: Any) -> ValidationResult:
+        """Validate standard RG format (7-9 chars, optional trailing X)."""
+        return validate_rg(value)
 
-        # Validate first check digit
-        weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-        total = sum(int(d) * w for d, w in zip(digits[:12], weights1))
-        remainder = total % 11
-        first_check = 0 if remainder < 2 else 11 - remainder
+    @staticmethod
+    def validate_ie(value: Any, uf: Any) -> ValidationResult:
+        """Validate State Registration (Inscrição Estadual) for any of 27 UFs."""
+        return validate_ie(value, uf)
 
-        if first_check != int(digits[12]):
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CNPJ",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CNPJ first verification digit is invalid.",
-            )
+    # -- Normalizers ---------------------------------------------------------
 
-        # Validate second check digit
-        weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-        total = sum(int(d) * w for d, w in zip(digits[:13], weights2))
-        remainder = total % 11
-        second_check = 0 if remainder < 2 else 11 - remainder
+    @staticmethod
+    def normalize_cep(value: Any) -> ValidationResult:
+        """Normalize 8-digit postal code."""
+        return normalize_cep(value)
 
-        if second_check != int(digits[13]):
-            return DocumentValidationResult(
-                is_valid=False,
-                document_type="CNPJ",
-                formatted_document="",
-                raw_digits=digits,
-                error_message="CNPJ second verification digit is invalid.",
-            )
+    @staticmethod
+    def normalize_cnae(value: Any) -> ValidationResult:
+        """Normalize economic activity code."""
+        return normalize_cnae(value)
 
-        formatted = f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
-        return DocumentValidationResult(
-            is_valid=True,
-            document_type="CNPJ",
-            formatted_document=formatted,
-            raw_digits=digits,
-        )
+    @staticmethod
+    def normalize_cnae_list(value: Any) -> List[str]:
+        """Normalize list of economic activity codes."""
+        return normalize_cnae_list(value)
+
+    @staticmethod
+    def normalize_phone(value: Any, country_code: bool = True) -> ValidationResult:
+        """Normalize landline or mobile phone number."""
+        return normalize_phone(value, country_code=country_code)
+
+    @staticmethod
+    def normalize_address(payload: Mapping[str, Any]) -> Dict[str, str]:
+        """Normalize address field dictionary."""
+        return normalize_address(payload)
+
+    # -- Batch Processing ----------------------------------------------------
+
+    @staticmethod
+    def validate_batch(
+        rows: List[Dict[str, Any]], field: str = "cpf"
+    ) -> Dict[str, Any]:
+        """Split a dataset batch into accepted and rejected records with diagnostic details."""
+        accepted: List[Dict[str, Any]] = []
+        rejected: List[Dict[str, Any]] = []
+
+        for line, row in enumerate(rows or [], start=1):
+            provided = row.get(field, "")
+            result = BrazilValidator.validate_document(provided)
+            if result.is_valid:
+                row[field] = result.clean
+                row["_document_kind"] = result.kind
+                row["_document_version"] = result.version
+                accepted.append(row)
+            else:
+                rejected.append(
+                    {
+                        "line": line,
+                        "record": row,
+                        "provided_document": provided,
+                        "error_code": result.error_code,
+                        "message_key": result.message_key,
+                        "params": dict(result.params),
+                    }
+                )
+
+        return {
+            "total_processed": len(rows or []),
+            "total_accepted": len(accepted),
+            "total_rejected": len(rejected),
+            "accepted": accepted,
+            "rejected": rejected,
+        }
+
+
+# Backwards compatibility alias
+DocumentValidatorEngine = BrazilValidator
+
+__all__ = ["BrazilValidator", "DocumentValidatorEngine", "DocumentValidationResult"]

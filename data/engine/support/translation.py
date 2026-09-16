@@ -82,6 +82,8 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
 
     text: Optional[str] = None
 
+    active_locale = str(locale or current_locale.get() or "en")
+
     try:
         app = Container.getInstance()
         config = app.make("config")
@@ -92,6 +94,7 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
             or config.get("app.locale")
             or "en"
         )
+        active_locale = str(active)
         fallback = config.get("app.APP_FALLBACK_LOCALE") or config.get("app.fallback_locale") or "en"
 
         for candidate in locale_chain(active, fallback):
@@ -119,9 +122,10 @@ def translate(key: str, locale: Optional[str] = None, **replacements: Any) -> st
 
     result = text if text is not None else key
 
-    # `{name}` placeholders keep the catalog free of string concatenation.
-    for name, value in replacements.items():
-        result = result.replace("{" + name + "}", str(value))
+    if replacements:
+        from engine.support.icu import format_message
+
+        result = format_message(result, replacements, locale=active_locale)
 
     return result
 
