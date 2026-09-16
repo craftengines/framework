@@ -1085,6 +1085,107 @@ class SchemaBuilder:
     def rename(self, table: str, new_name: str) -> None:
         self.db.statement(self.grammar().compile_rename(table, new_name))
 
+    # -- converging: alter an existing column in place --------------------------
+
+    def rename_column(self, table: str, from_name: str, to_name: str) -> None:
+        """Rename an existing column. PostgreSQL and SQLite (3.25+) both support
+        this natively — unlike type/nullability/default, no rebuild is needed.
+        """
+        table, from_name, to_name = _assert_table(table), _assert_table(from_name), _assert_table(to_name)
+        wrap = self.grammar().wrap
+        self.db.statement(f"ALTER TABLE {wrap(table)} RENAME COLUMN {wrap(from_name)} TO {wrap(to_name)}")
+
+    def change_column(
+        self,
+        table: str,
+        name: str,
+        *,
+        type: Optional[str] = None,
+        length: Optional[Any] = None,
+        nullable: Optional[bool] = None,
+        default: Any = _NO_DEFAULT,
+    ) -> None:
+        """Alter an existing column's type, nullability, and/or default.
+
+        PostgreSQL only (`alter_column` capability) — SQLite's `ALTER TABLE`
+        can rename or drop a column but cannot change type, nullability or
+        default without rebuilding the table (copy to a new one, drop the
+        old, rename), which this does not attempt: a schema migration that
+        silently rewrites an entire table's data on the least-supervised
+        driver is a bigger risk than refusing outright and naming the reason.
+
+        Args:
+            table: The table to alter.
+            name: The column to alter.
+            type: New column type (one of the `Blueprint` type names, e.g.
+                `"string"`, `"integer"`) — unchanged if omitted.
+            length: Length/precision for `type`, when it needs one.
+            nullable: `True` to allow NULL, `False` to forbid it — unchanged
+                if omitted.
+            default: New default value, or `None` to drop the default
+                entirely — unchanged if omitted (the parameter's own
+                default, `_NO_DEFAULT`, is the "don't touch it" sentinel,
+                distinct from passing `None` to mean "no default").
+
+        Raises:
+            UnsupportedFeatureError: The driver is not PostgreSQL.
+        """
+        self.db.dialect.require(
+            "alter_column", "is what alters an existing column's type, nullability or default"
+        )
+        table, name = _assert_table(table), _assert_table(name)
+        wrap = self.grammar().wrap
+        grammar = self.grammar()
+
+        if type is not None:
+            column = Column(name, type, length)
+            sql_type = grammar.type_of(column)
+            self.db.statement(
+                f"ALTER TABLE {wrap(table)} ALTER COLUMN {wrap(name)} TYPE {sql_type} "
+                f"USING {wrap(name)}::{sql_type}"
+            )
+        if nullable is not None:
+            clause = "DROP NOT NULL" if nullable else "SET NOT NULL"
+            self.db.statement(f"ALTER TABLE {wrap(table)} ALTER COLUMN {wrap(name)} {clause}")
+        if default is not _NO_DEFAULT:
+            if default is None:
+                self.db.statement(f"ALTER TABLE {wrap(table)} ALTER COLUMN {wrap(name)} DROP DEFAULT")
+            else:
+                self.db.statement(
+                    f"ALTER TABLE {wrap(table)} ALTER COLUMN {wrap(name)} "
+                    f"SET DEFAULT {grammar.format_default(default)}"
+                )
+
+    def add_constraint_if_missing(self, table: str, constraint_name: str, definition: str) -> None:
+        """Add a named constraint only if it does not already exist.
+
+        A migration re-run after a partial failure (the process died between
+        two `Schema.raw()` statements, say) must not raise on the constraint
+        that already made it in — `ADD CONSTRAINT IF NOT EXISTS` is not valid
+        PostgreSQL syntax (unlike `CREATE INDEX IF NOT EXISTS`), so this
+        checks the catalog first instead.
+
+        Args:
+            table: The table the constraint belongs to.
+            constraint_name: The constraint's name, used both to check for
+                its existence and in the `ADD CONSTRAINT` clause.
+            definition: The constraint body, e.g. `"CHECK (amount_cents >= 0)"`
+                or `"UNIQUE (tenant_id, slug)"` — everything after the name.
+        """
+        self.db.dialect.require("alter_column", "is what an idempotent constraint add needs to check the catalog")
+        table, constraint_name = _assert_table(table), _assert_table(constraint_name)
+        exists = self.db.select_one(
+            "SELECT 1 FROM information_schema.table_constraints "
+            "WHERE table_name = ? AND constraint_name = ?",
+            [table, constraint_name],
+        )
+        if exists:
+            return
+        wrap = self.grammar().wrap
+        self.db.statement(
+            f"ALTER TABLE {wrap(table)} ADD CONSTRAINT {wrap(constraint_name)} {definition}"
+        )
+
     # -- extensions ------------------------------------------------------------
 
     #: Extensions the framework knows how to use, and what for. An arbitrary

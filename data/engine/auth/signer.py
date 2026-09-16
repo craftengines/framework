@@ -72,8 +72,7 @@ class Signer:
             app_key = self._app_key_from_container()
         if not app_key:
             raise SignerKeyMissingError(
-                "APP_KEY is empty — the signer has no key to derive from. "
-                "Run `python dev.py key:generate` first."
+                "APP_KEY is empty — the signer has no key to derive from. Run `python dev.py key:generate` first."
             )
         self._app_key = app_key.encode("utf-8")
 
@@ -116,9 +115,7 @@ class Signer:
             An opaque, URL-safe token.
         """
         expires_at = int(time.time()) + ttl_seconds if ttl_seconds is not None else None
-        body = json.dumps(
-            {"p": payload, "c": context, "e": expires_at}, separators=(",", ":")
-        ).encode("utf-8")
+        body = json.dumps({"p": payload, "c": context, "e": expires_at}, separators=(",", ":")).encode("utf-8")
         body_b64 = _b64encode(body)
         signature = _b64encode(hmac.new(self._purpose_key(purpose), body_b64.encode("ascii"), hashlib.sha256).digest())
         return f"{body_b64}.{signature}"
@@ -141,7 +138,7 @@ class Signer:
         try:
             body_b64, signature = token.split(".", 1)
         except ValueError:
-            raise InvalidTokenError(f"{InvalidTokenError.code}: malformed token")
+            raise InvalidTokenError(f"{InvalidTokenError.code}: malformed token") from None
 
         expected = _b64encode(hmac.new(self._purpose_key(purpose), body_b64.encode("ascii"), hashlib.sha256).digest())
         if not hmac.compare_digest(expected, signature):
@@ -149,8 +146,8 @@ class Signer:
 
         try:
             data: dict[str, Any] = json.loads(_b64decode(body_b64))
-        except (ValueError, UnicodeDecodeError):
-            raise InvalidTokenError(f"{InvalidTokenError.code}: malformed payload")
+        except ValueError, UnicodeDecodeError:
+            raise InvalidTokenError(f"{InvalidTokenError.code}: malformed payload") from None
 
         if data.get("c", "") != context:
             raise InvalidTokenError(f"{InvalidTokenError.code}: context mismatch")

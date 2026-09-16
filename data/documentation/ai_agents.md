@@ -35,6 +35,68 @@ This generates:
 - `llms.txt` — Standard high-density overview of Craft Engine for LLMs.
 - `llms-full.txt` — Full API contracts and code examples.
 - `.agents/mcp.json` — Model Context Protocol config snippet.
+- `.claude/agents/`, `.claude/skills/`, `.claude/commands/`, `.claude/references/` — the full development agent catalog below.
+
+---
+
+## Development Agent Catalog
+
+The framework ships an installable catalog of development specialists, adapted to
+Craft Engine (`dev.py`, Craft ORM, Forge, pytest, forward-only migrations,
+database-backed i18n, the layer caps and both lint gates). It lives in
+`engine/cli/agent_catalog/` and is installed per project:
+
+```bash
+python dev.py agent:list                     # everything, with descriptions
+python dev.py agent:install --all            # the whole catalog
+python dev.py agent:install security-auditor security-and-hardening
+```
+
+Three layers, each with one job:
+
+| Layer | What it is | Installed to |
+|---|---|---|
+| **Agent** | A role with one perspective and one report format | `.claude/agents/<name>.md` |
+| **Skill** | A workflow with steps and exit criteria | `.claude/skills/<name>/SKILL.md` |
+| **Command** | A user entry point that composes agents and skills | `.claude/commands/<name>.md` |
+
+Shared checklists (`.claude/references/`) are installed with any selection, because
+agents and skills link to them. Agents never call other agents; commands orchestrate.
+
+### Agents
+
+| Agent | Use for |
+|---|---|
+| `code-reviewer` | Five-axis review of a change before merge, including Craft governance |
+| `security-auditor` | Vulnerability and hardening audit |
+| `test-engineer` | Test strategy, coverage gaps, prove-it tests for bugs |
+| `web-performance-auditor` | Core Web Vitals, loading, rendering and network analysis |
+
+### Commands
+
+| Command | Flow |
+|---|---|
+| `/spec` | Write the specification before code |
+| `/plan-tasks` | Break a spec into ordered, verifiable tasks |
+| `/build` | Implement the next task in thin, tested slices |
+| `/test` | Test-driven workflow for a feature or a bug |
+| `/review-change` | Single-perspective review with `code-reviewer` |
+| `/code-simplify` | Reduce complexity without changing behavior |
+| `/constraints` | Derive and enforce the constraints of a change |
+| `/ship` | Parallel review, security and coverage reports, then go/no-go |
+| `/webperf` | Web performance audit |
+
+### Skills
+
+`api-and-interface-design`, `browser-testing-with-devtools`, `ci-cd-and-automation`,
+`code-review-and-quality`, `code-simplification`, `constraint-driven-development`,
+`context-engineering`, `debugging-and-error-recovery`, `deprecation-and-migration`,
+`documentation-and-adrs`, `doubt-driven-development`, `frontend-ui-engineering`,
+`git-workflow-and-versioning`, `idea-refine`, `incremental-implementation`,
+`interview-me`, `observability-and-instrumentation`, `performance-optimization`,
+`planning-and-task-breakdown`, `security-and-hardening`, `shipping-and-launch`,
+`source-driven-development`, `spec-driven-development`, `test-driven-development`,
+`using-agent-catalog` (start here: it routes an intent to the right skill, agent or command).
 
 ---
 

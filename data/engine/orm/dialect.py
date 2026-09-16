@@ -28,6 +28,7 @@ from typing import Optional, Protocol, Set, runtime_checkable
 #: with no signal at all.
 FEATURES = frozenset({
     "advisory_locks",
+    "alter_column",
     "arrays",
     "extensions",
     "fulltext",

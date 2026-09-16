@@ -114,12 +114,20 @@ Craft Engine is optimized for autonomous AI coding agents (Cursor, Claude Code, 
 
 | Command | What it does |
 |---|---|
-| `agent:scaffold [-f]` | Bootstrap AI context files (`.cursorrules`, `llms.txt`, `llms-full.txt`, `.agents/mcp.json`) |
+| `agent:scaffold [-f]` | Bootstrap AI context files (`.cursorrules`, `llms.txt`, `llms-full.txt`, `.agents/mcp.json`) and install the whole agent catalog into `.claude/` |
 | `agent:rules` | Alias for `agent:scaffold` |
+| `agent:list [--kind K]` | List catalog entries: `agent`, `skill`, `command`, `reference` |
+| `agent:install NAME... [-f]` | Install named agents, skills or commands (shared references always come along) |
+| `agent:install --all [-f]` | Install the whole catalog |
 
 ```bash
 python dev.py agent:scaffold
+python dev.py agent:list --kind agent
+python dev.py agent:install code-reviewer test-driven-development ship
 ```
+
+Installs refuse to overwrite an existing entry without `--force`, and check every
+conflict before writing anything. See [AI Agents](ai_agents.md#development-agent-catalog).
 
 ## Application
 

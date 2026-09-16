@@ -18,6 +18,8 @@ full policy (categories to use, what counts as security-relevant, how
 
 ## [Unreleased]
 
+## [3.21.0] r00014 — 2026-09-16
+
 ### Security
 
 - **Argon2id replaces bcrypt as the default password hash** (`engine/auth/password.py`, `pyproject.toml`): OWASP-recommended memory-hard hash for new passwords; bcrypt and PBKDF2 remain verify-only for existing hashes, `needs_rehash()` upgrades them on next login.
@@ -40,6 +42,7 @@ full policy (categories to use, what counts as security-relevant, how
 
 ### Fixed
 
+- **Exception chaining in token validation** (`engine/auth/signer.py`): added `from None` to `InvalidTokenError` raises inside `except ValueError` and `except (ValueError, UnicodeDecodeError)` blocks, satisfying Ruff B904 and preventing internal exception context leakage.
 - **Destructive database operations on a permanent database** (`engine/migrations/safety.py`, `engine/cli/app.py`, `engine/migrations/migrator.py`): `migrate fresh/reset/refresh` and `db wipe --force` now refuse (NR-02) unless the target database is disposable (in-memory SQLite, a `_test` suffix, or explicitly allowlisted via `DB_DISPOSABLE_DATABASES`).
 - **Scoped container instances leaked across concurrent requests** (`engine/container/application.py`, `engine/http/kernel.py`): scoped bindings now live in a `ContextVar` opened per request (`Container.begin_request_scope()`/`end_request_scope()`) instead of a class-level dict shared by every in-flight request.
 - **Lost updates on concurrent model edits** (`engine/orm/model.py`): `Model` now tracks dirty state (`sync_original()`, `get_dirty()`, `is_dirty()`) and `save()` writes only the changed columns, so two editors touching different fields on the same row no longer clobber each other.
@@ -62,6 +65,7 @@ full policy (categories to use, what counts as security-relevant, how
   - `agent:scaffold` now installs the whole catalog alongside the context files.
   - Catalog files ship as package data (`pyproject.toml`); third-party license notice in `engine/cli/agent_catalog/references/third-party-notices.md (installed with every selection)`.
   - `tests/test_agent_catalog.py` covers content completeness, frontmatter, install selection, overwrite refusal and the CLI commands.
+- **Live performance & concurrency benchmark report** (`documentation/market_evaluation.md`, `.agents/docs/benchmark-2026-09-16.md`): live load testing across standard endpoints demonstrating ~290–308 req/s under 100 concurrent clients (+820% to +1,930% throughput increase vs. August 2026 baseline, zero timeouts or errors) and full-stack framework comparison matrix.
 
 ## [3.20.0] r00013 — 2026-09-08
 
