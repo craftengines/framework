@@ -39,6 +39,40 @@ class TestHash:
     def test_is_hashed_recognises_bcrypt_prefixes(self):
         assert Hash.is_hashed("$2b$12$abcdefghijklmnopqrstuv") is True
 
+    def test_new_hashes_use_argon2id(self):
+        assert Hash.make("secret").startswith("$argon2id$")
+
+    def test_is_hashed_recognises_argon2_prefixes(self):
+        assert Hash.is_hashed("$argon2id$v=19$m=19456,t=2,p=1$abc$def") is True
+
+    def test_a_legacy_bcrypt_hash_still_verifies(self):
+        import bcrypt
+
+        # Real bcrypt hash, low cost (4) purely for test speed.
+        bcrypt_hash = bcrypt.hashpw(b"legacy-secret", bcrypt.gensalt(rounds=4)).decode()
+        assert Hash.check("legacy-secret", bcrypt_hash) is True
+        assert Hash.check("wrong", bcrypt_hash) is False
+
+    def test_a_legacy_pbkdf2_hash_still_verifies(self):
+        # A hash this module itself would have produced before Argon2id existed.
+        import base64
+        import hashlib
+
+        salt = b"0123456789abcdef"
+        digest = hashlib.pbkdf2_hmac("sha256", b"legacy-secret", salt, 1000)
+        legacy_hash = "$".join([
+            "pbkdf2_sha256", "1000",
+            base64.b64encode(salt).decode("ascii"),
+            base64.b64encode(digest).decode("ascii"),
+        ])
+        assert Hash.check("legacy-secret", legacy_hash) is True
+        assert Hash.check("wrong", legacy_hash) is False
+
+    def test_needs_rehash_flags_a_legacy_hash_but_not_a_fresh_argon2id_one(self):
+        assert Hash.needs_rehash("$2b$04$C6UzMDM.H6dfI/f/IKcEeOtRVpitmxVtDL7L4y1KRZI80B/pQzr5S") is True
+        assert Hash.needs_rehash(Hash.make("secret")) is False
+        assert Hash.needs_rehash(None) is True
+
 
 class TestAuthManager:
     @pytest.fixture

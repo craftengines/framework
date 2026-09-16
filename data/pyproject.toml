@@ -42,6 +42,14 @@ dependencies = [
     # below it, or passlib raises on first use and Hash falls back to PBKDF2.
     "passlib>=1.7",
     "bcrypt>=4.0,<4.1",
+    # The default password hash (Slice 2 of the SoftPax upstream roadmap):
+    # memory-hard, GPU/ASIC-resistant, and the OWASP-recommended choice over
+    # bcrypt for new hashes. bcrypt/PBKDF2 verification is kept for existing
+    # hashes - see `engine/auth/password.py`.
+    "argon2-cffi>=23.1",
+    # AES-GCM for the credential vault (`engine/security/vault.py`). A
+    # maintained, audited library - never a hand-rolled cipher.
+    "cryptography>=42.0",
     "faker>=20.0",
     "psycopg2-binary>=2.9",
     "pillow>=10.0.0",

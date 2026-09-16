@@ -1,7 +1,11 @@
 """Password hashing for Craft Framework.
 
-Uses bcrypt via passlib when available and falls back to PBKDF2-HMAC-SHA256
-from the standard library, so a fresh install never silently stores plaintext.
+Argon2id is the default for new hashes (Slice 2 of the SoftPax upstream
+roadmap) — memory-hard and GPU/ASIC-resistant, the OWASP-recommended choice
+over bcrypt for a new hash. bcrypt (via passlib) and PBKDF2-HMAC-SHA256 are
+kept as verify-only fallbacks so an existing hash from before this change
+keeps working; `needs_rehash()` flags it so the next successful login
+upgrades it transparently.
 
 Category: Core Framework (Auth).
 Relations:
@@ -24,10 +28,33 @@ from typing import Optional
 
 _PBKDF2_ROUNDS = 260_000
 _PBKDF2_PREFIX = "pbkdf2_sha256"
+_ARGON2_PREFIXES = ("$argon2id$", "$argon2i$", "$argon2d$")
+
+
+def _argon2_hasher():
+    """Return a configured Argon2id hasher, or `None` if the library is absent.
+
+    Parameters follow the OWASP password-storage cheat sheet's Argon2id
+    recommendation (19 MiB memory, 2 iterations, 1 degree of parallelism, as
+    the minimum profile suitable for a web request's latency budget).
+    """
+    try:
+        from argon2 import PasswordHasher
+        from argon2.low_level import Type
+    except ImportError:
+        return None
+    return PasswordHasher(
+        time_cost=2,
+        memory_cost=19 * 1024,
+        parallelism=1,
+        hash_len=32,
+        salt_len=16,
+        type=Type.ID,
+    )
 
 
 def _passlib_context():
-    """Return a working bcrypt context, or None to use the PBKDF2 fallback.
+    """Return a working bcrypt context, or None (verify-only fallback path).
 
     passlib only loads its bcrypt backend lazily, and that load fails against
     bcrypt 4.x (`module 'bcrypt' has no attribute '__about__'`). Constructing
@@ -57,6 +84,7 @@ def _passlib_context():
         passlib_logger.setLevel(previous_level)
 
 
+_ARGON2 = _argon2_hasher()
 _CONTEXT = _passlib_context()
 
 
@@ -67,6 +95,9 @@ class Hash:
     def make(password: str, rounds: Optional[int] = None) -> str:
         if not isinstance(password, str):
             password = str(password)
+
+        if _ARGON2 is not None:
+            return _ARGON2.hash(password)
 
         if _CONTEXT is not None:
             return _CONTEXT.hash(password)
@@ -87,6 +118,14 @@ class Hash:
     def check(password: str, hashed: Optional[str]) -> bool:
         if not hashed or not isinstance(hashed, str):
             return False
+
+        if hashed.startswith(_ARGON2_PREFIXES):
+            if _ARGON2 is None:
+                return False
+            try:
+                return _ARGON2.verify(hashed, str(password))
+            except Exception:
+                return False
 
         if hashed.startswith(_PBKDF2_PREFIX + "$"):
             try:
@@ -110,12 +149,23 @@ class Hash:
 
     @staticmethod
     def needs_rehash(hashed: Optional[str]) -> bool:
-        """True when a stored hash predates the current algorithm."""
+        """True when a stored hash predates the current algorithm or its parameters."""
         if not hashed:
             return True
-        if _CONTEXT is not None:
-            if hashed.startswith(_PBKDF2_PREFIX + "$"):
+        if hashed.startswith(_ARGON2_PREFIXES):
+            if _ARGON2 is None:
+                return False
+            try:
+                return _ARGON2.check_needs_rehash(hashed)
+            except Exception:
                 return True
+        # Any non-Argon2id hash (bcrypt or PBKDF2) needs upgrading once
+        # Argon2id is available; without it, only PBKDF2 predates bcrypt.
+        if _ARGON2 is not None:
+            return True
+        if hashed.startswith(_PBKDF2_PREFIX + "$"):
+            return True
+        if _CONTEXT is not None:
             try:
                 return _CONTEXT.needs_update(hashed)
             except Exception:
@@ -127,7 +177,7 @@ class Hash:
         """Detect whether a value is already a hash rather than plaintext."""
         if not value or not isinstance(value, str):
             return False
-        return value.startswith((_PBKDF2_PREFIX + "$", "$2a$", "$2b$", "$2y$", "$argon2"))
+        return value.startswith(_ARGON2_PREFIXES + (_PBKDF2_PREFIX + "$", "$2a$", "$2b$", "$2y$"))
 
 
 __all__ = ["Hash"]
