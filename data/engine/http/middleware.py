@@ -441,7 +441,12 @@ class ScopeTenant(Middleware):
         otherwise land a request in someone else's data. Override this method
         to resolve differently - a header, a path segment, an API token claim.
         """
-        host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0]
+        # Host headers are case-insensitive (RFC 7230 §5.4). Comparing an
+        # un-lowercased host against RESERVED_SUBDOMAINS meant `WWW.example.com`
+        # missed the reserved-subdomain check, fell into the tenant lookup,
+        # matched no tenant, and 404'd a request that should have been treated
+        # as the reserved `www` host.
+        host = str(getattr(request, "header", lambda _n: "")("host") or "").split(":")[0].lower()
         subdomain = host.split(".")[0] if host.count(".") >= 2 else None
         if subdomain and subdomain not in self.RESERVED_SUBDOMAINS:
             from engine.orm.tenancy import TenantHostMismatchError, TenantSuspendedError, UnboundTenantHostError

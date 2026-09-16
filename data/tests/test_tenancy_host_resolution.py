@@ -118,3 +118,15 @@ def test_a_single_segment_host_falls_back_to_the_session_tenant(migrated_databas
     middleware = ScopeTenant(app=migrated_database, require_isolation=False)
     resolved = middleware.resolve(_Request("localhost"), _container_for(migrated_database))
     assert resolved is None
+
+
+@pytest.mark.parametrize("host", ["WWW.example.com", "Www.Example.Com", "API.example.com"])
+def test_a_reserved_subdomain_is_matched_case_insensitively(host, migrated_database):
+    """The Host header is case-insensitive (RFC 7230 Sec 5.4) - `WWW` must be
+    treated the same as `www`, not fall through to the tenant lookup and 404.
+    """
+    middleware = ScopeTenant(app=migrated_database, require_isolation=False)
+    resolved = middleware.resolve(
+        _Request(host), _container_for(migrated_database, user_tenant_id="some-tenant-id")
+    )
+    assert resolved == "some-tenant-id"
