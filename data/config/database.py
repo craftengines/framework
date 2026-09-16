@@ -60,6 +60,7 @@ connections = {
         # Reopen an idle connection older than this instead of reusing it,
         # ahead of the server-side idle timeout.
         "pool_recycle": env("DB_POOL_RECYCLE", 900),
+        "statement_timeout_ms": tenancy["statement_timeout_ms"],
     },
     "mysql": {
         "driver": "mysql",

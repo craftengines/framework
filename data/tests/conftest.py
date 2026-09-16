@@ -105,7 +105,7 @@ def migrated_database() -> Generator[Any, None, None]:
                 hashlib.md5(os.environ.get("DB_DATABASE", "craft_test").encode()).hexdigest()[:8],
                 16
             )
-            db.select_raw(f"SELECT pg_advisory_lock({lock_id})").first()
+            db.statement("SELECT pg_advisory_lock(?)", [lock_id])
 
         migrator = Migrator(app)
         if TEST_DB != "sqlite":
@@ -119,7 +119,7 @@ def migrated_database() -> Generator[Any, None, None]:
         if is_pg and lock_id is not None:
             try:
                 db = app.make("db")
-                db.select_raw(f"SELECT pg_advisory_unlock({lock_id})").first()
+                db.statement("SELECT pg_advisory_unlock(?)", [lock_id])
             except Exception:
                 pass  # Lock already released or connection closed; no error needed.
 
@@ -188,13 +188,13 @@ def unprivileged_postgres_role(migrated_database, is_postgres) -> Generator[str,
 
     try:
         # Drop the role if it already exists (from a previous run).
-        DB.select_raw(f"DROP ROLE IF EXISTS {role_name}").first()
+        DB.statement(f"DROP ROLE IF EXISTS {role_name}")
     except Exception:
         pass
 
     # Create a new role without superuser or BYPASSRLS privileges.
     try:
-        DB.select_raw(f"CREATE ROLE {role_name} WITH LOGIN PASSWORD 'test'").first()
+        DB.statement(f"CREATE ROLE {role_name} WITH LOGIN PASSWORD 'test'")
     except Exception as e:
         pytest.skip(f"Cannot create PostgreSQL role for unprivileged testing: {e}")
 
@@ -202,6 +202,6 @@ def unprivileged_postgres_role(migrated_database, is_postgres) -> Generator[str,
 
     # Clean up.
     try:
-        DB.select_raw(f"DROP ROLE IF EXISTS {role_name}").first()
+        DB.statement(f"DROP ROLE IF EXISTS {role_name}")
     except Exception:
         pass  # Role already dropped or owned by other sessions; ignore.

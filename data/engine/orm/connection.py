@@ -19,6 +19,7 @@ References:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sqlite3
@@ -417,6 +418,19 @@ class Connection:
     # -- pool ------------------------------------------------------------------
 
     def _checkout(self) -> Any:
+        """Take a connection from the pool, applying per-checkout session setup.
+
+        Delegates to `_checkout_raw()` for the pool bookkeeping, then applies
+        `statement_timeout` (every checkout: a pooled connection's session
+        state was reset at check-in) and, once per process, probes for a
+        transaction-mode pooler in front of this connection.
+        """
+        pdo = self._checkout_raw()
+        self._apply_statement_timeout(pdo)
+        self._probe_pooler_mode(pdo)
+        return pdo
+
+    def _checkout_raw(self) -> Any:
         """Take a connection from the pool, opening one if the cap allows.
 
         An idle connection is reused only if it is younger than `pool_recycle`
@@ -461,6 +475,78 @@ class Connection:
                 self._discard(pdo)
                 continue
             return pdo
+
+    #: Set once per process by `_probe_pooler_mode`; class-level like
+    #: `TenantManager._enforcement` (`engine/orm/tenancy.py`), since the
+    #: answer does not change between requests on the same deployment.
+    _pooler_probed: bool = False
+
+    def _apply_statement_timeout(self, pdo: Any) -> None:
+        """Apply `database.tenancy.statement_timeout_ms` to a freshly checked-out connection.
+
+        Every checkout, not just a brand-new connection: `release()` issues
+        `RESET ALL` at check-in (`_reset_session_state`), which clears this
+        along with the tenant/schema GUCs, so a connection coming back out of
+        the idle pool needs it re-applied too.
+        """
+        timeout_ms = int(self.config.get("statement_timeout_ms") or 0)
+        if self.driver != "postgresql" or timeout_ms <= 0:
+            return
+        cursor = pdo.cursor()
+        try:
+            cursor.execute("SELECT set_config('statement_timeout', %s, %s)", (str(timeout_ms), False))
+            if not self._session().in_transaction:
+                pdo.commit()
+        finally:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+
+    def _probe_pooler_mode(self, pdo: Any) -> None:
+        """Warn, once per process, if this connection looks transaction-pooled.
+
+        A transaction-mode pooler (PgBouncer's `pool_mode = transaction`) does
+        not guarantee session state - a `SET`, this connection's tenant GUC -
+        survives from one statement to the next, because the physical backend
+        behind the pooler can be handed to a different client between them.
+        Two `pg_backend_pid()` reads issued as separate statements, with no
+        explicit transaction wrapping them, land on a different backend under
+        such a pooler; on an ordinary session-mode connection they always
+        match. Detection only, never enforcement (per the project's own
+        conservative default): a false positive here must not degrade or
+        refuse to serve a legitimate session-mode connection.
+        """
+        if self.driver != "postgresql" or Connection._pooler_probed:
+            return
+        Connection._pooler_probed = True
+        try:
+            cursor = pdo.cursor()
+            try:
+                cursor.execute("SELECT pg_backend_pid()")
+                first_pid = cursor.fetchone()[0]
+                if not self._session().in_transaction:
+                    pdo.commit()
+                cursor.execute("SELECT pg_backend_pid()")
+                second_pid = cursor.fetchone()[0]
+                if not self._session().in_transaction:
+                    pdo.commit()
+            finally:
+                cursor.close()
+        except Exception:
+            logging.getLogger("craft").debug("Pooler-mode probe failed", exc_info=True)
+            return
+        if first_pid != second_pid:
+            logging.getLogger("craft").warning(
+                "PostgreSQL backend pid changed between two statements on what "
+                "should be the same session (%s -> %s). This connection is "
+                "likely behind a transaction-mode pooler (e.g. PgBouncer "
+                "pool_mode=transaction), which does not guarantee SET/session "
+                "state - including tenant binding - persists across "
+                "statements. Use a session-mode pool, or bind the tenant with "
+                "`local=True` (transaction-scoped) instead.",
+                first_pid, second_pid,
+            )
 
     def _ping(self, pdo: Any) -> bool:
         """Whether an idle connection still answers; only PostgreSQL is asked."""
