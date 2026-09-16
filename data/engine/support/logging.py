@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from engine.support import context
+from engine.support.redaction import redact_message, redact_structure
 
 #: Attributes `logging` puts on every record. Anything else was passed by the
 #: caller through `extra=` and is worth carrying into the payload.
@@ -62,24 +63,29 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": redact_message(record.getMessage()),
         }
 
         for key in _PROMOTED:
             value = getattr(record, key, None)
             if value is not None:
-                payload[key] = value
+                payload[key] = redact_structure({key: value})[key]
 
         for key, value in record.__dict__.items():
             if key in _RESERVED or key in payload or key.startswith("_"):
                 continue
-            payload[key] = value
+            # Redacted by key name first (a field literally called `password`
+            # is dropped outright) and by value shape second (a bearer token
+            # or card-number-shaped string inside a field with an innocuous
+            # name is still caught) - wrapping in a single-key dict reuses
+            # redact_structure's key-name check for this one field/value pair.
+            payload[key] = redact_structure({key: value})[key]
 
         if record.exc_info:
             payload["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
-                "message": str(record.exc_info[1]) if record.exc_info[1] else None,
-                "stack": self.formatException(record.exc_info),
+                "message": redact_message(str(record.exc_info[1])) if record.exc_info[1] else None,
+                "stack": redact_message(self.formatException(record.exc_info)),
             }
 
         # `default=str` rather than dropping what will not serialise: a UUID or
@@ -94,7 +100,7 @@ class TextFormatter(logging.Formatter):
     DEFAULT_FORMAT = "[%(asctime)s] %(levelname)s: %(message)s"
 
     def format(self, record: logging.LogRecord) -> str:
-        line = super().format(record)
+        line = redact_message(super().format(record))
         identifier = getattr(record, "request_id", None)
         return f"{line} [request_id={identifier}]" if identifier else line
 
