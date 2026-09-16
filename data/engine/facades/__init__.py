@@ -106,6 +106,12 @@ class Vault(Facade):
         return "vault"
 
 
+class Signer(Facade):
+    @classmethod
+    def get_facade_accessor(cls) -> str:
+        return "signer"
+
+
 class Migrator(Facade):
     @classmethod
     def get_facade_accessor(cls) -> str:

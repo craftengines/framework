@@ -21,6 +21,7 @@ from engine.providers.service_providers import (
     HoneypotServiceProvider,
     AntiSpamServiceProvider,
     VaultServiceProvider,
+    SignerServiceProvider,
     FrameworkSubsystemsServiceProvider,
 )
 
@@ -42,6 +43,7 @@ __all__ = [
     "HoneypotServiceProvider",
     "AntiSpamServiceProvider",
     "VaultServiceProvider",
+    "SignerServiceProvider",
     "FrameworkSubsystemsServiceProvider",
 ]
 

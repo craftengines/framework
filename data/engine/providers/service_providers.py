@@ -192,6 +192,13 @@ class VaultServiceProvider(ServiceProvider):
         self.app.singleton("vault", lambda c: Vault())
 
 
+class SignerServiceProvider(ServiceProvider):
+    def register(self):
+        # Lazy, same reasoning as VaultServiceProvider.
+        from engine.auth.signer import Signer
+        self.app.singleton("signer", lambda c: Signer())
+
+
 class FirewallServiceProvider(ServiceProvider):
     def register(self):
         from engine.security.firewall import Firewall

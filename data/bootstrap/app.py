@@ -39,6 +39,7 @@ def create_app() -> Application:
         HoneypotServiceProvider,
         AntiSpamServiceProvider,
         VaultServiceProvider,
+        SignerServiceProvider,
         MediaServiceProvider,
         AIServiceProvider,
         AgentServiceProvider,
@@ -76,9 +77,10 @@ def create_app() -> Application:
         app.register_provider(PQCServiceProvider)
     if config.get("framework.CAPTCHA_ENABLED", True):
         app.register_provider(CaptchaServiceProvider)
-    # Unconditional and lazy: registering costs nothing (the Vault instance
-    # is only built, and APP_KEY only read, on the first `container.make("vault")`).
+    # Unconditional and lazy: registering costs nothing (the Vault/Signer
+    # instance is only built, and APP_KEY only read, on first use).
     app.register_provider(VaultServiceProvider)
+    app.register_provider(SignerServiceProvider)
 
 
     app.register_provider(FrameworkSubsystemsServiceProvider)
