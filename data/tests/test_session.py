@@ -9,6 +9,7 @@ import pytest
 
 from craft.http.session import (
     CookieSessionStore,
+    DatabaseSessionStore,
     FileSessionStore,
     Session,
     sign,
@@ -236,3 +237,122 @@ class TestFileStore:
         path = store._path("../../etc/passwd")
         assert str(directory) in path
         assert ".." not in path
+
+
+class TestDatabaseStore:
+    def test_cookie_carries_only_the_id(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database)
+        session = store.load(None)
+        session.put("secret", "must-not-be-in-the-cookie")
+        cookie = store.save(session)
+
+        assert "must-not-be-in-the-cookie" not in cookie
+        store.destroy(session.id)
+
+    def test_a_round_trip_survives_a_fresh_store_instance(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database)
+        session = store.load(None)
+        session.put("user", "jane")
+        cookie = store.save(session)
+
+        reloaded = DatabaseSessionStore(KEY, migrated_database).load(cookie)
+        assert reloaded.get("user") == "jane"
+        store.destroy(session.id)
+
+    def test_destroy_invalidates_server_side(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database)
+        session = store.load(None)
+        session.put("user", "jane")
+        cookie = store.save(session)
+
+        store.destroy(session.id)
+        assert store.load(cookie).get("user") is None
+
+    def test_revoke_invalidates_without_deleting_the_row(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database)
+        session = store.load(None)
+        session.put("user", "jane")
+        cookie = store.save(session)
+
+        store.revoke(session.id)
+        try:
+            assert store.load(cookie).get("user") is None, "a revoked session must load empty"
+            row = migrated_database.make("db").table("sessions").where("id", session.id).first()
+            assert row is not None, "revoke() keeps the row (audit trail), unlike destroy()"
+            assert row.get("revoked_at") is not None
+        finally:
+            store.destroy(session.id)
+
+    def test_revoke_all_for_leaves_the_excepted_session_untouched(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database)
+        keep = store.load(None)
+        keep.put("user", "jane")
+        keep_cookie = store.save(keep)
+
+        others = []
+        for _ in range(3):
+            other = store.load(None)
+            other.put("user", "jane")
+            others.append((other.id, store.save(other)))
+
+        try:
+            revoked_count = store.revoke_all_for(except_session_id=keep.id)
+            assert revoked_count == 3
+            assert store.load(keep_cookie).get("user") == "jane", "the excepted session must survive"
+            for _, other_cookie in others:
+                assert store.load(other_cookie).get("user") is None
+        finally:
+            store.destroy(keep.id)
+            for other_id, _ in others:
+                store.destroy(other_id)
+
+    def test_idle_timeout_expires_a_session_independent_of_lifetime(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database, lifetime=3600, idle_timeout=1)
+        session = store.load(None)
+        session.put("user", "jane")
+        cookie = store.save(session)
+
+        time.sleep(1.2)
+        try:
+            assert store.load(cookie).get("user") is None, "idle timeout must expire it early"
+        finally:
+            store.destroy(session.id)
+
+    def test_no_idle_timeout_configured_never_expires_early(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database, lifetime=3600, idle_timeout=None)
+        session = store.load(None)
+        session.put("user", "jane")
+        cookie = store.save(session)
+
+        time.sleep(0.1)
+        try:
+            assert store.load(cookie).get("user") == "jane"
+        finally:
+            store.destroy(session.id)
+
+    def test_gc_removes_rows_past_their_lifetime(self, migrated_database):
+        store = DatabaseSessionStore(KEY, migrated_database, lifetime=1)
+        session = store.load(None)
+        session.put("user", "jane")
+        store.save(session)
+
+        # created_at is second-granularity; 2.1s guarantees strict inequality
+        # against the 1s lifetime despite truncation at insert/compare time.
+        time.sleep(2.1)
+        assert store.gc() >= 1
+        assert store.load(store._encode({"id": session.id})).get("user") is None
+
+    def test_make_store_builds_a_database_store_for_the_database_driver(self, migrated_database):
+        from craft.http.session import make_store
+
+        config = migrated_database.make("config")
+        original_driver = config.get("session.driver")
+        original_key = config.get("app.APP_KEY")
+        config.set("session.driver", "database")
+        config.set("app.APP_KEY", "base64:" + KEY)
+        try:
+            store = make_store(migrated_database)
+            assert isinstance(store, DatabaseSessionStore)
+        finally:
+            config.set("session.driver", original_driver)
+            config.set("app.APP_KEY", original_key)

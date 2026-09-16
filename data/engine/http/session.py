@@ -32,6 +32,7 @@ import os
 import secrets
 import time
 from contextvars import ContextVar
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 #: The session for the request being handled, set by the StartSession
@@ -319,6 +320,168 @@ class FileSessionStore(SessionStore):
         return removed
 
 
+class DatabaseSessionStore(SessionStore):
+    """Server-side session storage in the `sessions` table.
+
+    Unlike `CookieSessionStore` and `FileSessionStore`, a row here can be
+    revoked from outside the browser that holds it — "log out everywhere,"
+    an admin ending a compromised session, a password change invalidating
+    every other session — and idle time is tracked independent of the
+    cookie's own absolute expiry, so a session left open in an unattended
+    browser can be timed out sooner than its full lifetime.
+    """
+
+    def __init__(self, key: str, app: Any = None, lifetime: int = 7200, idle_timeout: Optional[int] = None):
+        super().__init__(key, lifetime)
+        self.app = app
+        #: Seconds of inactivity before a session is treated as expired,
+        #: independent of `lifetime`. `None` disables idle checking.
+        self.idle_timeout = idle_timeout
+
+    def _db(self) -> Any:
+        if self.app is not None:
+            try:
+                return self.app.make("db")
+            except Exception:
+                pass
+        from engine.container.application import Container
+
+        return Container.getInstance().make("db")
+
+    def load(self, cookie_value: Optional[str]) -> Session:
+        payload = self._decode(cookie_value) if cookie_value else None
+        session_id = (payload or {}).get("id")
+        if not session_id:
+            return Session({})
+
+        db = self._db()
+        try:
+            row = db.table("sessions").where("id", session_id).first()
+        except Exception:
+            return Session({}, session_id=session_id)
+        if row is None:
+            return Session({}, session_id=session_id)
+
+        if row.get("revoked_at"):
+            # Revoked from outside this request — a still-signed cookie must
+            # not resurrect it. Same treatment as an expired one: a fresh
+            # session under the same id, not an error.
+            return Session({}, session_id=session_id)
+
+        if self._is_idle_expired(row) or self._is_lifetime_expired(row):
+            self.destroy(session_id)
+            return Session({}, session_id=session_id)
+
+        try:
+            stored = json.loads(row.get("payload") or "{}")
+        except ValueError:
+            stored = {}
+        return Session(stored, session_id=session_id)
+
+    def _is_lifetime_expired(self, row: Dict[str, Any]) -> bool:
+        created_at = self._parse_stored_time(row.get("created_at"))
+        return created_at is not None and (time.time() - created_at) > self.lifetime
+
+    def _is_idle_expired(self, row: Dict[str, Any]) -> bool:
+        if self.idle_timeout is None:
+            return False
+        last_activity = self._parse_stored_time(row.get("last_activity_at"))
+        return last_activity is not None and (time.time() - last_activity) > self.idle_timeout
+
+    @staticmethod
+    def _parse_stored_time(value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+            try:
+                import datetime as _dt
+
+                return _dt.datetime.strptime(str(value)[:26], fmt).replace(tzinfo=_dt.timezone.utc).timestamp()
+            except ValueError:
+                continue
+        return None
+
+    def save(self, session: Session) -> str:
+        session.age_flash_data()
+        payload = json.dumps(session.to_dict(), default=str)
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        db = self._db()
+
+        original_id = getattr(session, "_original_id", None)
+        if original_id and original_id != session.id:
+            self.destroy(original_id)
+            session._original_id = session.id
+
+        try:
+            existing = db.table("sessions").where("id", session.id).first()
+            if existing:
+                db.table("sessions").where("id", session.id).update({
+                    "payload": payload, "last_activity_at": now, "updated_at": now,
+                })
+            else:
+                db.table("sessions").insert({
+                    "id": session.id, "payload": payload,
+                    "last_activity_at": now, "created_at": now, "updated_at": now,
+                })
+        except Exception:
+            pass
+        return self._encode({"id": session.id})
+
+    def destroy(self, session_id: str) -> None:
+        try:
+            self._db().table("sessions").where("id", session_id).delete()
+        except Exception:
+            pass
+
+    def revoke(self, session_id: str) -> None:
+        """Mark a session unusable immediately, without deleting its row.
+
+        Kept (not deleted) rather than destroyed outright, so an audit trail
+        of "this session was forcibly ended, and when" survives the act that
+        ended it — `destroy()` is for an expired or logged-out session with
+        nothing worth keeping; `revoke()` is for one ended *on purpose*.
+        """
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            self._db().table("sessions").where("id", session_id).update({"revoked_at": now})
+        except Exception:
+            pass
+
+    def revoke_all_for(self, except_session_id: Optional[str] = None) -> int:
+        """Revoke every session except one — "log out everywhere but here."
+
+        Args:
+            except_session_id: A session id to leave untouched (typically the
+                caller's own current session).
+
+        Returns:
+            How many sessions were revoked.
+        """
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        db = self._db()
+        try:
+            query = db.table("sessions").where_null("revoked_at")
+            if except_session_id:
+                query = query.where("id", "!=", except_session_id)
+            rows = query.get()
+            for row in rows:
+                db.table("sessions").where("id", row["id"]).update({"revoked_at": now})
+            return len(rows)
+        except Exception:
+            return 0
+
+    def gc(self) -> int:
+        """Delete rows past their absolute lifetime. Returns how many were removed."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=self.lifetime)).strftime("%Y-%m-%d %H:%M:%S")
+        db = self._db()
+        try:
+            return db.table("sessions").where("created_at", "<", cutoff).delete()
+        except Exception:
+            return 0
+
+
 #: One fallback signing key per process, created on first use. It must be
 #: stable — a fresh key per store instance would silently invalidate every
 #: cookie the moment anything rebuilt the store.
@@ -375,6 +538,12 @@ def make_store(app: Any = None) -> SessionStore:
         )
         return FileSessionStore(app_key, directory, lifetime)
 
+    if driver == "database":
+        idle_timeout = setting("session.idle_timeout", None)
+        return DatabaseSessionStore(
+            app_key, app, lifetime, int(idle_timeout) if idle_timeout else None
+        )
+
     return CookieSessionStore(app_key, lifetime)
 
 
@@ -383,6 +552,7 @@ __all__ = [
     "SessionStore",
     "CookieSessionStore",
     "FileSessionStore",
+    "DatabaseSessionStore",
     "make_store",
     "sign",
     "verify",
