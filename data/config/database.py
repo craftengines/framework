@@ -14,6 +14,17 @@ default = env("DB_CONNECTION", "sqlite")
 #: Everything else is permanent (NR-02); production is always permanent.
 disposable_databases = env("DB_DISPOSABLE_DATABASES", "")
 
+tenancy = {
+    #: `warn` logs when a request proceeds with no tenant bound; `strict`
+    #: raises. Default `warn` - a strict rollout is an opt-in hardening step
+    #: for an app that already always binds one, not a default that could
+    #: break an existing single-tenant deployment mid-upgrade.
+    "guardian_mode": env("TENANCY_GUARDIAN_MODE", "warn"),
+    #: Applied to every checked-out connection via `SET statement_timeout`,
+    #: regardless of tenancy. `0` (PostgreSQL's own default) disables it.
+    "statement_timeout_ms": env("DB_STATEMENT_TIMEOUT_MS", 0),
+}
+
 connections = {
     "sqlite": {
         "driver": "sqlite",

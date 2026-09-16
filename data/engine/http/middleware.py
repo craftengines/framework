@@ -411,12 +411,24 @@ class ScopeTenant(Middleware):
             # per process; see `TenantManager.enforcement`.
             tenant.assert_enforced()
 
-        tenant.bind(self.resolve(request, container))
+        resolved = self.resolve(request, container)
+        tenant.bind(resolved)
+        self._guardian(container).check(context="request", tenant_id=resolved)
 
         # No try/finally: the kernel's `db.release()` clears the session
         # variable at checkin, and the ContextVar dies with the thread's copied
         # context. A reset here would be a second belt on a holding one.
         return next_callable(request)
+
+    @staticmethod
+    def _guardian(container: Any) -> Any:
+        from engine.orm.tenant_guardian import TenantScopeGuardian
+
+        try:
+            mode = container.make("config").get("database.tenancy.guardian_mode", "warn")
+        except Exception:
+            mode = "warn"
+        return TenantScopeGuardian(mode=mode)
 
     def resolve(self, request: Any, container: Any) -> Any:
         """Tenant from the host, checked against the session's own tenant.
