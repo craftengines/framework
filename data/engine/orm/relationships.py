@@ -300,20 +300,51 @@ class BelongsToMany(Relation):
             children = grouped.get(model.get_attribute(self.parent_key), [])
             model.set_relation(self.name, Collection(children))
 
+    def _pivot_tenant_column(self, db: Any) -> Optional[str]:
+        """The tenant column name on the pivot table, if the schema declares one.
+
+        Only relevant when the related model is itself tenant-scoped — an
+        untenanted pivot (the common case: `role_user`, `permission_role`)
+        gets no tenant handling at all here.
+        """
+        tenant_column = getattr(self.related_class, "tenant_column", None)
+        if not tenant_column:
+            return None
+        return tenant_column if db.table_has_column(self.pivot_table, tenant_column) else None
+
     def attach(self, related_id: Any) -> None:
+        """Insert a pivot row, stamping the bound tenant when the pivot has one.
+
+        `attach`/`detach`/`sync` write raw SQL against the pivot table,
+        entirely outside `Model`/`QueryBuilder`/`TenantScoped` — without this,
+        a tenant-scoped many-to-many relation's pivot rows would carry no
+        tenant at all.
+        """
         from engine.container.application import Container
         from engine.orm.query_builder import _assert_identifier
 
         for name in (self.pivot_table, self.foreign_pivot_key, self.related_pivot_key):
             _assert_identifier(name)
         db = Container.getInstance().make("db")
+        columns = [self.foreign_pivot_key, self.related_pivot_key]
+        values = [self.parent.get_attribute(self.parent_key), related_id]
+
+        tenant_column = self._pivot_tenant_column(db)
+        if tenant_column:
+            from engine.orm.tenancy import TenantManager
+
+            _assert_identifier(tenant_column)
+            columns.append(tenant_column)
+            values.append(TenantManager().id_or_fail())
+
+        placeholders = ", ".join("?" for _ in values)
         db.statement(
-            f"INSERT INTO {self.pivot_table} ({self.foreign_pivot_key}, {self.related_pivot_key}) "
-            f"VALUES (?, ?)",
-            [self.parent.get_attribute(self.parent_key), related_id],
+            f"INSERT INTO {self.pivot_table} ({', '.join(columns)}) VALUES ({placeholders})",
+            values,
         )
 
     def detach(self, related_id: Optional[Any] = None) -> None:
+        """Delete pivot rows, scoped to the bound tenant when the pivot has one."""
         from engine.container.application import Container
         from engine.orm.query_builder import _assert_identifier
 
@@ -321,16 +352,22 @@ class BelongsToMany(Relation):
             _assert_identifier(name)
         db = Container.getInstance().make("db")
         parent_id = self.parent.get_attribute(self.parent_key)
-        if related_id is None:
-            db.statement(
-                f"DELETE FROM {self.pivot_table} WHERE {self.foreign_pivot_key} = ?", [parent_id]
-            )
-        else:
-            db.statement(
-                f"DELETE FROM {self.pivot_table} "
-                f"WHERE {self.foreign_pivot_key} = ? AND {self.related_pivot_key} = ?",
-                [parent_id, related_id],
-            )
+
+        predicate = f"{self.foreign_pivot_key} = ?"
+        bindings: List[Any] = [parent_id]
+        if related_id is not None:
+            predicate += f" AND {self.related_pivot_key} = ?"
+            bindings.append(related_id)
+
+        tenant_column = self._pivot_tenant_column(db)
+        if tenant_column:
+            from engine.orm.tenancy import TenantManager
+
+            _assert_identifier(tenant_column)
+            predicate += f" AND {tenant_column} = ?"
+            bindings.append(TenantManager().id_or_fail())
+
+        db.statement(f"DELETE FROM {self.pivot_table} WHERE {predicate}", bindings)
 
     def sync(self, related_ids: List[Any]) -> None:
         self.detach()
