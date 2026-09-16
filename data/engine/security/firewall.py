@@ -14,6 +14,7 @@ References:
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -59,6 +60,46 @@ class Firewall:
 
     def _format_time(self, dt: datetime) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    def _config(self, key: str, default: Any) -> Any:
+        if self.app is not None:
+            try:
+                return self.app.make("config").get(key, default)
+            except Exception:
+                pass
+        try:
+            from engine.container.application import Container
+
+            return Container.getInstance().make("config").get(key, default)
+        except Exception:
+            return default
+
+    def _cidr_rules(self, status: str) -> List[str]:
+        """`firewall_rules` rows whose `ip_address` is a CIDR range (contains `/`).
+
+        A single-IP rule is found by an exact `WHERE ip_address = ?`, cheap
+        and index-friendly; a CIDR rule cannot be, so it needs its own,
+        separately-fetched set checked in Python via `ipaddress`.
+        """
+        db = self._db()
+        try:
+            rows = db.table("firewall_rules").where("status", status).get()
+        except Exception:
+            return []
+        return [row["ip_address"] for row in rows if "/" in str(row.get("ip_address") or "")]
+
+    def _matches_any_cidr(self, ip: str, status: str) -> bool:
+        try:
+            address = ipaddress.ip_address(ip)
+        except ValueError:
+            return False
+        for cidr in self._cidr_rules(status):
+            try:
+                if address in ipaddress.ip_network(cidr, strict=False):
+                    return True
+            except ValueError:
+                continue
+        return False
 
     def whitelist_ip(self, ip: str) -> None:
         """Add an IP to the trusted whitelist (bypasses rate limits and inspection)."""
@@ -108,25 +149,50 @@ class Firewall:
         db = self._db()
         try:
             row = db.table("firewall_rules").where("ip_address", ip).where("status", "whitelist").first()
-            return row is not None
+            if row is not None:
+                return True
         except Exception:
             return False
+        return self._matches_any_cidr(ip, "whitelist")
 
     def is_blacklisted(self, ip: str) -> bool:
         db = self._db()
         try:
             row = db.table("firewall_rules").where("ip_address", ip).where("status", "blacklist").first()
-            return row is not None
+            if row is not None:
+                return True
         except Exception:
             return False
+        return self._matches_any_cidr(ip, "blacklist")
 
     def get_reputation_score(self, ip: str) -> int:
+        """Current score, decayed for time elapsed since the last event.
+
+        `FIREWALL_REPUTATION_DECAY_PER_DAY` points are subtracted per full day
+        since `last_event_at`, floored at 0 — an IP that has been clean for a
+        long time should not still be judged by one old incident.
+        """
         db = self._db()
         try:
             row = db.table("firewall_rules").where("ip_address", ip).first()
-            return int(row.get("reputation_score") or 0) if row else 0
         except Exception:
             return 0
+        if not row:
+            return 0
+        return self._decayed_score(row)
+
+    def _decayed_score(self, row: Dict[str, Any]) -> int:
+        score = int(row.get("reputation_score") or 0)
+        decay_per_day = int(self._config("firewall.reputation_decay_per_day", 5) or 0)
+        last_event_at = row.get("last_event_at")
+        if decay_per_day <= 0 or not last_event_at:
+            return score
+        try:
+            last_event = datetime.strptime(str(last_event_at)[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return score
+        days_elapsed = (datetime.now(timezone.utc) - last_event).days
+        return max(0, score - days_elapsed * decay_per_day)
 
     def inspect_payload(self, text: str) -> Optional[Tuple[str, int]]:
         """Inspect text for malicious payload signatures. Returns (threat_type, score_increment)."""
@@ -213,14 +279,32 @@ class FirewallMiddleware:
 
         return client_ip(request)
 
+    def _is_health_exempt(self, request: Any) -> bool:
+        """Whether this path skips the firewall entirely.
+
+        An automated health check hitting the same path thousands of times a
+        day should not trip threat detection or accumulate a reputation
+        score it did nothing to earn.
+        """
+        path = str(getattr(getattr(request, "url", None), "path", ""))
+        exempt = str(self._firewall._config("firewall.health_exempt_paths", "") or "")
+        return path in {segment.strip() for segment in exempt.split(",") if segment.strip()}
+
+    def _shadow_mode(self) -> bool:
+        return bool(self._firewall._config("firewall.shadow_mode", False))
+
     def handle(self, request: Any, next_callable: Callable) -> Any:
+        if self._is_health_exempt(request):
+            return next_callable(request)
+
         ip = self._extract_ip(request)
+        shadow = self._shadow_mode()
 
         # 1. Check IP Whitelist / Blacklist
         if self._firewall.is_whitelisted(ip):
             return next_callable(request)
 
-        if self._firewall.is_blacklisted(ip):
+        if self._firewall.is_blacklisted(ip) and not shadow:
             from engine.exceptions.handler import AuthorizationException
             if getattr(request, "expects_json", lambda: False)():
                 return JSONResponse(
@@ -238,6 +322,8 @@ class FirewallMiddleware:
         if threat:
             threat_type, score_inc = threat
             method = getattr(request, "method", "GET")
+            # Recorded even in shadow mode - the point is to see what the
+            # rule *would* have scored before it can turn away real traffic.
             self._firewall.record_threat(
                 ip=ip,
                 threat_type=threat_type,
@@ -246,6 +332,9 @@ class FirewallMiddleware:
                 method=method,
                 sample=sample,
             )
+
+            if shadow:
+                return next_callable(request)
 
             from engine.exceptions.handler import AuthorizationException
             if getattr(request, "expects_json", lambda: False)():
