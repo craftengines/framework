@@ -29,6 +29,7 @@ full policy (categories to use, what counts as security-relevant, how
 ### Changed
 
 - **Documentation points at the official repository** (`README.md`, `CONTRIBUTING.md`, `public/docs/`): every source link and the rebuilt static site now resolve to <https://github.com/msr-standard/craftengine> instead of the former `craftengines/framework` path. The site was regenerated with `python dev.py docs build`, which reads the URL from `engine/support/docs.py` and `engine/support/docs_site.py`.
+- **ASCII-only comments in configuration** (`config/app.py`, `config/security.py`, `config/session.py`): em dashes in explanatory comments replaced with `--`, clearing the seven `LANG-A` violations that made `.claude/rules/lint_language.py` exit non-zero. No behavior change.
 
 ## [3.21.0] r00014 — 2026-09-16
 

@@ -15,13 +15,13 @@ APP_URL = env("APP_URL", "http://localhost:8000")
 APP_KEY = env("APP_KEY", "")
 #: Reverse proxies between the internet and this process. `X-Forwarded-For` is
 #: read from the right, skipping this many hops; `0` ignores the header. Measure
-#: the topology before changing it — too high trusts a proxy's own address, too
+#: the topology before changing it -- too high trusts a proxy's own address, too
 #: low lets the client choose its address.
 trusted_proxy_hops = env("TRUSTED_PROXY_HOPS", 0)
 APP_LOCALE = env("APP_LOCALE", "en")
 APP_FALLBACK_LOCALE = env("APP_FALLBACK_LOCALE", "en")
 #: The single clock `ScheduleManager` (`engine/schedule/manager.py`) reads
-#: `now` from — an IANA zone name (e.g. `"America/Sao_Paulo"`), not an offset.
+#: `now` from -- an IANA zone name (e.g. `"America/Sao_Paulo"`), not an offset.
 #: Everything the framework WRITES stays UTC (`engine/orm/model.py`,
 #: `soft_deletes.py`, `queue/`) regardless of this setting; this only decides
 #: what wall-clock hour a cron expression like `daily_at("02:00")` means, so a

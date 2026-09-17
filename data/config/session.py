@@ -8,7 +8,7 @@ from craft.config import env
 #: "cookie" keeps the payload in a signed cookie; "file" keeps it under
 #: storage/framework/sessions and puts only a signed id in the cookie;
 #: "database" keeps it in the `sessions` table and puts only a signed id in
-#: the cookie — the only driver a session can be revoked from outside the
+#: the cookie -- the only driver a session can be revoked from outside the
 #: browser that holds it (an admin ending a compromised session, "log out
 #: everywhere," a password change invalidating every other session).
 driver = env("SESSION_DRIVER", "cookie")
@@ -17,7 +17,7 @@ driver = env("SESSION_DRIVER", "cookie")
 lifetime = env("SESSION_LIFETIME", 7200)
 
 #: Seconds of inactivity before a session times out, independent of
-#: `lifetime` — "database" driver only. Empty disables idle checking.
+#: `lifetime` -- "database" driver only. Empty disables idle checking.
 idle_timeout = env("SESSION_IDLE_TIMEOUT", "")
 
 cookie = env("SESSION_COOKIE", "craft_session")
