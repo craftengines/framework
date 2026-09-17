@@ -26,6 +26,10 @@ full policy (categories to use, what counts as security-relevant, how
 - **Server-Side DataGrid Engine** (`engine/http/datagrid.py`, `engine/http/__init__.py`): parameterized SQL compilation for complex listing filters, strict column allowlists, safe operator mappings, ordering, grouping, and direct database subtotal calculations (`aggregate_rows`).
 - **Brazil Validator Plugin v2.0.0** (`app/plugins/brazil_validator/`): upgraded with the new 2026 Receita Federal Alphanumeric CNPJ standard (IN RFB 2.229/2024), full 27-state Inscrição Estadual (SINTEGRA specification), RG validation, and CEP/Phone normalizers while maintaining 100% backward compatibility with `DocumentValidatorEngine`.
 
+### Changed
+
+- **Documentation points at the official repository** (`README.md`, `CONTRIBUTING.md`, `public/docs/`): every source link and the rebuilt static site now resolve to <https://github.com/msr-standard/craftengine> instead of the former `craftengines/framework` path. The site was regenerated with `python dev.py docs build`, which reads the URL from `engine/support/docs.py` and `engine/support/docs_site.py`.
+
 ## [3.21.0] r00014 — 2026-09-16
 
 ### Security
@@ -301,7 +305,7 @@ can be run safely, and before an incident on one of them can be diagnosed.
 ### Added
 
 - **The documentation is published as a site** at
-  <https://craftengines.github.io/framework/>, built by CI on every push to
+  <https://msr-standard.github.io/craftengine/>, built by CI on every push to
   master. Until now the 30 guides in `documentation/` were readable only by
   cloning the repository and running the application — anyone arriving from
   GitHub read raw Markdown with no navigation between pages.

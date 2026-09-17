@@ -5,9 +5,13 @@ what the project expects from a change, and how to report problems.
 
 ## Getting set up
 
+Fork the official repository,
+<https://github.com/msr-standard/craftengine>, then clone your fork:
+
 ```bash
 git clone <your-fork-url> craft
 cd craft
+git remote add upstream https://github.com/msr-standard/craftengine.git
 pip install -e ".[dev]"
 
 cp .env.example .env

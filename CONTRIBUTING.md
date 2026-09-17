@@ -55,8 +55,9 @@ craft-framework/
 1. **Faça o Fork** do repositório no GitHub para sua conta.
 2. **Clone** o seu fork localmente:
    ```bash
-   git clone https://github.com/SEU_USUARIO/craft-framework.git
-   cd craft-framework
+   git clone https://github.com/<your-user>/craftengine.git
+   cd craftengine
+   git remote add upstream https://github.com/msr-standard/craftengine.git
    ```
 3. **Configure as variáveis de ambiente**:
    ```bash

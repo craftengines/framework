@@ -364,6 +364,10 @@ resources, i18n, testing, deployment, and the `dev` reference.
 - `.agents/docs/backlog.md` — upcoming slices and open decisions. Lives at
   the workspace root (outside this repository), not versioned here.
 
+The official repository is
+<https://github.com/msr-standard/craftengine>; the published site is built
+from `documentation/` by `python dev.py docs build`.
+
 ## License
 
 [MIT](LICENSE) — © 2026 Antonio Santos &lt;snarthost@gmail.com&gt;

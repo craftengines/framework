@@ -1,5 +1,5 @@
 # RELEASE NON-REGRESSION STANDARD & GOVERNANCE
-Target: Craft Engine Framework (`craftengines/framework`) & Ecosystem Applications
+Target: Craft Engine Framework (`msr-standard/craftengine`) & Ecosystem Applications
 
 This standard defines the non-negotiable contract to prevent regressions across releases, guaranteeing absolute database persistence, backward compatibility, type safety, and security.
 
