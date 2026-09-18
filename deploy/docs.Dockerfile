@@ -1,5 +1,5 @@
-# version: 1.0.0 | build: 2026-09-18 | update: 2026-09-18
-# Builds the craftengine.org documentation site. DigitalOcean App Platform
+# version: 1.1.0 | build: 2026-09-18 | update: 2026-09-18
+# Builds the documentation served at craftengine.org/docs. DigitalOcean App Platform
 # runs this image only to produce files: it copies `/site` (output_dir in
 # deploy/do-app.yaml) and serves it as a static site. No database, no server
 # runtime. Build context is the repository root.

@@ -1,17 +1,42 @@
-# version: 1.0.0 | build: 2026-09-18 | update: 2026-09-18
-# DigitalOcean App Platform spec for craftengine.org: one static site built
-# from documentation/, no database, no server runtime. Applied only through
-# .claude/scripts/do-app.py, which refuses to touch any app but this one.
+# version: 1.1.0 | build: 2026-09-18 | update: 2026-09-18
+# DigitalOcean App Platform spec for craftengine.org: two static sites, no
+# database, no server runtime. Applied only through .claude/scripts/do-app.py,
+# which refuses to touch any app but this one.
+#   /      the presentation site, private repository msrjson/craftengine.org
+#   /docs  the framework documentation, built from documentation/ here
 name: craftengine-website
 static_sites:
   - name: site
     github:
+      repo: msrjson/craftengine.org
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    output_dir: /site
+    index_document: index.html
+    error_document: 404.html
+  - name: docs
+    github:
       repo: msrjson/craftengine
       branch: master
       deploy_on_push: true
-    dockerfile_path: deploy/site.Dockerfile
+    dockerfile_path: deploy/docs.Dockerfile
     output_dir: /site
     index_document: index.html
+ingress:
+  rules:
+    # The docs component is served with the /docs prefix stripped; its pages
+    # link relatively, so every link into it ends in a slash (/docs/).
+    - match:
+        path:
+          prefix: /docs
+      component:
+        name: docs
+    - match:
+        path:
+          prefix: /
+      component:
+        name: site
 domains:
   - domain: craftengine.org
     type: PRIMARY
