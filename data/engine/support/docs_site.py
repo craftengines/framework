@@ -188,7 +188,7 @@ class DocsSiteBuilder:
             navigation=self.navigation_html(current),
             content=content,
             version=html.escape(self.version_label()),
-            repo="https://github.com/craftengines/framework",
+            repo="https://github.com/msrjson/craftengine",
         )
         with open(os.path.join(self.output_dir, filename), "w", encoding="utf-8") as handle:
             handle.write(page)

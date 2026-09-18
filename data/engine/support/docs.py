@@ -43,7 +43,7 @@ TITLE_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
 #: Where a link that escapes `documentation/` is sent instead. Those targets
 #: (`../CHANGELOG.md`) exist in the repository but not in the published site.
-REPO_BLOB_URL = "https://github.com/craftengines/framework/blob/master/data"
+REPO_BLOB_URL = "https://github.com/msrjson/craftengine/blob/master/data"
 
 
 class BrokenLink(Exception):

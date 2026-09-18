@@ -1,6 +1,7 @@
 # Craft Engine — Workspace
 
-Official repository: <https://github.com/msr-standard/craftengine>
+Official site: <https://craftengine.org>
+Official repository: <https://github.com/msrjson/craftengine>
 
 This is the **orchestration root**, not the application. If you are looking
 for the engine's own README (install, CLI, ORM, HTTP, docs index), that

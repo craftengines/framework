@@ -57,7 +57,7 @@ craft-framework/
    ```bash
    git clone https://github.com/<your-user>/craftengine.git
    cd craftengine
-   git remote add upstream https://github.com/msr-standard/craftengine.git
+   git remote add upstream https://github.com/msrjson/craftengine.git
    ```
 3. **Configure as variáveis de ambiente**:
    ```bash

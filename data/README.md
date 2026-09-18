@@ -365,8 +365,9 @@ resources, i18n, testing, deployment, and the `dev` reference.
   the workspace root (outside this repository), not versioned here.
 
 The official repository is
-<https://github.com/msr-standard/craftengine>; the published site is built
-from `documentation/` by `python dev.py docs build`.
+<https://github.com/msrjson/craftengine>; the published site,
+<https://craftengine.org>, is built from `documentation/` by
+`python dev.py docs build`.
 
 ## License
 

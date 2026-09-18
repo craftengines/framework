@@ -29,6 +29,7 @@ data/storage/app/*
 *.log
 
 # Sensitive agent notes / tokens
+.do/
 .agents/github/
 .github/
 *.key

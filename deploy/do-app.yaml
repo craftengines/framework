@@ -1,0 +1,19 @@
+# version: 1.0.0 | build: 2026-09-18 | update: 2026-09-18
+# DigitalOcean App Platform spec for craftengine.org: one static site built
+# from documentation/, no database, no server runtime. Applied only through
+# .claude/scripts/do-app.py, which refuses to touch any app but this one.
+name: craftengine-website
+static_sites:
+  - name: site
+    github:
+      repo: msrjson/craftengine
+      branch: master
+      deploy_on_push: true
+    dockerfile_path: deploy/site.Dockerfile
+    output_dir: /site
+    index_document: index.html
+domains:
+  - domain: craftengine.org
+    type: PRIMARY
+  - domain: www.craftengine.org
+    type: ALIAS
