@@ -16,6 +16,11 @@ The token is read from DIGITALOCEAN_TOKEN or the gitignored token directory
 and is never printed.
 
 Usage: do-app.py {propose|create|status|update|deploy}
+
+Failures exit non-zero with one JSON line, {"error": CODE, ...params}:
+TOKEN_MISSING, API_ERROR, DEPENDENCY_MISSING, APP_NOT_BOUND,
+APP_NAME_MISMATCH, APP_OUTSIDE_PROJECT, APP_ALREADY_BOUND, APP_NAME_TAKEN,
+APP_RENAME_REFUSED.
 """
 
 from __future__ import annotations
@@ -36,8 +41,10 @@ API = "https://api.digitalocean.com/v2"
 PROJECT_ID = "c87eafe0-7bb4-45ee-996c-71874b62758d"
 
 
-def fail(message: str) -> None:
-    sys.exit(f"do-app: {message}")
+def fail(code: str, **params: object) -> None:
+    # A machine code plus parameters, never a rendered sentence: the caller is an
+    # operator or an agent, and the codes are documented in the usage docstring.
+    sys.exit(json.dumps({"error": code, **params}))
 
 
 def token() -> str:
@@ -46,7 +53,7 @@ def token() -> str:
         if not value and path.is_file():
             value = path.read_text().strip()
     if not value:
-        fail("no token (set DIGITALOCEAN_TOKEN or create .do/dotoken.txt)")
+        fail("TOKEN_MISSING", sources=["DIGITALOCEAN_TOKEN", *map(str, TOKEN_FILES)])
     return value
 
 
@@ -61,7 +68,8 @@ def call(method: str, path: str, body: dict | None = None) -> dict:
         with urllib.request.urlopen(request, timeout=60) as response:
             return json.loads(response.read() or b"{}")
     except urllib.error.HTTPError as error:
-        fail(f"{method} {path} -> HTTP {error.code}: {error.read().decode(errors='replace')[:500]}")
+        fail("API_ERROR", method=method, path=path, status=error.code,
+             body=error.read().decode(errors="replace")[:500])
 
 
 def spec() -> dict:
@@ -69,13 +77,13 @@ def spec() -> dict:
     try:
         import yaml
     except ImportError:
-        fail("PyYAML is required (pip install pyyaml in the host .venv)")
+        fail("DEPENDENCY_MISSING", package="pyyaml")
     return yaml.safe_load(SPEC.read_text())
 
 
 def binding() -> dict:
     if not BINDING.is_file():
-        fail(f"no app bound to this workspace ({BINDING.relative_to(ROOT)} missing); run `create` first")
+        fail("APP_NOT_BOUND", binding=str(BINDING.relative_to(ROOT)), next_command="create")
     return json.loads(BINDING.read_text())
 
 
@@ -92,15 +100,19 @@ def bound_app() -> dict:
     bound = binding()
     app = call("GET", f"/apps/{bound['app_id']}")["app"]
     if app["spec"]["name"] != bound["app_name"]:
-        fail(f"app {bound['app_id']} is named {app['spec']['name']!r}, binding says {bound['app_name']!r}; refusing")
+        fail("APP_NAME_MISMATCH", app_id=bound["app_id"], actual=app["spec"]["name"], bound=bound["app_name"])
     if not in_project(app["id"]):
-        fail(f"app {app['id']} is not in project {PROJECT_ID}; refusing")
+        fail("APP_OUTSIDE_PROJECT", app_id=app["id"], project_id=PROJECT_ID)
     return app
 
 
 def summary(app: dict) -> None:
     phase = (app.get("active_deployment") or app.get("in_progress_deployment") or {}).get("phase", "none")
-    print(json.dumps({"id": app["id"], "name": app["spec"]["name"], "url": app.get("live_url"), "deployment": phase}, indent=2))
+    domains = {domain["spec"]["domain"]: domain.get("phase") for domain in app.get("domains", [])}
+    print(json.dumps({
+        "id": app["id"], "name": app["spec"]["name"], "url": app.get("live_url"),
+        "default_ingress": app.get("default_ingress"), "domains": domains, "deployment": phase,
+    }, indent=2))
 
 
 def main(command: str) -> None:
@@ -109,11 +121,11 @@ def main(command: str) -> None:
         print(json.dumps({"valid": True, "project": project()["name"], "app_cost": result.get("app_cost")}, indent=2))
     elif command == "create":
         if BINDING.is_file():
-            fail(f"workspace already bound to {binding()['app_id']}; use `update`")
+            fail("APP_ALREADY_BOUND", app_id=binding()["app_id"], next_command="update")
         wanted = spec()
         apps = call("GET", "/apps?per_page=200").get("apps", [])
         if any(app["spec"]["name"] == wanted["name"] for app in apps):
-            fail(f"an app named {wanted['name']!r} already exists and is not bound here; refusing")
+            fail("APP_NAME_TAKEN", app_name=wanted["name"])
         project()  # fails loudly if the project is gone or the token cannot see it
         app = call("POST", "/apps", {"spec": wanted, "project_id": PROJECT_ID})["app"]
         BINDING.write_text(json.dumps({"app_name": wanted["name"], "app_id": app["id"]}, indent=2) + "\n")
@@ -124,7 +136,7 @@ def main(command: str) -> None:
         app = bound_app()
         wanted = spec()
         if wanted["name"] != app["spec"]["name"]:
-            fail("spec renames the app; refusing")
+            fail("APP_RENAME_REFUSED", bound=app["spec"]["name"], requested=wanted["name"])
         summary(call("PUT", f"/apps/{app['id']}", {"spec": wanted})["app"])
     elif command == "deploy":
         app = bound_app()
