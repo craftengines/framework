@@ -48,6 +48,7 @@ firewall_app = typer.Typer(name="firewall", help="WAF & IP reputation management
 security_app = typer.Typer(name="security", help="Security audit logs and alerts.", no_args_is_help=True)
 docs_app = typer.Typer(name="docs", help="Documentation site.", no_args_is_help=True)
 agent_app = typer.Typer(name="agent", help="AI Agent discovery and scaffolding.", no_args_is_help=True)
+msr_app = typer.Typer(name="msr", help="MSR JSON manifest (/.well-known/msr.json).", no_args_is_help=True)
 
 cli.add_typer(make_app)
 cli.add_typer(migrate_app)
@@ -65,6 +66,7 @@ cli.add_typer(firewall_app)
 cli.add_typer(security_app)
 cli.add_typer(docs_app)
 cli.add_typer(agent_app)
+cli.add_typer(msr_app)
 
 
 
@@ -805,6 +807,56 @@ def docs_check() -> None:
 
     library = DocsLibrary(docs_dir)
     echo(f"{len(library.slugs())} page(s), no broken links.", "green")
+
+
+# -- msr ------------------------------------------------------------------------
+
+def _msr_manifest() -> dict:
+    """Build the application's MSR JSON manifest, exiting with its code when incomplete."""
+    from craft.http.msr import build_manifest
+    from craft.support.msr import ManifestIncompleteError
+
+    try:
+        return build_manifest(get_app())
+    except ManifestIncompleteError as exc:
+        echo(f"{exc.code}: {exc.field} (see config/msr.py)", "red")
+        raise typer.Exit(code=1) from None
+
+
+@msr_app.command("show")
+def msr_show() -> None:
+    """Print the manifest served at `/.well-known/msr.json`."""
+    from craft.http.msr import render_manifest
+
+    echo(render_manifest(_msr_manifest()))
+
+
+@msr_app.command("validate")
+def msr_validate() -> None:
+    """Validate the manifest against the canonical MSR JSON schema, fetched live.
+
+    The schema is never copied into the project: a hand-kept copy drifts from
+    the published one while claiming the same version.
+    """
+    from craft.support.msr import SCHEMA_URL, validate_manifest
+
+    import urllib.error
+
+    manifest = _msr_manifest()
+    try:
+        errors = validate_manifest(manifest)
+    except ModuleNotFoundError:
+        echo("DEPENDENCY_MISSING: jsonschema (pip install craft[msr])", "red")
+        raise typer.Exit(code=1) from None
+    except urllib.error.URLError as exc:
+        echo(f"SCHEMA_UNREACHABLE: {SCHEMA_URL} ({exc})", "red")
+        raise typer.Exit(code=1) from None
+    for error in errors:
+        echo(f"  {error}", "red")
+    if errors:
+        echo(f"{len(errors)} error(s) against {SCHEMA_URL}.", "red")
+        raise typer.Exit(code=1)
+    echo(f"valid: 0 errors against {SCHEMA_URL}.", "green")
 
 
 # -- queue ----------------------------------------------------------------------

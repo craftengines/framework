@@ -38,6 +38,8 @@ TRANSLATIONS = {
         "small_framework_title": "The small framework with powerful features",
         "learn_more": "Learn more",
         "framework_description": "Craft is a Python MVC framework with a very small footprint, built for developers who want a simple, elegant toolkit for full-featured web applications.",
+        "msr.entity.tagline": "A web application built on Craft Engine.",
+        "msr.entity.summary": "A Python web application built on Craft Engine, the batteries-included MVC framework.",
     },
     # European Portuguese.
     "pt": {
@@ -64,6 +66,8 @@ TRANSLATIONS = {
         "small_framework_title": "O framework pequeno com funcionalidades poderosas",
         "learn_more": "Saber mais",
         "framework_description": "O Craft é uma framework MVC em Python com consumo mínimo de recursos, criada para programadores que procuram um conjunto de ferramentas simples e elegante para aplicações web completas.",
+        "msr.entity.tagline": "Uma aplicação web criada com o Craft Engine.",
+        "msr.entity.summary": "Uma aplicação web em Python criada com o Craft Engine, a framework MVC completa.",
     },
     # Brazilian Portuguese.
     "pt-BR": {
@@ -90,6 +94,8 @@ TRANSLATIONS = {
         "small_framework_title": "O framework pequeno com recursos poderosos",
         "learn_more": "Saiba mais",
         "framework_description": "O Craft é um framework MVC em Python com consumo mínimo de recursos, feito para quem quer um conjunto de ferramentas simples e elegante para aplicações web completas.",
+        "msr.entity.tagline": "Uma aplicação web construída com o Craft Engine.",
+        "msr.entity.summary": "Uma aplicação web em Python construída com o Craft Engine, o framework MVC completo.",
     },
     "es": {
         "greeting": "Hola",
@@ -115,6 +121,8 @@ TRANSLATIONS = {
         "small_framework_title": "El framework pequeño con potentes características",
         "learn_more": "Saber más",
         "framework_description": "Craft es un framework MVC en Python con un consumo mínimo de recursos, pensado para quienes buscan un conjunto de herramientas simple y elegante para aplicaciones web completas.",
+        "msr.entity.tagline": "Una aplicación web construida con Craft Engine.",
+        "msr.entity.summary": "Una aplicación web en Python construida con Craft Engine, el framework MVC completo.",
     },
 }
 

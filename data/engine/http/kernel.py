@@ -458,6 +458,11 @@ class Kernel:
 
         register_health_routes(self.app, routes, {r.uri for r in router.routes})
 
+        # The MSR JSON manifest (https://msrjson.org), same placement and precedence.
+        from engine.http.msr import register_msr_route
+
+        register_msr_route(self.app, routes, {r.uri for r in router.routes})
+
         # Serve static files (CSS, JS, images) from the public/ directory.
         public_dir = os.path.join(self.app.base_path, "public")
         if os.path.isdir(public_dir):

@@ -1,4 +1,4 @@
-# version: 1.1.0 | build: 2026-09-18 | update: 2026-09-18
+# version: 1.2.0 | build: 2026-09-18 | update: 2026-09-19
 # DigitalOcean App Platform spec for craftengine.org: two static sites, no
 # database, no server runtime. Applied only through .claude/scripts/do-app.py,
 # which refuses to touch any app but this one.
@@ -32,6 +32,21 @@ ingress:
           prefix: /docs
       component:
         name: docs
+    # The MSR JSON manifest (https://msrjson.org) is read cross-origin by
+    # registries and agents, so this prefix answers any origin. The prefix is
+    # kept: the site component stores the file under /.well-known/.
+    - match:
+        path:
+          prefix: /.well-known
+      component:
+        name: site
+        preserve_path_prefix: true
+      cors:
+        allow_origins:
+          - regex: ".*"
+        allow_methods:
+          - GET
+          - HEAD
     - match:
         path:
           prefix: /
